@@ -3,9 +3,10 @@ const mongoose = require("mongoose");
 const connectDB = async () => {
   try {
     await mongoose.connect(process.env.DB_URI);
-    console.log("MongoDB connected ✅");
+
+    console.log("MongoDB Connected ✅");
   } catch (error) {
-    console.error("DB Error ❌", error.message);
+    console.log("DB Error ❌", error.message);
     process.exit(1);
   }
 };

@@ -1,28 +1,64 @@
 const mongoose = require("mongoose");
+
 const bcrypt = require("bcrypt");
 
-const userSchema = new mongoose.Schema({
-  name: String,
-  email: String,
-  password: String
-}, { timestamps: true });
+const userSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+    },
+
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+
+    password: {
+      type: String,
+      required: true,
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
 
 
-// 🔐 hash password
-userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
+// 🔐 HASH PASSWORD BEFORE SAVE
+userSchema.pre(
+  "save",
+  async function () {
 
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
-  next();
-});
+    // Skip if password not modified
+    if (!this.isModified("password")) {
+      return;
+    }
+
+    const salt = await bcrypt.genSalt(10);
+
+    this.password = await bcrypt.hash(
+      this.password,
+      salt
+    );
+  }
+);
 
 
-// compare password
-userSchema.methods.comparePassword = async function (enteredPassword) {
-  return await bcrypt.compare(enteredPassword, this.password);
-};
+// 🔐 COMPARE PASSWORD
+userSchema.methods.comparePassword =
+  async function (enteredPassword) {
+
+    return await bcrypt.compare(
+      enteredPassword,
+      this.password
+    );
+  };
 
 
-// 🔥 IMPORTANT: COLLECTION NAME HERE
-module.exports = mongoose.model("UserDetails", userSchema);
+// ✅ MODEL
+module.exports = mongoose.model(
+  "UserDetails",
+  userSchema
+);
