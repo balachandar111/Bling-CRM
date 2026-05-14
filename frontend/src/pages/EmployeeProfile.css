@@ -1,0 +1,444 @@
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+  font-family:'Poppins',sans-serif;
+}
+
+body{
+  background:#F4F7FB;
+}
+
+
+/* ================= PAGE ================= */
+
+.employee-page{
+  min-height:100vh;
+
+  padding:40px;
+
+  background:
+  linear-gradient(
+    135deg,
+    #EEF2FF,
+    #F8FAFC
+  );
+}
+
+
+/* ================= CONTAINER ================= */
+
+.profile-container{
+  max-width:1400px;
+
+  margin:auto;
+
+  display:grid;
+
+  grid-template-columns:
+  350px 1fr;
+
+  gap:30px;
+}
+
+
+/* ================= SIDEBAR ================= */
+
+.profile-sidebar{
+  background:white;
+
+  border-radius:30px;
+
+  padding:40px 30px;
+
+  text-align:center;
+
+  box-shadow:
+  0 15px 40px rgba(0,0,0,0.08);
+}
+
+
+/* IMAGE */
+
+.profile-image-box{
+  width:180px;
+
+  height:180px;
+
+  margin:auto;
+
+  border-radius:50%;
+
+  padding:6px;
+
+  background:
+  linear-gradient(
+    135deg,
+    #2563EB,
+    #7C3AED
+  );
+
+  margin-bottom:25px;
+}
+
+.profile-image{
+  width:100%;
+
+  height:100%;
+
+  border-radius:50%;
+
+  object-fit:cover;
+
+  border:5px solid white;
+}
+
+
+/* NAME */
+
+.profile-sidebar h1{
+  font-size:30px;
+
+  color:#111827;
+
+  margin-bottom:10px;
+}
+
+.profile-sidebar p{
+  color:#6B7280;
+
+  font-size:16px;
+
+  margin-bottom:25px;
+}
+
+
+/* BADGE */
+
+.profile-badge{
+  display:flex;
+
+  align-items:center;
+
+  justify-content:center;
+
+  gap:10px;
+
+  background:
+  linear-gradient(
+    135deg,
+    #2563EB,
+    #7C3AED
+  );
+
+  color:white;
+
+  padding:14px;
+
+  border-radius:16px;
+
+  font-weight:600;
+}
+
+
+/* ================= CONTENT ================= */
+
+.profile-content{
+  background:white;
+
+  border-radius:30px;
+
+  padding:40px;
+
+  box-shadow:
+  0 15px 40px rgba(0,0,0,0.08);
+}
+
+
+/* HEADER */
+
+.profile-header{
+  margin-bottom:35px;
+}
+
+.profile-header h2{
+  font-size:34px;
+
+  color:#111827;
+
+  margin-bottom:8px;
+}
+
+.profile-header span{
+  color:#6B7280;
+}
+
+
+/* ================= DETAILS ================= */
+
+.details-grid{
+  display:grid;
+
+  grid-template-columns:
+  repeat(2,1fr);
+
+  gap:24px;
+
+  margin-bottom:40px;
+}
+
+
+/* CARD */
+
+.detail-card{
+  background:#F9FAFB;
+
+  border:
+  1px solid #E5E7EB;
+
+  border-radius:22px;
+
+  padding:24px;
+
+  display:flex;
+
+  align-items:center;
+
+  gap:18px;
+
+  transition:0.3s;
+}
+
+.detail-card:hover{
+  transform:translateY(-4px);
+
+  box-shadow:
+  0 12px 25px rgba(0,0,0,0.05);
+}
+
+
+/* ICON */
+
+.detail-icon{
+  font-size:28px;
+
+  color:#2563EB;
+}
+
+
+/* TEXT */
+
+.detail-card span{
+  font-size:13px;
+
+  color:#6B7280;
+
+  display:block;
+
+  margin-bottom:6px;
+}
+
+.detail-card h3{
+  font-size:18px;
+
+  color:#111827;
+}
+
+
+/* ================= DOCUMENTS ================= */
+
+.document-section{
+  margin-top:10px;
+}
+
+.section-title{
+  margin-bottom:22px;
+}
+
+.section-title h2{
+  font-size:28px;
+
+  color:#111827;
+}
+
+
+/* DOC GRID */
+
+.document-grid{
+  display:grid;
+
+  grid-template-columns:
+  repeat(auto-fit,minmax(220px,1fr));
+
+  gap:20px;
+}
+
+
+/* DOC CARD */
+
+.document-card{
+  background:#F9FAFB;
+
+  border:
+  1px solid #E5E7EB;
+
+  border-radius:20px;
+
+  padding:22px;
+
+  display:flex;
+
+  align-items:center;
+
+  gap:15px;
+
+  text-decoration:none;
+
+  color:#111827;
+
+  transition:0.3s;
+}
+
+.document-card:hover{
+  transform:translateY(-4px);
+
+  background:#EFF6FF;
+
+  border-color:#2563EB;
+}
+
+
+/* PDF ICON */
+
+.pdf-icon{
+  font-size:32px;
+
+  color:#DC2626;
+}
+
+
+/* ================= RESPONSIVE ================= */
+
+@media(max-width:1100px){
+
+  .profile-container{
+    grid-template-columns:1fr;
+  }
+}
+
+
+@media(max-width:768px){
+
+  .employee-page{
+    padding:20px;
+  }
+
+  .profile-content{
+    padding:25px;
+  }
+
+  .details-grid{
+    grid-template-columns:1fr;
+  }
+
+  .profile-header h2{
+    font-size:28px;
+  }
+
+  .profile-sidebar{
+    padding:30px 20px;
+  }
+
+  .profile-image-box{
+    width:150px;
+    height:150px;
+  }
+}
+/* ================= PROFILE ACTIONS ================= */
+
+.profile-actions{
+  display:flex;
+
+  gap:15px;
+
+  margin-top:20px;
+
+  flex-wrap:wrap;
+}
+
+
+/* EDIT BUTTON */
+
+.edit-profile-btn{
+  border:none;
+
+  background:#2563EB;
+
+  color:white;
+
+  padding:12px 18px;
+
+  border-radius:14px;
+
+  display:flex;
+
+  align-items:center;
+
+  gap:10px;
+
+  cursor:pointer;
+
+  font-weight:600;
+
+  transition:0.3s;
+}
+
+.edit-profile-btn:hover{
+  background:#1D4ED8;
+}
+
+
+/* LOGOUT */
+
+.logout-profile-btn{
+  border:none;
+
+  background:#EF4444;
+
+  color:white;
+
+  padding:12px 18px;
+
+  border-radius:14px;
+
+  display:flex;
+
+  align-items:center;
+
+  gap:10px;
+
+  cursor:pointer;
+
+  font-weight:600;
+
+  transition:0.3s;
+}
+
+.logout-profile-btn:hover{
+  background:#DC2626;
+}
+
+
+/* UPDATE MODAL */
+
+.update-modal{
+  width:500px;
+
+  background:white;
+
+  padding:35px;
+
+  border-radius:28px;
+
+  animation:popup 0.3s ease;
+}

@@ -1,5 +1,3 @@
-// 📁 src/services/api.js
-
 import axios from "axios";
 
 const API = axios.create({
@@ -9,23 +7,24 @@ const API = axios.create({
 });
 
 
-// SEND TOKEN
+// TOKEN
+
 API.interceptors.request.use(
 
-  (config) => {
+  (req) => {
 
     const token =
-    localStorage.getItem(
-      "token"
-    );
+      localStorage.getItem(
+        "token"
+      );
 
     if (token) {
 
-      config.headers.Authorization =
+      req.headers.Authorization =
       `Bearer ${token}`;
     }
 
-    return config;
+    return req;
   }
 );
 

@@ -40,11 +40,17 @@ const App = () => {
 
           }
         />
+        <Route
+  path="/employee-profile"
+  element={<EmployeeProfile />}
+/>
 
       </Routes>
 
     </BrowserRouter>
   );
 };
+import EmployeeProfile
+from "./pages/EmployeeProfile";
 
 export default App;

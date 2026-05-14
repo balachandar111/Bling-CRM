@@ -7,6 +7,8 @@ const connectDB = require("./config/db");
 
 const authRoutes =
   require("./routes/authRoutes");
+  const userRoutes =
+require("./routes/userRoutes");
 
 const customerRoutes =
   require("./routes/customerRoutes");
@@ -33,14 +35,27 @@ app.use(
   "/api/auth",
   authRoutes
 );
+app.use(
+  "/api/users",
+  userRoutes
+);
 
 // CUSTOMER ROUTES
 app.use(
   "/api/customers",
   customerRoutes
 );
+const employeeRoutes =
+require("./routes/employeeRoutes");
 
-
+app.use(
+  "/api/employees",
+  employeeRoutes
+);
+app.use(
+  "/uploads",
+  express.static("uploads")
+);
 // ================= SERVER =================
 
 app.listen(process.env.PORT, () => {

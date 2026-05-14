@@ -51,48 +51,57 @@ const Login = () => {
 
 
   const handleSubmit =
-  async (e) => {
+async (e) => {
 
-    e.preventDefault();
+  e.preventDefault();
 
-    try {
+  try {
 
-      const { data } =
-        await API.post(
-
-          "/auth/login",
-
-          formData
-        );
-
-
-      // SAVE TOKEN
-      localStorage.setItem(
-
-        "token",
-
-        data.token
+    const { data } =
+      await API.post(
+        "/auth/login",
+        formData
       );
 
 
-      // SAVE USER
-      localStorage.setItem(
+    localStorage.setItem(
+      "token",
+      data.token
+    );
 
-        "user",
 
-        JSON.stringify(data.user)
+    localStorage.setItem(
+      "user",
+      JSON.stringify(data.user)
+    );
+
+
+    localStorage.setItem(
+      "role",
+      data.role
+    );
+
+
+    // ================= REDIRECT =================
+
+    if (data.role === "employee") {
+
+      navigate(
+        "/employee-profile"
       );
 
+    } else {
 
       navigate("/");
-
-    } catch (error) {
-
-      alert(
-        error.response.data.message
-      );
     }
-  };
+
+  } catch (error) {
+
+    alert(
+      error.response.data.message
+    );
+  }
+};
 
 
   return (

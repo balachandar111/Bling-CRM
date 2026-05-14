@@ -63,7 +63,59 @@ async (req, res) => {
         createdBy:
           req.user._id,
       });
+let customers;
 
+const getCustomers =
+async (req, res) => {
+
+  try {
+
+    let customers;
+
+    // ================= SUPER ADMIN =================
+
+    if (
+      req.user.role ===
+      "super_admin"
+    ) {
+
+      customers =
+        await Customer.find()
+        .sort({
+          createdAt: -1,
+        });
+
+    } else {
+
+      // ================= NORMAL USER =================
+
+      customers =
+        await Customer.find({
+
+          createdBy:
+          req.user._id,
+
+        }).sort({
+          createdAt: -1,
+        });
+    }
+
+    res.json({
+
+      success: true,
+
+      customers,
+    });
+
+  } catch (error) {
+
+    res.status(500).json({
+
+      message:
+      error.message,
+    });
+  }
+};
 
     res.status(201).json({
 
@@ -91,20 +143,71 @@ async (req, res) => {
 
   try {
 
-    const customers =
-      await Customer.find({
+    let customers;
 
-        createdBy:
+    // ================= SUPER ADMIN =================
+
+    if (
+      req.user.role ===
+      "super_admin"
+    ) {
+
+      // FILTER BY USER
+      if (req.query.userId) {
+
+        customers =
+          await Customer.find({
+
+            createdBy:
+            req.query.userId,
+
+          })
+          .populate(
+            "createdBy",
+            "name email role"
+          )
+          .sort({
+            createdAt: -1,
+          });
+
+      } else {
+
+        // ALL CUSTOMERS
+
+        customers =
+          await Customer.find()
+
+          .populate(
+            "createdBy",
+            "name email role"
+          )
+
+          .sort({
+            createdAt: -1,
+          });
+      }
+
+    } else {
+
+      // ================= NORMAL USER =================
+
+      customers =
+        await Customer.find({
+
+          createdBy:
           req.user._id,
 
-      }).sort({
-        createdAt: -1,
-      });
-
+        }).sort({
+          createdAt: -1,
+        });
+    }
 
     res.json({
 
       success: true,
+
+      count:
+        customers.length,
 
       customers,
     });
@@ -114,7 +217,7 @@ async (req, res) => {
     res.status(500).json({
 
       message:
-        error.message,
+      error.message,
     });
   }
 };
