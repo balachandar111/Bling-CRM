@@ -1,8 +1,8 @@
-const express =
-require("express");
+const express = require("express");
 
-const cors =
-require("cors");
+const cors = require("cors");
+
+require("dotenv").config();
 
 const app = express();
 
@@ -41,14 +41,13 @@ app.use(
 );
 
 
-// ================= TEST =================
+// ================= TEST ROUTE =================
 
 app.get("/", (req, res) => {
 
-  res.send(
-    "CRM Backend Running"
-  );
+  res.send("Backend Running");
 
 });
+
 
 module.exports = app;
