@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "dev": "nodemon server.js",
-    "prod": "node server.js"
+    "prod": "node server.js",
+    "start": "node server.js"
   },
   "author": "bling tech team",
   "license": "ISC",
@@ -26,3 +27,4 @@
     "multer-storage-cloudinary": "^4.0.0"
   }
 }
+
