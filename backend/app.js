@@ -8,7 +8,13 @@ const app = express();
 
 
 // ================= MIDDLEWARE =================
+const cors =
+require("cors");
 
+app.use(cors({
+  origin: "*",
+  credentials: true,
+}));
 app.use(cors());
 
 app.use(express.json());
