@@ -8,7 +8,7 @@ const API = axios.create({
 });
 
 
-// ================= TOKEN =================
+// TOKEN
 
 API.interceptors.request.use(
   (req) => {
@@ -19,7 +19,7 @@ API.interceptors.request.use(
     if (token) {
 
       req.headers.Authorization =
-        `Bearer ${token}`;
+      `Bearer ${token}`;
     }
 
     return req;
