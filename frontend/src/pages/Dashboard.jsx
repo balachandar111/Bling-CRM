@@ -11,6 +11,9 @@ import Calendar from "react-calendar";
 import API from "../services/api";
 
 import * as XLSX from "xlsx";
+
+import { saveAs }
+from "file-saver";
 import "react-calendar/dist/Calendar.css";
 
 
@@ -391,6 +394,125 @@ async (e) => {
       "Employee upload failed"
     );
   }
+};
+const downloadExcel = () => {
+
+  // FILTERED DATA
+
+  const excelData =
+  filteredCustomers.map(
+    (customer) => ({
+
+      Name:
+      customer.name,
+
+      Email:
+      customer.email,
+
+      Phone:
+      customer.phone,
+
+      Company:
+      customer.company,
+
+      Status:
+      customer.status,
+
+      LeadStage:
+      customer.leadStage,
+
+      Priority:
+      customer.priority,
+
+      Solution:
+      customer.solution,
+
+      Product:
+      customer.product,
+
+      Investment:
+      customer.investment,
+
+      Source:
+      customer.source,
+
+      AssignedTo:
+      customer.assignedTo,
+
+      FollowUp:
+      customer.followUpDate
+      ?.slice(0, 10),
+
+      LastModified:
+      customer.lastModified
+
+      ? new Date(
+          customer.lastModified
+        ).toLocaleString()
+
+      : "N/A",
+
+      Remark:
+      customer.remark,
+    })
+  );
+
+
+  // WORKSHEET
+
+  const worksheet =
+  XLSX.utils.json_to_sheet(
+    excelData
+  );
+
+
+  // WORKBOOK
+
+  const workbook =
+  XLSX.utils.book_new();
+
+  XLSX.utils.book_append_sheet(
+
+    workbook,
+
+    worksheet,
+
+    "Customers"
+  );
+
+
+  // BUFFER
+
+  const excelBuffer =
+  XLSX.write(workbook, {
+
+    bookType: "xlsx",
+
+    type: "array",
+  });
+
+
+  // FILE
+
+  const fileData =
+  new Blob(
+
+    [excelBuffer],
+
+    {
+
+      type:
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    }
+  );
+
+
+  saveAs(
+
+    fileData,
+
+    "Customer_Details.xlsx"
+  );
 };
   // ================= USER =================
 
@@ -1687,7 +1809,7 @@ const performanceData = [
 
  <img
 
-    src="https://res.cloudinary.com/ds4i8pujs/image/upload/v1779687977/bling_tech_logo_h7rc1m.png"
+    src="https://res.cloudinary.com/ds4i8pujs/image/upload/v1779705309/bling_tech_logo_white_lmsgoz.png"
 
     alt="logo"
 
@@ -2730,8 +2852,22 @@ clear-filter-btn
     </select>
 
   </div>
+<button
 
+  className="
+download-btn
+"
+
+  onClick={
+    downloadExcel
+  }
+>
+
+  Download Excel
+
+</button>
 </div>
+
 
 
       {/* TABLE */}

@@ -365,15 +365,6 @@ RESPONSIVE
 
 /* TOPBAR */
 
-.topbar h1{
-  font-size:18px;
-}
-
-.topbar p{
-  font-size:11px;
-}
-
-
 /* BUTTONS */
 
 .add-btn,
@@ -670,9 +661,6 @@ table th{
     grid-template-columns:1fr;
   }
 }
-/* ==========/* =========================
-📁 Dashboard.css
-//* 📁 src/pages/Dashboard.css */
 
 
 
@@ -3897,71 +3885,58 @@ margin-top: 19px;
 .delete-customer-btn{
   background:#EF4444;
   color:white;
-}.logo{
+}/* ================= LOGO WRAPPER ================= */
+
+/* ================= LOGO WRAPPER ================= */
+
+.logo{
 
   display:flex;
-  flex-direction:column;
 
   align-items:center;
   justify-content:center;
 
-  padding:18px 12px;
+  padding:14px 0;
 
-  margin-bottom:12px;
-  margin-top: -15px;
-  margin-left: -20px;
+  margin-bottom:18px;
 
-  border-bottom:
-  1px solid rgba(255,255,255,0.08);
+  position:relative;
 }
 
 
-/* LOGO BOX */
+/* ================= LOGO IMAGE ================= */
 
 .crm-logo{
 
-  width:125px;
+  width:170px;
 
   height:auto;
 
   object-fit:contain;
 
-  background:#ffffff;
-
-  padding:10px 16px;
-
-  border-radius:14px;
-
-  box-shadow:
-  0 4px 14px
-  rgba(0,0,0,0.18);
+  filter:
+  drop-shadow(
+    0 6px 14px
+    rgba(0,0,0,0.18)
+  );
 
   transition:0.3s ease;
 }
 
+
+/* ================= HOVER EFFECT ================= */
+
 .crm-logo:hover{
 
   transform:
-  translateY(-2px);
+  scale(1.04);
+
+  filter:
+  drop-shadow(
+    0 10px 20px
+    rgba(37,99,235,0.28)
+  );
 }
-
-
-/* COMPANY NAME */
-
-.logo h2{
-
-  margin-top:9px;
-  margin-bottom: -10px;
-
-  font-size:22px;
-
-  font-weight:700;
-
-  color:#ffffff;
-
-  letter-spacing:0.4px;
-}
-
 
 /* SUB TITLE */
 
@@ -4037,4 +4012,449 @@ margin-top: 19px;
   cursor:pointer;
 
   padding-right:4px;
+}
+
+/* ================= REMINDER PAGE ================= */
+
+.reminder-page{
+
+  padding:22px;
+
+  background:#f8fafc;
+
+  min-height:100vh;
+}
+
+
+/* ================= HEADER ================= */
+
+.reminder-header h1{
+
+  font-size:24px;
+
+  font-weight:700;
+
+  color:#0f172a;
+}
+
+.reminder-header p{
+
+  font-size:12px;
+
+  color:#64748b;
+
+  margin-top:4px;
+}
+
+
+/* ================= ALERT ================= */
+
+.today-alert{
+
+  margin-top:18px;
+
+  padding:13px 18px;
+
+  border-radius:14px;
+
+  background:#2563EB;
+
+  color:white;
+
+  font-size:13px;
+
+  font-weight:600;
+
+  box-shadow:
+  0 6px 18px
+  rgba(37,99,235,0.18);
+}
+
+
+/* ================= GRID ================= */
+
+.reminder-grid{
+
+  display:grid;
+
+  grid-template-columns:
+  420px 1fr;
+
+  gap:22px;
+
+  margin-top:24px;
+}
+
+
+/* ================= CALENDAR CARD ================= */
+
+.calendar-card{
+
+  background:#ffffff;
+
+  border-radius:22px;
+
+  padding:22px;
+
+  border:1px solid #e5e7eb;
+
+  box-shadow:
+  0 6px 24px
+  rgba(15,23,42,0.05);
+}
+
+
+/* ================= REACT CALENDAR ================= */
+
+.react-calendar{
+
+  width:100%;
+
+  border:none;
+
+  background:transparent;
+
+  font-family:"Inter",
+  sans-serif;
+}
+
+
+/* NAVIGATION */
+
+.react-calendar__navigation{
+
+  margin-bottom:18px;
+}
+
+.react-calendar__navigation button{
+
+  background:none;
+
+  border:none;
+
+  font-size:15px;
+
+  font-weight:700;
+
+  color:#111827;
+
+  border-radius:10px;
+
+  min-width:42px;
+
+  transition:0.2s ease;
+}
+
+.react-calendar__navigation button:hover{
+
+  background:#eff6ff;
+
+  color:#2563EB;
+}
+
+
+/* WEEK NAMES */
+
+.react-calendar__month-view__weekdays{
+
+  text-align:center;
+
+  margin-bottom:10px;
+}
+
+.react-calendar__month-view__weekdays__weekday{
+
+  font-size:11px;
+
+  font-weight:700;
+
+  color:#64748b;
+
+  text-transform:uppercase;
+}
+
+
+/* DATE TILE */
+
+.react-calendar__tile{
+
+  height:56px;
+
+  border-radius:16px;
+
+  font-size:13px;
+
+  font-weight:600;
+
+  color:#111827;
+
+  transition:0.25s ease;
+
+  position:relative;
+}
+
+
+/* HOVER */
+
+.react-calendar__tile:hover{
+
+  background:#eff6ff;
+
+  color:#2563EB;
+}
+
+
+/* TODAY */
+
+.react-calendar__tile--now{
+
+  background:#dbeafe;
+
+  color:#1d4ed8;
+
+  font-weight:700;
+}
+
+
+/* ACTIVE */
+
+.react-calendar__tile--active{
+
+  background:#2563EB !important;
+
+  color:white !important;
+
+  box-shadow:
+  0 6px 16px
+  rgba(37,99,235,0.25);
+}
+
+
+/* REMINDER DATE */
+
+.highlight-date{
+
+  position:relative;
+}
+
+.highlight-date::after{
+
+  content:"";
+
+  width:8px;
+  height:8px;
+
+  border-radius:50%;
+
+  background:#22c55e;
+
+  position:absolute;
+
+  bottom:7px;
+  left:50%;
+
+  transform:translateX(-50%);
+}
+
+
+/* ================= FOLLOWUP CARD ================= */
+
+.followup-card{
+
+  background:#ffffff;
+
+  border-radius:22px;
+
+  padding:22px;
+
+  border:1px solid #e5e7eb;
+
+  box-shadow:
+  0 6px 24px
+  rgba(15,23,42,0.05);
+}
+
+
+/* ================= FOLLOWUP HEADER ================= */
+
+.followup-header{
+
+  display:flex;
+
+  justify-content:space-between;
+
+  align-items:center;
+
+  margin-bottom:18px;
+}
+
+.followup-header h2{
+
+  font-size:17px;
+
+  font-weight:700;
+
+  color:#111827;
+}
+
+.date-badge{
+
+  padding:7px 14px;
+
+  border-radius:30px;
+
+  background:#eff6ff;
+
+  color:#2563EB;
+
+  font-size:11px;
+
+  font-weight:700;
+}
+
+
+/* ================= CUSTOMER CARD ================= */
+
+.customer-box{
+
+  display:flex;
+
+  justify-content:space-between;
+
+  align-items:center;
+
+  padding:15px 16px;
+
+  border-radius:16px;
+
+  border:1px solid #eef2f7;
+
+  margin-bottom:12px;
+
+  background:#ffffff;
+
+  cursor:pointer;
+
+  transition:0.25s ease;
+}
+
+.customer-box:hover{
+
+  border-color:#bfdbfe;
+
+  transform:translateY(-2px);
+
+  box-shadow:
+  0 8px 18px
+  rgba(15,23,42,0.06);
+}
+
+
+/* CUSTOMER INFO */
+
+.customer-box h3{
+
+  font-size:14px;
+
+  font-weight:700;
+
+  color:#111827;
+}
+
+.customer-box p{
+
+  font-size:12px;
+
+  color:#64748b;
+
+  margin:4px 0;
+}
+
+.customer-box small{
+
+  font-size:11px;
+
+  color:#94a3b8;
+}
+
+
+/* RIGHT BOX */
+
+.right-box{
+
+  display:flex;
+
+  flex-direction:column;
+
+  gap:8px;
+
+  align-items:flex-end;
+}
+
+
+/* BADGES */
+
+.priority-pill,
+.stage-pill{
+
+  padding:5px 11px;
+
+  border-radius:30px;
+
+  font-size:10px;
+
+  font-weight:700;
+}
+
+.priority-pill{
+
+  background:#fef3c7;
+
+  color:#b45309;
+}
+
+.stage-pill{
+
+  background:#dbeafe;
+
+  color:#1d4ed8;
+}
+
+
+/* EMPTY */
+
+.empty-state{
+
+  padding:50px 20px;
+
+  text-align:center;
+
+  color:#94a3b8;
+
+  font-size:13px;
+}
+.download-btn{
+
+  padding:9px 16px;
+
+  background:#16a34a;
+
+  color:white;
+
+  border:none;
+
+  border-radius:10px;
+
+  font-size:12px;
+
+  font-weight:600;
+
+  cursor:pointer;
+
+  transition:0.2s ease;
+}
+
+.download-btn:hover{
+
+  background:#15803d;
 }
