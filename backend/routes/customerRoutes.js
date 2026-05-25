@@ -1,29 +1,45 @@
-const express = require("express");
+const express =
+require("express");
 
-const router = express.Router();
-
-const {
-  createCustomer,
-  getCustomers,
-  getCustomer,
-  updateCustomer,
-  deleteCustomer,
-  bulkUploadCustomers,
-} = require(
-  "../controllers/customerController"
-);
+const router =
+express.Router();
 
 const protect =
 require("../middlewares/authMiddleware");
 
+const {
+
+  createCustomer,
+
+  getCustomers,
+
+  getCustomer,
+
+  updateCustomer,
+
+  deleteCustomer,
+
+  bulkUploadCustomers,
+
+} = require(
+  "../controllers/customerController"
+);
+
+
+// BULK UPLOAD
+
 router.post(
+
   "/bulk-upload",
+
   protect,
+
   bulkUploadCustomers
 );
 
 
 // CREATE
+
 router.post(
   "/",
   protect,
@@ -32,6 +48,7 @@ router.post(
 
 
 // GET ALL
+
 router.get(
   "/",
   protect,
@@ -40,6 +57,7 @@ router.get(
 
 
 // GET SINGLE
+
 router.get(
   "/:id",
   protect,
@@ -48,6 +66,7 @@ router.get(
 
 
 // UPDATE
+
 router.put(
   "/:id",
   protect,
@@ -56,11 +75,11 @@ router.put(
 
 
 // DELETE
+
 router.delete(
   "/:id",
   protect,
   deleteCustomer
 );
-
 
 module.exports = router;

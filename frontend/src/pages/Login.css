@@ -220,3 +220,49 @@ body{
     width:90%;
   }
 }
+.upload-btn{
+  background:#10B981;
+  color:white;
+  padding:9px 16px;
+  border-radius:8px;
+  font-size:23px;
+  font-weight:600;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition:0.2s;
+}
+
+.upload-btn:hover{
+  opacity:0.9;
+}
+
+.logo-box{
+
+width:170px;
+  height:130px;
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+
+  background:#ffffff;
+
+  border-radius:12px;
+  padding: 30px;
+
+  box-shadow:
+  0 4px 10px
+  rgba(0,0,0,0.12);
+
+  overflow:hidden;
+}
+
+.small-logo{
+
+  width:170px;
+  height:130px;
+
+  object-fit:contain;
+}

@@ -24,16 +24,21 @@ new mongoose.Schema(
 
 
   // CUSTOMER STATUS
-  status: {
-    type: String,
+status: {
 
-    enum: [
-      "lead",
-      "customer"
-    ],
+  type: String,
 
-    default: "lead",
-  },
+  enum: [
+
+    "lead",
+
+    "customer",
+
+    "lost"
+  ],
+
+  default: "lead",
+},
 
 
   // SALES PIPELINE
@@ -73,6 +78,20 @@ new mongoose.Schema(
 
     default: "",
   },
+  lastRemarks: [
+
+  {
+
+    remark: String,
+
+    updatedAt: {
+
+      type: Date,
+
+      default: Date.now,
+    },
+  }
+],
 
 
   // FOLLOWUP DATE
@@ -122,8 +141,17 @@ new mongoose.Schema(
 
     type: String,
   },
+solution: {
+  type: String,
+},
 
+product: {
+  type: String,
+},
+lastModified: {
 
+  type: Date,
+},
   // CREATED USER
   createdBy: {
 

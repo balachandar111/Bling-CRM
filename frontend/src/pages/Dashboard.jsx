@@ -13,6 +13,7 @@ import API from "../services/api";
 import * as XLSX from "xlsx";
 import "react-calendar/dist/Calendar.css";
 
+
 import {
   useNavigate,
 } from "react-router-dom";
@@ -91,6 +92,7 @@ const handleUserChange =
       e.target.value,
   });
 };
+
 const createUser =
 async (e) => {
 
@@ -445,6 +447,24 @@ const [selectedUser,
 setSelectedUser] =
 useState("");
 
+
+const [solutionFilter,
+setSolutionFilter] =
+useState("");
+
+const [productFilter,
+setProductFilter] =
+useState("");
+
+const [priorityFilter,
+setPriorityFilter] =
+useState("");
+
+const [statusFilter,
+setStatusFilter] =
+useState("");
+
+
 const [dashboardType,
 setDashboardType] =
 useState("overall");
@@ -458,6 +478,11 @@ useState("overall");
     useState("dashboard");
 const [searchTerm, setSearchTerm] =
 useState("");
+useEffect(() => {
+
+  setCurrentPage(1);
+
+}, [searchTerm]);
 const [currentPage, setCurrentPage] =
 useState(1);
 const [selectedDate,
@@ -471,7 +496,7 @@ useState([]);
 const [todayReminders,
 setTodayReminders] =
 useState([]);
-const customersPerPage = 5;
+const customersPerPage = 7;
 const [userSearch,
 setUserSearch] =
 useState("");
@@ -762,29 +787,87 @@ async (userId) => {
   }
 };
   // ================= FORM =================
-  const filteredCustomers =
+const filteredCustomers =
 
-customers.filter((customer) =>
+customers.filter((customer) => {
 
-  customer.name
+  // SEARCH
+
+  const matchesSearch =
+
+    customer.name
     ?.toLowerCase()
     .includes(
       searchTerm.toLowerCase()
     )
 
-  ||
+    ||
 
-  customer.email
+    customer.email
     ?.toLowerCase()
     .includes(
       searchTerm.toLowerCase()
     )
 
-  ||
+    ||
 
-  customer.phone
-    ?.includes(searchTerm)
-);
+    customer.phone
+    ?.includes(searchTerm);
+
+
+  // SOLUTION
+
+  const matchesSolution =
+
+    !solutionFilter ||
+
+    customer.solution ===
+    solutionFilter;
+
+
+  // PRODUCT
+
+  const matchesProduct =
+
+    !productFilter ||
+
+    customer.product ===
+    productFilter;
+
+
+  // PRIORITY
+
+  const matchesPriority =
+
+    !priorityFilter ||
+
+    customer.priority ===
+    priorityFilter;
+
+
+  // STATUS / LEAD STAGE
+
+  const matchesStatus =
+
+    !statusFilter ||
+
+    customer.leadStage ===
+    statusFilter;
+
+
+  return (
+
+    matchesSearch &&
+
+    matchesSolution &&
+
+    matchesProduct &&
+
+    matchesPriority &&
+
+    matchesStatus
+  );
+});
 
   const [formData, setFormData] =
     useState({
@@ -809,6 +892,10 @@ customers.filter((customer) =>
       source: "Website",
 
       assignedTo: "",
+
+      solution: "",
+
+      product: "",
     });
 // ================= PAGINATION =================
 
@@ -876,26 +963,25 @@ const formatDate = (date) => {
   };
 
 
-  // ================= FETCH CUSTOMERS =================
+const fetchCustomers =
+async () => {
 
-  const fetchCustomers = async () => {
+  try {
 
-    try {
+    const { data } =
+    await API.get(
+      "/customers"
+    );
 
-      const { data } =
-      await API.get(
-        "/customers"
-      );
+    setCustomers(
+      data.customers
+    );
 
-      setCustomers(
-        data.customers
-      );
+  } catch (error) {
 
-    } catch (error) {
-
-      console.log(error);
-    }
-  };
+    console.log(error);
+  }
+};
 
 
   // ================= FETCH EMPLOYEES =================
@@ -1018,7 +1104,10 @@ useEffect(() => {
 
         source: "Website",
 
+
         assignedTo: "",
+        solution: "",
+product: "",
       });
 
       alert(
@@ -1169,10 +1258,6 @@ async (e) => {
   } catch (error) {
 
     console.log(error);
-
-    alert(
-      error.response?.data?.message
-    );
   }
 };
 const updateLeadStatus =
@@ -1180,16 +1265,14 @@ async (status) => {
 
   try {
 
-    await API.put(
+   await API.put(
 
-      `/customers/${selectedCustomer._id}`,
+  `/customers/${selectedCustomer._id}`,
 
-      {
-        ...selectedCustomer,
-
-        leadStage: status,
-      }
-    );
+  {
+    leadStage: status,
+  }
+);
 
     alert(
       "Status Updated"
@@ -1243,23 +1326,24 @@ async (e) => {
 };
 
   // ================= BULK UPLOAD =================
+const handleFileUpload =
+async (e) => {
 
-  const handleFileUpload =
-  async (e) => {
+  const file =
+    e.target.files[0];
 
-    const file =
-      e.target.files[0];
+  if (!file) return;
 
-    if (!file) return;
+  const reader =
+    new FileReader();
 
-    const reader =
-      new FileReader();
+  reader.onload =
+  async (event) => {
 
-    reader.onload =
-    async (evt) => {
+    try {
 
       const data =
-        evt.target.result;
+        event.target.result;
 
       const workbook =
         XLSX.read(data, {
@@ -1269,39 +1353,48 @@ async (e) => {
       const sheetName =
         workbook.SheetNames[0];
 
-      const sheet =
+      const worksheet =
         workbook.Sheets[sheetName];
 
       const customers =
         XLSX.utils.sheet_to_json(
-          sheet
+          worksheet
         );
 
-      try {
+      console.log(customers);
 
-        await API.post(
-          "/customers/bulk-upload",
-          {
-            customers,
-          }
-        );
+      const response =
+      await API.post(
 
-        alert(
-          "Customers Uploaded Successfully"
-        );
+        "/customers/bulk-upload",
 
-        fetchCustomers();
+        {
+          customers,
+        }
+      );
 
-      } catch (error) {
+      console.log(response.data);
 
-        console.log(error);
-      }
-    };
+      alert(
+        "Customers Uploaded"
+      );
 
-    reader.readAsBinaryString(
-      file
-    );
+      fetchCustomers();
+
+    } catch (error) {
+
+      console.log(error);
+
+      alert(
+        error.response?.data?.message
+      );
+    }
   };
+
+  reader.readAsBinaryString(
+    file
+  );
+};
 
 
   // ================= ANALYTICS =================
@@ -1590,11 +1683,20 @@ const performanceData = [
 
       <div className="sidebar">
 
-        <div className="logo">
+       <div className="logo">
 
-          Bling CRM
+ <img
 
-        </div>
+    src="https://res.cloudinary.com/ds4i8pujs/image/upload/v1779687977/bling_tech_logo_h7rc1m.png"
+
+    alt="logo"
+
+    className="crm-logo"
+  />
+
+ 
+
+</div>
 
 
       <ul>
@@ -1709,13 +1811,13 @@ const performanceData = [
 
   {/* ACTIVITIES */}
 
-  <li>
+  {/* <li>
 
     <FaTasks />
 
     Activities
 
-  </li>
+  </li> */}
 
 
   {/* REMINDERS */}
@@ -2418,121 +2520,225 @@ clear-filter-btn
         }
         {/* ================= CUSTOMERS ================= */}
 
-{
-  activeMenu ===
-  "customers" && (
+{/* ================= CUSTOMERS ================= */}
 
-    <div className="customer-section">
+{/* ================= CUSTOMERS ================= */}
+
+{
+  activeMenu === "customers" && (
+
+    <div className="customer-page">
 
       {/* HEADER */}
 
-      <div className="topbar">
+      <div className="customer-topbar">
 
         <div>
 
-          <h1>
+          <h2 className="page-title">
             Customer Management
-          </h1>
-          
+          </h2>
 
-          <p>
+          <p className="page-subtitle">
             Manage customer records
           </p>
 
         </div>
+        
 
+        <div className="top-actions">
+          
 
-        <div className="action-buttons">
-
-          {/* ADD CUSTOMER */}
+          <input
+            type="text"
+            placeholder="Search customer..."
+            value={searchTerm}
+            onChange={(e) =>
+              setSearchTerm(
+                e.target.value
+              )
+            }
+            className="search-input"
+          />
 
           <button
-
             className="add-btn"
-
             onClick={() =>
               setShowModal(true)
             }
           >
-
-            <FaPlus />
-
             Add Customer
-
           </button>
+         <label className="bulk-upload-btn">
 
+  Upload Excel
 
-          {/* BULK UPLOAD */}
+  <input
 
-          <label className="upload-btn">
+    type="file"
 
-            Upload Excel
+    accept=".xlsx,.xls,.csv"
 
-            <input
+    hidden
 
-              type="file"
+    onChange={handleFileUpload}
+  />
 
-              accept=".xlsx,.xls,.csv"
-
-              hidden
-
-              onChange={
-                handleFileUpload
-              }
-            />
-
-          </label>
+</label>
 
         </div>
 
       </div>
+<div className="customer-filters">
+
+  <div className="filter-item">
+
+    <label>
+      Solution
+    </label>
+
+    <select
+      value={solutionFilter}
+      onChange={(e) =>
+        setSolutionFilter(
+          e.target.value
+        )
+      }
+    >
+
+      <option value="">
+        All
+      </option>
+
+      <option>Anti-Counterfeiting</option>
+      <option>Customer Engagement</option>
+      <option>Retail Intelligence</option>
+      <option>Digital Warranty</option>
+
+    </select>
+
+  </div>
 
 
-      {/* SEARCH */}
+  <div className="filter-item">
 
-      <div className="customer-header">
+    <label>
+      Product
+    </label>
 
-        <div>
+    <select
+      value={productFilter}
+      onChange={(e) =>
+        setProductFilter(
+          e.target.value
+        )
+      }
+    >
 
-          <h1>
-            Customer Records
-          </h1>
+      <option value="">
+        All
+      </option>
 
-        </div>
+      <option>
+        AI Chatbot
+      </option>
+      <option>
+        Dealer Order Management
+      </option>
+      <option>
+        RFID Inventory management
+      </option>
+      <option>
+        Custom Application Development
+      </option>
+    </select>
+
+  </div>
 
 
-        <div className="search-box">
+  <div className="filter-item">
 
-          <input
+    <label>
+      Priority
+    </label>
 
-            type="text"
+    <select
+      value={priorityFilter}
+      onChange={(e) =>
+        setPriorityFilter(
+          e.target.value
+        )
+      }
+    >
 
-            placeholder="
-Search by name, email or phone
-"
+      <option value="">
+        All
+      </option>
 
-            value={searchTerm}
+      <option>
+        High
+      </option>
 
-            onChange={(e) => {
+      <option>
+        Medium
+      </option>
 
-              setSearchTerm(
-                e.target.value
-              );
+      <option>
+        Low
+      </option>
 
-              setCurrentPage(1);
-            }}
-          />
+    </select>
 
-        </div>
+  </div>
 
-      </div>
+
+  <div className="filter-item">
+
+    <label>
+      Stage
+    </label>
+
+    <select
+      value={statusFilter}
+      onChange={(e) =>
+        setStatusFilter(
+          e.target.value
+        )
+      }
+    >
+
+      <option value="">
+        All
+      </option>
+
+      <option>
+        Awareness
+      </option>
+
+      <option>
+        Interest
+      </option>
+
+      <option>
+        Desire
+      </option>
+
+      <option>
+        Closure
+      </option>
+
+    </select>
+
+  </div>
+
+</div>
 
 
       {/* TABLE */}
 
-      <div className="customer-table-wrapper">
+      <div className="minimal-table-wrapper">
 
-        <table className="customer-table">
+        <table className="minimal-table">
 
           <thead>
 
@@ -2542,47 +2748,43 @@ Search by name, email or phone
 
               <th>Company</th>
 
-              <th>Email</th>
-
               <th>Phone</th>
 
-              <th>Lead Stage</th>
+              <th>Status</th>
+               <th>Priority</th>
+              <th>Solution</th>
+              <th>Product</th>
 
-              <th>Priority</th>
-
-              <th>Assigned</th>
-
-              <th>Source</th>
-
-              {
-                role ===
-                "super_admin" && (
-
-                  <th>
-                    Created By
-                  </th>
-                )
-              }
-
+             
               <th>
-                Actions
-              </th>
+  Last Modified
+</th>
+
+              <th>Actions</th>
 
             </tr>
 
           </thead>
 
-
           <tbody>
 
             {
-              currentCustomers.map(
-                (customer) => (
+               currentCustomers.map(
+    (customer) => (
 
                   <tr
-                    key={
-                      customer._id
-                    }
+                    key={customer._id}
+
+                    onClick={() => {
+
+                      setSelectedCustomer(
+                        customer
+                      );
+
+                      setShowCustomerDetails(
+                        true
+                      );
+                    }}
                   >
 
                     <td>
@@ -2594,16 +2796,12 @@ Search by name, email or phone
                     </td>
 
                     <td>
-                      {customer.email}
-                    </td>
-
-                    <td>
                       {customer.phone}
                     </td>
 
                     <td>
 
-                      <span className="stage-pill">
+                      <span className="status-badge">
 
                         {
                           customer.leadStage
@@ -2615,7 +2813,7 @@ Search by name, email or phone
 
                     <td>
 
-                      <span className="priority-pill">
+                      <span className="priority-badge">
 
                         {
                           customer.priority
@@ -2624,42 +2822,40 @@ Search by name, email or phone
                       </span>
 
                     </td>
-
                     <td>
-                      {
-                        customer.assignedTo
-                      }
-                    </td>
+  {customer.solution || "-"}
+</td>
 
-                    <td>
-                      {
-                        customer.source
-                      }
-                    </td>
+<td>
+  {customer.product || "-"}
+</td>
+           <td>
 
-                    {
-                      role ===
-                      "super_admin" && (
+  {
+    customer.lastModified
 
-                        <td>
+    ? new Date(
+        customer.lastModified
+      ).toLocaleString()
 
-                          {
-                            customer
-                            ?.createdBy
-                            ?.name || "N/A"
-                          }
+    : "Not Modified"
+  }
 
-                        </td>
-                      )
-                    }
+</td>
 
                     <td>
 
-                      <div className="table-actions">
+                      <div
+                        className="action-btns"
+
+                        onClick={(e) =>
+                          e.stopPropagation()
+                        }
+                      >
 
                         <button
 
-                          className="update-btn"
+                          className="table-btn edit-btn"
 
                           onClick={() =>
                             handleFullUpdate(
@@ -2668,16 +2864,14 @@ Search by name, email or phone
                           }
                         >
 
-                          <FaEdit />
-
-                          Update
+                          Edit
 
                         </button>
 
 
                         <button
 
-                          className="status-btn"
+                          className="table-btn status-btn"
 
                           onClick={() =>
                             handleStatusUpdate(
@@ -2686,23 +2880,25 @@ Search by name, email or phone
                           }
                         >
 
-                          <FaSync />
-
                           Status
 
                         </button>
+
+
                         <button
 
-  className="delete-btn"
+                          className="table-btn delete-btn"
 
- onClick={() =>
-  deleteCustomer(customer)
-}
->
+                          onClick={() =>
+                            deleteCustomer(
+                              customer
+                            )
+                          }
+                        >
 
-  Delete
+                          Delete
 
-</button>
+                        </button>
 
                       </div>
 
@@ -2716,11 +2912,7 @@ Search by name, email or phone
           </tbody>
 
         </table>
-
-
-        {/* PAGINATION */}
-
-        <div className="pagination">
+          <div className="pagination">
 
           <button
 
@@ -2993,290 +3185,289 @@ Search by name, email or phone
 
         {/* ================= EMPLOYEES ================= */}
 
-        {
-          activeMenu ===
-          "employees" && (
+      {
+  activeMenu === "employees" && (
 
-            <div className="employee-section">
+    <div className="employee-page">
 
-              <div className="employee-header">
+      {/* TOP HEADER */}
 
-                <div>
+      <div className="employee-topbar">
 
-                  <h1>
-                    Employees
-                  </h1>
+        <div>
 
-                  <p>
-                    View all employee details
-                  </p>
-                  <button
+          <h1>
+            Employee Management
+          </h1>
 
-  className="add-btn"
+          <p>
+            Manage employee records
+          </p>
 
-  onClick={() =>
-    setShowEmployeeModal(true)
-  }
->
+        </div>
 
-  <FaPlus />
-
-  Add Employee
-
-</button>
-
-                </div>
-
-              </div>
-
-
-              <div className="employee-table-wrapper">
-
-                <table className="employee-table">
-
-                  <thead>
-
-                    <tr>
-
-                      <th>
-                        Profile
-                      </th>
-
-                      <th>
-                        Name
-                      </th>
-
-                      <th>
-                        Department
-                      </th>
-
-                      <th>
-                        Designation
-                      </th>
-
-                      <th>
-                        Email
-                      </th>
-
-                      <th>
-                        Phone
-                      </th>
-
-                      <th>
-                        Salary
-                      </th>
-                      <th>
-  Documents
-</th>
-                      <th>
-  Actions
-</th>
-
-                    </tr>
-
-                  </thead>
-
-
-              <tbody>
-
-  {
-    [...employees]
-
-    .sort(
-      (a, b) =>
-
-        new Date(b.createdAt) -
-        new Date(a.createdAt)
-    )
-
-    .map(
-      (employee) => (
-
-        <tr
-          key={employee._id}
+        <button
+          className="add-btn"
+          onClick={() =>
+            setShowEmployeeModal(true)
+          }
         >
 
-          <td>
+          <FaPlus />
 
-            <img
+          Add Employee
 
-              src={
-                employee.profileImage
-              }
+        </button>
 
-              alt="profile"
+      </div>
 
-              className="table-profile"
-            />
 
-          </td>
+      {/* TABLE */}
 
-          <td>
-            {employee.name}
-          </td>
+      <div className="employee-table-container">
 
-          <td>
-            {employee.department}
-          </td>
+        <table className="minimal-employee-table">
 
-          <td>
-            {employee.designation}
-          </td>
+          <thead>
 
-          <td>
-            {employee.email}
-          </td>
+            <tr>
 
-          <td>
-            {employee.phone}
-          </td>
+              <th>
+                Employee
+              </th>
 
-          <td>
+              <th>
+                Department
+              </th>
 
-            ₹{employee.salary}
+              <th>
+                Designation
+              </th>
 
-          </td>
-          <td>
+              <th>
+                Contact
+              </th>
 
-  {
-    employee.documents
-    ?.length > 0 ? (
+              <th>
+                Salary
+              </th>
 
-      employee.documents.map(
+              <th>
+                Documents
+              </th>
 
-        (doc, index) => (
+              <th>
+                Actions
+              </th>
 
-          <div
-            key={index}
-          >
+            </tr>
 
-            <a
+          </thead>
 
-              href={doc}
 
-              target="_blank"
+          <tbody>
 
-              rel="noreferrer"
+            {
+              [...employees]
 
-              className="doc-link"
-            >
+              .sort(
+                (a, b) =>
 
-              View Doc {index + 1}
+                  new Date(b.createdAt) -
+                  new Date(a.createdAt)
+              )
 
-            </a>
+              .map((employee) => (
 
-          </div>
-        )
-      )
+                <tr
+                  key={employee._id}
+                >
 
-    ) : (
+                  {/* EMPLOYEE */}
 
-      <span>
-        No Docs
-      </span>
-    )
-  }
+                  <td>
 
-</td>
-          
-          <td>
+                    <div className="employee-info">
 
-  <div
-    className="employee-actions"
-  >
+                      <img
 
-    {/* UPDATE */}
+                        src={
+                          employee.profileImage
+                        }
 
-    <button
+                        alt="profile"
 
-      className="update-btn"
+                        className="employee-avatar"
+                      />
 
-      onClick={() =>
-        handleEmployeeUpdate(
-          employee
-        )
-      }
-    >
+                      <div>
 
-      Update
+                        <h4>
+                          {employee.name}
+                        </h4>
 
-    </button>
-     
+                        <p>
+                          {employee.email}
+                        </p>
 
-  <button
+                      </div>
 
-    className="delete-btn"
+                    </div>
 
-    onClick={
-      async () => {
+                  </td>
 
-        const confirmDelete =
-          window.confirm(
 
-            "Delete this employee?"
-          );
+                  {/* DEPARTMENT */}
 
-        if (!confirmDelete)
-          return;
+                  <td>
+                    {employee.department}
+                  </td>
 
-        try {
 
-          await API.delete(
+                  {/* DESIGNATION */}
 
-            `/employees/${employee._id}`
-          );
+                  <td>
+                    {employee.designation}
+                  </td>
 
-          alert(
-            "Employee Deleted"
-          );
 
-          fetchEmployees();
+                  {/* CONTACT */}
 
-        } catch (error) {
+                  <td>
+                    {employee.phone}
+                  </td>
 
-          console.log(error);
 
-          alert(
-            error.response?.data?.message
-          );
-        }
-      }
-    }
-  >
+                  {/* SALARY */}
 
-    Delete
+                  <td>
 
-  </button>
+                    ₹{employee.salary}
 
+                  </td>
 
 
+                  {/* DOCUMENTS */}
 
-    {/* DELETE */}
+                  <td>
 
-   
+                    {
+                      employee.documents
+                      ?.length > 0 ? (
 
-  </div>
+                        <a
 
-</td>
+                          href={
+                            employee.documents[0]
+                          }
 
+                          target="_blank"
 
-        </tr>
-      )
-    )
-  }
+                          rel="noreferrer"
 
-</tbody>
+                          className="view-doc-btn"
+                        >
 
+                          View
 
-                </table>
+                        </a>
 
-              </div>
-   
+                      ) : (
 
-            </div>
-            
-          )
-        }
+                        <span className="no-doc">
+
+                          No Docs
+
+                        </span>
+                      )
+                    }
+
+                  </td>
+
+
+                  {/* ACTIONS */}
+
+                  <td>
+
+                    <div className="employee-action-buttons">
+
+                      <button
+
+                        className="table-edit-btn"
+
+                        onClick={() =>
+                          handleEmployeeUpdate(
+                            employee
+                          )
+                        }
+                      >
+
+                        Edit
+
+                      </button>
+
+
+                      <button
+
+                        className="table-delete-btn"
+
+                        onClick={
+                          async () => {
+
+                            const confirmDelete =
+                              window.confirm(
+                                "Delete this employee?"
+                              );
+
+                            if (!confirmDelete)
+                              return;
+
+                            try {
+
+                              await API.delete(
+
+                                `/employees/${employee._id}`
+                              );
+
+                              alert(
+                                "Employee Deleted"
+                              );
+
+                              fetchEmployees();
+
+                            } catch (error) {
+
+                              console.log(error);
+
+                              alert(
+                                error.response?.data?.message
+                              );
+                            }
+                          }
+                        }
+                      >
+
+                        Delete
+
+                      </button>
+
+                    </div>
+
+                  </td>
+
+                </tr>
+              ))
+            }
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+    </div>
+  )
+}
         {
   showEmployeeModal && (
 
@@ -4458,23 +4649,7 @@ Leave empty if no change
 
             {/* INVESTMENT */}
 
-            <div className="input-group">
-
-              <label>
-                Investment
-              </label>
-
-              <input
-                type="number"
-                name="investment"
-                placeholder="Enter investment"
-                value={
-                  formData.investment
-                }
-                onChange={handleChange}
-              />
-
-            </div>
+         
 
 
             {/* SOURCE */}
@@ -4515,7 +4690,91 @@ Leave empty if no change
               />
 
             </div>
+{/* SOLUTION */}
+<div className="form-group">
 
+  <label>
+    Solution
+  </label>
+
+  <select
+
+    name="solution"
+
+    value={formData.solution}
+
+    onChange={handleChange}
+  >
+
+    <option value="">
+      Select Solution
+    </option>
+
+    <option>
+      Anti-Counterfeiting
+    </option>
+
+    <option>
+      Track & Trace
+    </option>
+
+    <option>
+      Customer Engagement
+    </option>
+
+    <option>
+      Retail Intelligence
+    </option>
+
+    <option>
+      Digital Warranty
+    </option>
+
+  </select>
+
+</div>
+
+
+{/* PRODUCT */}
+
+<div className="form-group">
+
+  <label>
+    Product
+  </label>
+
+  <select
+
+    name="product"
+
+    value={formData.product}
+
+    onChange={handleChange}
+  >
+
+    <option value="">
+      Select Product
+    </option>
+
+    <option>
+      Dealer Order Management
+    </option>
+
+    <option>
+      AI Chatbot
+    </option>
+
+    <option>
+      RFID Inventory management
+    </option>
+
+    <option>
+      Custom Application Development
+    </option>
+
+  </select>
+
+</div>
 
             {/* FOLLOWUP */}
 
@@ -5176,31 +5435,7 @@ Leave empty if no change
 
             {/* INVESTMENT */}
 
-            <div className="input-group">
-
-              <label>
-                Investment
-              </label>
-
-              <input
-
-                type="number"
-
-                value={formData.investment}
-
-                onChange={(e) =>
-
-                  setFormData({
-
-                    ...formData,
-
-                    investment:
-                    e.target.value,
-                  })
-                }
-              />
-
-            </div>
+            
 
 
             {/* SOURCE */}
@@ -5574,6 +5809,7 @@ Leave empty if no change
             </h4>
 
           </div>
+       
 
 
           <div className="detail-row">
@@ -5602,6 +5838,53 @@ Leave empty if no change
             </h4>
 
           </div>
+          <div className="view-box">
+
+  <span>
+    Solution
+  </span>
+
+  <h4>
+    {selectedCustomer.solution}
+  </h4>
+
+</div>
+
+
+<div className="view-box">
+
+  <span>
+    Product
+  </span>
+
+  <h4>
+    {selectedCustomer.product}
+  </h4>
+
+</div>
+
+
+<div className="view-box">
+
+  <span>
+    Last Modified
+  </span>
+
+  <h4>
+
+    {
+      selectedCustomer.lastModified
+
+      ? new Date(
+          selectedCustomer.lastModified
+        ).toLocaleString()
+
+      : "N/A"
+    }
+
+  </h4>
+
+</div>
 
 
           <div className="detail-row full-row">
@@ -5615,6 +5898,57 @@ Leave empty if no change
             </h4>
 
           </div>
+          <div className="view-box full-width">
+
+  <span>
+    Previous Remarks
+  </span>
+
+  {
+
+    selectedCustomer
+    ?.lastRemarks
+    ?.length > 0 ? (
+
+      selectedCustomer
+      .lastRemarks
+      .map((item, index) => (
+
+        <div
+          key={index}
+          className="
+remark-history
+"
+        >
+
+          <p>
+
+            {item.remark}
+
+          </p>
+
+          <small>
+
+            {
+              new Date(
+                item.updatedAt
+              ).toLocaleString()
+            }
+
+          </small>
+
+        </div>
+      ))
+
+    ) : (
+
+      <p>
+        No previous remarks
+      </p>
+    )
+  }
+
+</div>
 
         </div>
 

@@ -9,60 +9,48 @@ async (req, res) => {
 
   try {
 
-    const {
+  const {
 
-      name,
-      email,
-      phone,
-      company,
+  name,
+  email,
+  phone,
+  company,
+  status,
+  leadStage,
+  investment,
+  remark,
+  followUpDate,
+  priority,
+  source,
+  assignedTo,
 
-      status,
+  solution,
+  product,
 
-      leadStage,
-
-      investment,
-
-      remark,
-
-      followUpDate,
-
-      priority,
-
-      source,
-
-      assignedTo,
-
-    } = req.body;
+} = req.body;
 
 
     const customer =
-      await Customer.create({
+await Customer.create({
 
-        name,
-        email,
-        phone,
-        company,
+  name,
+  email,
+  phone,
+  company,
+  status,
+  leadStage,
+  investment,
+  remark,
+  followUpDate,
+  priority,
+  source,
+  assignedTo,
+  solution,
+  product,
 
-        status,
-
-        leadStage,
-
-        investment,
-
-        remark,
-
-        followUpDate,
-
-        priority,
-
-        source,
-
-        assignedTo,
-
-        // LOGIN USER
-        createdBy:
-          req.user._id,
-      });
+  createdBy:
+  req.user._id,
+});
 let customers;
 
 const getCustomers =
@@ -272,81 +260,120 @@ async (req, res) => {
 
 // ================= BULK UPLOAD =================
 
+
+// ================= BULK UPLOAD =================
+
+
 const bulkUploadCustomers =
 async (req, res) => {
 
   try {
 
-    const { customers } = req.body;
+    console.log(req.body);
 
-    if (!customers ||
-        customers.length === 0) {
+    const customers =
+      req.body.customers;
 
-      return res.status(400).json({
+    if (
+      !customers ||
+      customers.length === 0
+    ) {
+
+      return res.status(400)
+      .json({
+
+        success: false,
+
         message:
-        "No customer data found",
+        "No customers found",
       });
     }
 
 
     const formattedCustomers =
-      customers.map((item) => ({
+      customers.map(
+        (customer) => ({
 
-        name: item.name || "",
+          name:
+            customer.name || "",
 
-        email: item.email || "",
+          email:
+            customer.email || "",
 
-        phone: item.phone || "",
+          phone:
+            customer.phone || "",
 
-        company: item.company || "",
+          company:
+            customer.company || "",
 
-        status:
-          item.status || "lead",
+          status:
+            customer.status || "lead",
 
-        leadStage:
-          item.leadStage ||
-          "Awareness",
+          leadStage:
+            customer.leadStage ||
+            "Awareness",
 
-        investment:
-          item.investment || 0,
+          investment:
+            customer.investment || "",
 
-        remark:
-          item.remark || "",
+          remark:
+            customer.remark || "",
 
-        followUpDate:
-          item.followUpDate || null,
+          followUpDate:
+            customer.followUpDate
+            ? new Date(
+                customer.followUpDate
+              )
+            : null,
 
-        priority:
-          item.priority || "Medium",
+          priority:
+            customer.priority ||
+            "Medium",
 
-        source:
-          item.source || "Website",
+          source:
+            customer.source || "",
 
-        assignedTo:
-          item.assignedTo || "",
+          assignedTo:
+            customer.assignedTo || "",
 
-        createdBy:
-          req.user._id,
-       }));
+          solution:
+            customer.solution || "",
+
+          product:
+            customer.product || "",
+
+          createdBy:
+            req.user._id,
+       
+        })
+      );
 
 
     await Customer.insertMany(
       formattedCustomers
     );
 
-
-    res.status(201).json({
+    res.status(200).json({
 
       success: true,
 
       message:
-        "Bulk customers uploaded",
+      "Customers uploaded successfully",
     });
 
   } catch (error) {
 
+    console.log(
+      "BULK UPLOAD ERROR =>",
+      error
+    );
+
     res.status(500).json({
-      message: error.message,
+
+      success: false,
+
+      message:
+      error.message,
     });
   }
 };
@@ -396,37 +423,79 @@ async (req, res) => {
     });
   }
 };
-const updateCustomer = async (req, res) => {
+const updateCustomer =
+async (req, res) => {
 
   try {
 
     const customer =
-      await Customer.findById(
-        req.params.id
-      );
+    await Customer.findById(
+      req.params.id
+    );
 
     if (!customer) {
 
-      return res.status(404).json({
+      return res.status(404)
+      .json({
 
         success: false,
 
-        message: "Customer not found",
+        message:
+        "Customer not found",
       });
     }
 
-    const updatedCustomer =
-     await Customer.findByIdAndUpdate(
-  req.params.id,
-  req.body,
-  { returnDocument: "after" }
-);
+
+    // ================= SAVE OLD REMARK =================
+
+    if (
+
+      req.body.remark &&
+
+      req.body.remark !==
+      customer.remark
+    ) {
+
+      customer.lastRemarks.unshift({
+
+        remark:
+        customer.remark,
+
+        updatedAt:
+        new Date(),
+      });
+    }
+
+
+    // ================= KEEP ONLY LAST 2 =================
+
+    customer.lastRemarks =
+    customer.lastRemarks.slice(0, 2);
+
+
+    // ================= UPDATE FIELDS =================
+
+    Object.keys(req.body)
+    .forEach((key) => {
+
+      customer[key] =
+      req.body[key];
+    });
+
+
+    // ================= LAST MODIFIED =================
+
+    customer.lastModified =
+    new Date();
+
+
+    await customer.save();
 
     res.status(200).json({
 
       success: true,
 
-      customer: updatedCustomer,
+      customer,
     });
 
   } catch (error) {
@@ -437,7 +506,8 @@ const updateCustomer = async (req, res) => {
 
       success: false,
 
-      message: error.message,
+      message:
+      error.message,
     });
   }
 };
