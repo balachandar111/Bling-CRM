@@ -275,7 +275,7 @@ async (req, res) => {
 
   try {
 
-    console.log(req.body);
+  
 
     const customers =
       req.body.customers;
