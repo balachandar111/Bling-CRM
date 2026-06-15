@@ -5798,3 +5798,35 @@ margin-top: -5px;
 }
 /*updated sidebar*/
 
+.customer-table-container{
+  width:100%;
+  overflow:hidden;
+  background:#fff;
+  border-radius:12px;
+  box-shadow:0 2px 10px rgba(0,0,0,0.08);
+}
+
+.minimal-table{
+  width:100%;
+  table-layout:fixed;
+  border-collapse:collapse;
+}
+
+.minimal-table th,
+.minimal-table td{
+ 
+  font-size:13px;
+  text-align:center;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.minimal-table th{
+  background:#f8fafc;
+  font-weight:600;
+}
+
+.minimal-table tr{
+  height:50px;
+}

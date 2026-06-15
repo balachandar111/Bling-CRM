@@ -7,7 +7,10 @@ require("../models/customerModel");
 const createCustomer =
 async (req, res) => {
 
+  
+
   try {
+   
 
   const {
 
@@ -23,7 +26,7 @@ async (req, res) => {
   priority,
   source,
   assignedTo,
-
+  sector,
   solution,
   product,
 
@@ -47,11 +50,13 @@ await Customer.create({
   assignedTo,
   solution,
   product,
-
+  sector,
   createdBy:
   req.user._id,
 });
+
 let customers;
+
 
 const getCustomers =
 async (req, res) => {
@@ -120,6 +125,7 @@ async (req, res) => {
         error.message,
     });
   }
+  
 };
 
 
@@ -336,11 +342,13 @@ async (req, res) => {
           assignedTo:
             customer.assignedTo || "",
 
-          solution:
-            customer.solution || "",
+      
 
           product:
             customer.product || "",
+
+          sector: 
+            customer.sector || "",
 
           createdBy:
             req.user._id,

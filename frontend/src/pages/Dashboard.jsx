@@ -488,7 +488,7 @@ const downloadExcel = () => {
       Email:
       customer.email,
 
-      Phone:
+      "Contact No":
       customer.phone,
 
       Company:
@@ -503,11 +503,11 @@ const downloadExcel = () => {
       Priority:
       customer.priority,
 
-      Solution:
-      customer.solution,
 
       Product:
       customer.product,
+      Sector:
+      customer.sector,
 
       Investment:
       customer.investment,
@@ -722,6 +722,9 @@ useState("");
 const [statusFilter,
 setStatusFilter] =
 useState("");
+const [sourceFilter,setSourceFilter] = useState("");
+
+const [sectorFilter,setSectorFilter] = useState("");
 
 
 const [dashboardType,
@@ -1132,50 +1135,49 @@ customers.filter((customer) => {
 
     customer.leadStage ===
     statusFilter;
+const matchesSource =
+  !sourceFilter ||
+  customer.source
+    ?.toLowerCase()
+    .includes(sourceFilter.toLowerCase());
 
+const matchesSector =
+  !sectorFilter ||
+  customer.sector
+    ?.toLowerCase()
+    .includes(sectorFilter.toLowerCase());
 
-  return (
-
-    matchesSearch &&
-
-    matchesSolution &&
-
-    matchesProduct &&
-
-    matchesPriority &&
-
-    matchesStatus
-  );
+ return (
+  matchesSearch &&
+  matchesSolution &&
+  matchesProduct &&
+  matchesPriority &&
+  matchesStatus &&
+  matchesSource &&
+  matchesSector
+);
 });
 
   const [formData, setFormData] =
-    useState({
+useState({
 
-      name: "",
-      email: "",
-      phone: "",
-      company: "",
+  name: "",
+  email: "",
+  phone: "",
+  company: "",
+  sector: "",
 
-      status: "lead",
-
-      leadStage: "Awareness",
-
-      investment: "",
-
-      remark: "",
-
-      followUpDate: "",
-
-      priority: "Medium",
-
-      source: "Website",
-
-      assignedTo: "",
-
-      solution: "",
-
-      product: "",
-    });
+  status: "lead",
+  leadStage: "Awareness",
+  investment: "",
+  remark: "",
+  followUpDate: "",
+  priority: "Medium",
+  source: "Website",
+  assignedTo: "",
+  solution: "",
+  product: "",
+});
 // ================= PAGINATION =================
 
 const indexOfLastCustomer =
@@ -1348,6 +1350,7 @@ useEffect(() => {
   async (e) => {
 
     e.preventDefault();
+    console.log("Sending Data =>", formData);
 
     try {
 
@@ -1383,7 +1386,7 @@ useEffect(() => {
 
         source: "Website",
 
-
+        sector: "",
         assignedTo: "",
         solution: "",
 product: "",
@@ -1406,7 +1409,7 @@ product: "",
 
 const handleFullUpdate = (customer) => {
 
-  console.log("Selected Customer =>", customer);
+
 
   if (!customer || !customer._id) {
 
@@ -1434,6 +1437,8 @@ const handleFullUpdate = (customer) => {
     priority: customer.priority || "",
 
     assignedTo: customer.assignedTo || "",
+    sector: customer.sector || "",
+    product:customer.product || "",
 
     remark: customer.remark || "",
 
@@ -2987,18 +2992,23 @@ clear-filter-btn
         All
       </option>
 
-      <option>
-        AI Chatbot
-      </option>
-      <option>
-        Dealer Order Management
-      </option>
-      <option>
-        RFID Inventory management
-      </option>
-      <option>
-        Custom Application Development
-      </option>
+    <option>
+      Bling Rewards
+    </option>
+     <option>
+      Digital Warranty
+    </option>
+    <option>
+      Track and Trace
+    </option>
+
+    <option>
+     Dealer Module
+    </option>
+
+    <option>
+      Custom Application Development
+    </option>
     </select>
 
   </div>
@@ -3078,6 +3088,73 @@ clear-filter-btn
     </select>
 
   </div>
+  <div className="filter-item">
+
+  <label>
+    Lead Source
+  </label>
+
+  <select
+    value={sourceFilter}
+    onChange={(e)=>
+      setSourceFilter(e.target.value)
+    }
+  >
+
+    <option value="">
+      All Sources
+    </option>
+
+    <option value="Website">
+      Website
+    </option>
+
+    <option value="Referral">
+      Referral
+    </option>
+    <option value="Expo">
+      Expo
+    </option>
+
+    <option value="Social media">
+      Social Media
+    </option>
+
+  </select>
+
+</div>
+<div className="filter-item">
+
+  <label>
+    Sector
+  </label>
+
+  <input
+    type="text"
+    placeholder="Search sector..."
+    value={sectorFilter}
+    onChange={(e)=>
+      setSectorFilter(e.target.value)
+    }
+  />
+
+</div>
+<button
+  className="clear-filter-btn"
+  onClick={() => {
+
+    setProductFilter("");
+    setPriorityFilter("");
+    setStatusFilter("");
+    setSourceFilter("");
+    setSectorFilter("");
+
+  }}
+>
+
+  Clear Filters
+
+</button>
 <button
 
   className="
@@ -3098,7 +3175,7 @@ download-btn
 
       {/* TABLE */}
 
-      <div className="minimal-table-wrapper">
+    <div className="customer-table-container">
 
         <table className="minimal-table">
 
@@ -3110,12 +3187,12 @@ download-btn
 
               <th>Company</th>
 
-              <th>Phone</th>
+              <th>Contact no</th>
 
-              <th>Status</th>
-               <th>Priority</th>
+               <th>Lead Source</th>
           
               <th>Product</th>
+              <th>Sector</th>
 
              
               <th>
@@ -3161,33 +3238,18 @@ download-btn
                       {customer.phone}
                     </td>
 
-                    <td>
+                   
 
-                      <span className="status-badge">
-
-                        {
-                          customer.leadStage
-                        }
-
-                      </span>
-
-                    </td>
-
-                    <td>
-
-                      <span className="priority-badge">
-
-                        {
-                          customer.priority
-                        }
-
-                      </span>
-
-                    </td>
+                 
           
-
+<td>
+  {customer.source}
+</td>
 <td>
   {customer.product || "-"}
+</td>
+<td>
+  {customer.sector}
 </td>
            <td>
 
@@ -3624,6 +3686,7 @@ download-btn
               <th>
                 Documents
               </th>
+               <th>Payslip</th>
 
               <th>
                 Actions
@@ -3975,7 +4038,7 @@ role === "super_admin" && (
             <div className="input-group">
 
               <label>
-                Phone
+                Contact No
               </label>
 
               <input
@@ -4959,13 +5022,13 @@ Leave empty if no change
             <div className="input-group">
 
               <label>
-                Phone Number
+               Contact No
               </label>
 
               <input
                 type="text"
                 name="phone"
-                placeholder="Enter phone number"
+                placeholder="Enter Contact No"
                 value={formData.phone}
                 onChange={handleChange}
               />
@@ -5070,21 +5133,23 @@ Leave empty if no change
 
             {/* SOURCE */}
 
-            <div className="input-group">
+        
+<div className="input-group">
+  <label>Lead Source</label>
 
-              <label>
-                Lead Source
-              </label>
+  <select
+    name="source"
+    value={formData.source}
+    onChange={handleChange}
+  >
+    <option value="Website">Website</option>
+    <option value="Referral">Referral</option>
+    <option value="Expo">Expo</option>
+    <option value="Social Media">Social Media</option>
+  
+  </select>
+</div>
 
-              <input
-                type="text"
-                name="source"
-                placeholder="Enter source"
-                value={formData.source}
-                onChange={handleChange}
-              />
-
-            </div>
 
 
             {/* ASSIGNED */}
@@ -5147,6 +5212,22 @@ Leave empty if no change
   </select>
 
 </div>
+<div className="input-group">
+
+              <label>
+                Sector
+              </label>
+
+              <input
+                type="text"
+                name="sector"
+                placeholder="Enter sector"
+                value={formData.sector}
+                onChange={handleChange}
+                required
+              />
+
+            </div>
 
             {/* FOLLOWUP */}
 
@@ -5730,7 +5811,7 @@ Leave empty if no change
             <div className="input-group">
 
               <label>
-                Phone
+                Contact No
               </label>
 
               <input
@@ -5781,6 +5862,30 @@ Leave empty if no change
               />
 
             </div>
+            <div className="input-group">
+
+  <label>
+    Sector
+  </label>
+
+  <input
+    type="text"
+    name="sector"
+    placeholder="Enter Sector"
+    value={formData.sector}
+    onChange={(e) =>
+
+                  setFormData({
+
+                    ...formData,
+
+                    sector:
+                    e.target.value,
+                  })
+                }
+  />
+
+</div>
 
 
             {/* LEAD STAGE */}
@@ -5876,31 +5981,23 @@ Leave empty if no change
 
             {/* SOURCE */}
 
+        
             <div className="input-group">
+  <label>Lead Source</label>
 
-              <label>
-                Lead Source
-              </label>
-
-              <input
-
-                type="text"
-
-                value={formData.source}
-
-                onChange={(e) =>
-
-                  setFormData({
-
-                    ...formData,
-
-                    source:
-                    e.target.value,
-                  })
-                }
-              />
-
-            </div>
+  <select
+    name="source"
+    value={formData.source}
+    onChange={handleChange}
+  >
+    <option value="Website">Website</option>
+    <option value="Referral">Referral</option>
+    <option value="Expo">Expo</option>
+    <option value="Social media">Social Media</option>
+    <option value="others">Others</option>
+   
+  </select>
+</div>
 
 
             {/* ASSIGNED */}
@@ -6216,7 +6313,7 @@ Leave empty if no change
 
           <div className="detail-row">
 
-            <span>Phone</span>
+            <span>Contact No</span>
 
             <h4>
               {selectedCustomer.phone}
@@ -6257,7 +6354,15 @@ Leave empty if no change
             </h4>
 
           </div>
+ <div className="detail-row">
 
+            <span>Sector</span>
+
+            <h4>
+              {selectedCustomer.sector}
+            </h4>
+
+          </div>
 
           <div className="detail-row">
 

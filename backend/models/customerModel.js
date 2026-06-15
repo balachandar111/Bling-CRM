@@ -123,13 +123,9 @@ status: {
 
     enum: [
       "Website",
-      "Instagram",
-      "Facebook",
-      "LinkedIn",
-      "Referral",
-      "Cold Call",
-      "Walk-in",
-      "Other"
+      "Social media",
+      "Expo",
+      "Referral"
     ],
 
     default: "Website",
@@ -147,6 +143,10 @@ solution: {
 
 product: {
   type: String,
+},
+sector: {
+  type: String,
+  default: ""
 },
 lastModified: {
 
