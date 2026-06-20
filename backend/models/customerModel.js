@@ -63,12 +63,7 @@ status: {
 
 
   // INVESTMENT
-  investment: {
-
-    type: Number,
-
-    default: 0,
-  },
+ 
 
 
   // REMARKS

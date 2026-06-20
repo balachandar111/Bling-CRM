@@ -336,7 +336,7 @@ async (req, res) => {
             "Medium",
 
           source:
-            customer.source || "",
+            customer.source || "Website",
 
           assignedTo:
             customer.assignedTo || "",
