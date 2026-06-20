@@ -509,9 +509,7 @@ const downloadExcel = () => {
       Sector:
       customer.sector,
 
-      Investment:
-      customer.investment,
-
+ 
       Source:
       customer.source,
 
@@ -1169,7 +1167,7 @@ useState({
 
   status: "lead",
   leadStage: "Awareness",
-  investment: "",
+
   remark: "",
   followUpDate: "",
   priority: "Medium",
@@ -1376,7 +1374,7 @@ useEffect(() => {
 
         leadStage: "Awareness",
 
-        investment: "",
+    
 
         remark: "",
 
@@ -1442,7 +1440,7 @@ const handleFullUpdate = (customer) => {
 
     remark: customer.remark || "",
 
-    investment: customer.investment || "",
+   
 
     followUpDate:
       customer.followUpDate

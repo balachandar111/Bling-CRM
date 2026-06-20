@@ -319,8 +319,7 @@ async (req, res) => {
             customer.leadStage ||
             "Awareness",
 
-          investment:
-            customer.investment || "",
+       
 
           remark:
             customer.remark || "",
