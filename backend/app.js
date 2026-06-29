@@ -48,6 +48,11 @@ app.use(
   require("./routes/employeeRoutes")
 );
 
+app.use(
+  "/api/attendance",
+  require("./routes/attendanceRoutes")
+);
+
 
 // ================= TEST =================
 

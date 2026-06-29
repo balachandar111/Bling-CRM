@@ -7,7 +7,6 @@ new mongoose.Schema(
   // BASIC DETAILS
   name: {
     type: String,
-    required: true,
   },
 
   email: {

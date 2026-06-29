@@ -16,6 +16,8 @@ import { saveAs }
 from "file-saver";
 import "react-calendar/dist/Calendar.css";
 
+import EmployeeAttendanceModal from "../components/EmployeeAttendanceModal";
+import "../components/EmployeeAttendanceModal.css";
 
 import {
   useNavigate,
@@ -745,16 +747,13 @@ useEffect(() => {
 }, [searchTerm]);
 useEffect(() => {
 
-  const fullScreenPages = [
-
-    "customers",
-    "dashboard",
-
-    "users",
-    "employees",
-    "reminders"
-
-  ];
+const fullScreenPages = [
+  "customers",
+  "dashboard",
+  "users",
+  "employees",
+  "reminders",
+];
 
   setSidebarOpen(
     !fullScreenPages.includes(
@@ -820,6 +819,8 @@ async () => {
 const [showEmployeeUpdate,
 setShowEmployeeUpdate] =
 useState(false);
+const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+const [attendanceEmployee, setAttendanceEmployee] = useState(null);
 
 const [selectedEmployee,
 setSelectedEmployee] =
@@ -3842,6 +3843,20 @@ role === "super_admin" && (
 
 )
 }</td>
+<td>
+  {role === "super_admin" && (
+  <button
+    className="att-view-btn"
+    onClick={() => {
+      setAttendanceEmployee(employee);
+      setShowAttendanceModal(true);
+    }}
+  >
+    📅 Attendance
+  </button>
+)}
+</td>
+
 
                   <td>
 
@@ -4212,6 +4227,15 @@ role === "super_admin" && (
     </div>
   )
 }
+{showAttendanceModal && attendanceEmployee && (
+  <EmployeeAttendanceModal
+    employee={attendanceEmployee}
+    onClose={() => {
+      setShowAttendanceModal(false);
+      setAttendanceEmployee(null);
+    }}
+  />
+)}
         {/* ================= USER MANAGEMENT ================= */}
 
 {

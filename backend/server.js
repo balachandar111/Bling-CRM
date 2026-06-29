@@ -51,6 +51,9 @@ require("./routes/customerRoutes");
 const employeeRoutes =
 require("./routes/employeeRoutes");
 
+const attendanceRoutes =
+require("./routes/attendanceRoutes");
+
 
 // AUTH
 
@@ -81,6 +84,14 @@ app.use(
 app.use(
   "/api/employees",
   employeeRoutes
+);
+
+
+// ATTENDANCE
+
+app.use(
+  "/api/attendance",
+  attendanceRoutes
 );
 
 
