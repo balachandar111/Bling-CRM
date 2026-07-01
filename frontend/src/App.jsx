@@ -13,6 +13,7 @@ import Login from "./pages/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 import "./index.css";
+import "./styles/flexible.css";
 
 const App = () => {
 
@@ -50,7 +51,6 @@ const App = () => {
     </BrowserRouter>
   );
 };
-import EmployeeProfile
-from "./pages/EmployeeProfile";
+import EmployeeProfile from "./user/EmployeeProfile";
 
 export default App;

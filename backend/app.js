@@ -53,6 +53,11 @@ app.use(
   require("./routes/attendanceRoutes")
 );
 
+app.use(
+  "/api/tasks",
+  require("./routes/taskRoutes")
+);
+
 
 // ================= TEST =================
 

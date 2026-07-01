@@ -1,0 +1,249 @@
+/* ============================================================
+   FLEXIBLE / RESPONSIVE OVERRIDES
+   Loaded AFTER index.css so these rules win the cascade and
+   replace the old fixed-width / duplicated styles for the
+   main layout, modals, forms, tables and buttons.
+   ============================================================ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* ---------------- APP LAYOUT ---------------- */
+
+.layout {
+  display: flex;
+  width: 100%;
+  min-height: 100vh;
+  flex-wrap: wrap;
+}
+
+.sidebar {
+  flex: 0 0 auto;
+  width: clamp(200px, 18vw, 260px);
+  max-width: 100%;
+  transition: width 0.2s ease, transform 0.2s ease;
+}
+
+.sidebar.sidebar-hidden {
+  width: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.main-content,
+.dashboard-content,
+.content-area {
+  flex: 1 1 0%;
+  min-width: 0; /* prevents flex children from overflowing on small screens */
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .layout {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 1000;
+    height: 100vh;
+    overflow-y: auto;
+  }
+
+  .sidebar.sidebar-hidden {
+    transform: translateX(-100%);
+    width: clamp(200px, 80vw, 280px);
+  }
+}
+
+/* ---------------- MODALS (Add/Update Employee, User, Payslip) ---------------- */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(10px, 3vw, 24px);
+  background: rgba(15, 23, 42, 0.55);
+  z-index: 2000;
+  overflow-y: auto;
+}
+
+.modal {
+  width: min(600px, 100%);
+  max-width: 100%;
+  max-height: min(90vh, 800px);
+  overflow-y: auto;
+  border-radius: 12px;
+  padding: clamp(16px, 3vw, 28px);
+  margin: auto;
+}
+
+.modal-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.modal-header h2 {
+  font-size: clamp(16px, 2.2vw, 20px);
+  word-break: break-word;
+}
+
+.close-icon {
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* ---------------- FORMS ---------------- */
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: clamp(10px, 2vw, 18px);
+  width: 100%;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.input-group input,
+.input-group select,
+.input-group textarea {
+  width: 100%;
+  min-width: 0;
+}
+
+.submit-btn {
+  width: 100%;
+  margin-top: 14px;
+}
+
+/* ---------------- ADMIN PAGE HEADERS (Employees / Users) ---------------- */
+
+.employee-page,
+.employee-section {
+  width: 100%;
+  min-width: 0;
+}
+
+.employee-topbar,
+.employee-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.header-left,
+.header-right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.add-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* ---------------- TABLES (Employees / Users) ---------------- */
+
+.employee-table-container,
+.employee-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.minimal-employee-table,
+.employee-table {
+  width: 100%;
+  min-width: 720px; /* keeps columns readable; wrapper scrolls horizontally below this */
+  border-collapse: collapse;
+}
+
+.minimal-employee-table th,
+.minimal-employee-table td,
+.employee-table th,
+.employee-table td {
+  word-break: break-word;
+}
+
+.employee-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.employee-action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.table-edit-btn,
+.table-delete-btn,
+.payslip-btn,
+.att-view-btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* ---------------- SMALL SCREEN TWEAKS ---------------- */
+
+@media (max-width: 768px) {
+  .employee-topbar,
+  .employee-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .header-right,
+  .add-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .modal {
+    width: 100%;
+    max-height: 100vh;
+    height: 100%;
+    border-radius: 0;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+/* ================================================================
+   flexible.css — layout shims only, complementing index.css
+================================================================ */
+*, *::before, *::after { box-sizing: border-box; }
+
+.layout { display: flex; width: 100%; min-height: 100vh; }
+.main-content { flex: 1; min-width: 0; }
+
+/* Sidebar toggle position when sidebar is open */
+.sidebar:not(.sidebar-hidden) ~ .main-content .sidebar-toggle { left: 256px; }
+
+/* Employee/generic section flex helpers */
+.employee-section { margin-top: 16px; }
+.employee-action-buttons { display: flex; gap: 7px; flex-wrap: wrap; }
+.table-edit-btn, .table-delete-btn, .payslip-btn, .att-view-btn { flex: 0 0 auto; }

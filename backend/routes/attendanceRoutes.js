@@ -3,6 +3,7 @@ const router = express.Router();
 
 const employeeAuth = require("../middlewares/employeeAuth");
 const authMiddleware = require("../middlewares/authMiddleware");
+const userEmployeeAuth = require("../middlewares/userEmployeeAuth");
 
 const {
   checkIn,
@@ -13,7 +14,21 @@ const {
   getDateAttendance,
   getEmployeeAttendanceSummary,
   getEmployeeDateAttendance,
+  getPendingLeaves,
+  approveLeave,
+  rejectLeave,
 } = require("../controllers/attendanceController");
+
+// =============== USER /me/* ROUTES (user JWT → linked employee) ===============
+// These mirror the employee routes but authenticate via the user's JWT token.
+// MyAttendance.jsx calls these paths.
+
+router.get("/me/today", userEmployeeAuth, getTodayStatus);
+router.get("/me/my", userEmployeeAuth, getMyAttendance);
+router.get("/me/date/:date", userEmployeeAuth, getDateAttendance);
+router.post("/me/checkin", userEmployeeAuth, checkIn);
+router.post("/me/checkout", userEmployeeAuth, checkOut);
+router.post("/me/leave", userEmployeeAuth, applyLeave);
 
 // =============== EMPLOYEE ROUTES ===============
 
@@ -50,5 +65,14 @@ router.get(
   authMiddleware,
   getEmployeeDateAttendance
 );
+
+// Get all pending leave requests (for approval inbox)
+router.get("/leave/pending", authMiddleware, getPendingLeaves);
+
+// Approve a leave request -> marks as "leave"
+router.put("/leave/:id/approve", authMiddleware, approveLeave);
+
+// Reject a leave request
+router.put("/leave/:id/reject", authMiddleware, rejectLeave);
 
 module.exports = router;

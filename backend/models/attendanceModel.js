@@ -45,6 +45,28 @@ const attendanceSchema = new mongoose.Schema(
       default: "",
     },
 
+    // Approval workflow tracking for leave requests.
+    // NOTE: these fields were previously missing from the schema, which
+    // silently stripped them on every save() — that was the root cause of
+    // leave approval not working (getPendingLeaves filters on leaveStatus,
+    // which was never actually persisted to the database).
+    leaveStatus: {
+      type: String,
+      enum: ["none", "pending", "approved", "rejected"],
+      default: "none",
+    },
+
+    leaveDecisionBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "UserDetails",
+      default: null,
+    },
+
+    leaveDecisionAt: {
+      type: Date,
+      default: null,
+    },
+
     // Track sessions for extra logins after checkout
     sessions: [
       {

@@ -54,6 +54,9 @@ require("./routes/employeeRoutes");
 const attendanceRoutes =
 require("./routes/attendanceRoutes");
 
+const taskRoutes =
+require("./routes/taskRoutes");
+
 
 // AUTH
 
@@ -92,6 +95,14 @@ app.use(
 app.use(
   "/api/attendance",
   attendanceRoutes
+);
+
+
+// TASKS
+
+app.use(
+  "/api/tasks",
+  taskRoutes
 );
 
 

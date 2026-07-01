@@ -40,6 +40,7 @@ const {
   updateProfileImage,
 
   updateEmployeeDocument,
+  getMyPayslipsAsUser,
 
 } = require(
   "../controllers/employeeController"
@@ -246,6 +247,15 @@ router.put(
   updateEmployee
 );
 
+
+// ================= USER PANEL: MY PAYSLIPS (self-service) =================
+// Used by logged-in Users (role "user"/"super_admin") in the Dashboard
+// "Attendance" section. Resolves the linked Employee record by email.
+router.get(
+  "/me/payslips",
+  authMiddleware,
+  getMyPayslipsAsUser
+);
 
 module.exports =
 router;

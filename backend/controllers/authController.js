@@ -5,6 +5,9 @@
 let User =
 require("../models/userModel");
 
+const Employee =
+require("../models/employeeModel");
+
 const bcrypt =
 require("bcrypt");
 
@@ -51,6 +54,28 @@ async (req, res) => {
     role,
   });
 
+  // ── Auto-create a linked Employee record so the user appears in the
+  //    employee list and can use all attendance features. ──────────────
+  try {
+    // Check if an employee with this email already exists
+    let emp = await Employee.findOne({ email });
+    if (!emp) {
+      emp = await Employee.create({
+        name,
+        email,
+        password, // raw — Employee pre-save hook will hash it
+        department: "N/A",
+        designation: "User",
+        isUserLinked: true,
+      });
+    }
+    user.linkedEmployeeId = emp._id;
+    await user.save();
+  } catch (empErr) {
+    // Non-fatal: user is still created; log for debugging
+    console.error("Auto-create employee failed:", empErr.message);
+  }
+
     res.status(201).json({
 
       success: true,
@@ -62,6 +87,7 @@ async (req, res) => {
         _id: user._id,
         name: user.name,
         email: user.email,
+        linkedEmployeeId: user.linkedEmployeeId,
       },
     });
 
@@ -116,7 +142,10 @@ const login = async (req, res) => {
 
         role: user.role,
 
-        user,
+        user: {
+          ...user.toObject(),
+          linkedEmployeeId: user.linkedEmployeeId || null,
+        },
       });
     }
 
@@ -282,9 +311,6 @@ async (req, res) => {
     });
   }
 };
-const Employee = require(
-  "../models/employeeModel"
-);
 
 module.exports = {
   register,

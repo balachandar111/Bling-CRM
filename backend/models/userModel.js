@@ -19,10 +19,18 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-      role: {
+    role: {
       type: String,
       enum: ["super_admin", "user"],
       default: "user",
+    },
+
+    // Every user also has an EmployeeDetails record so they appear in
+    // the employee list and can use attendance features.
+    linkedEmployeeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "EmployeeDetails",
+      default: null,
     },
   },
   {

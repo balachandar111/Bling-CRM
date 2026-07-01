@@ -47,7 +47,16 @@ await Customer.create({
   followUpDate,
   priority,
   source,
-  assignedTo,
+
+  // ================= ASSIGNED TO =================
+  // If no user is explicitly assigned, fall back to the
+  // creating user's own name so the lead is still attributable
+  // and filterable by that user in the admin panel.
+  assignedTo:
+  assignedTo && assignedTo.trim() !== ""
+  ? assignedTo
+  : req.user?.name || "",
+
   solution,
   product,
   sector,
@@ -474,10 +483,20 @@ async (req, res) => {
     }
 
 
-    // ================= KEEP ONLY LAST 2 =================
+    // ================= KEEP FULL REMARK HISTORY =================
+    // (No slice/limit — every edited remark is preserved permanently)
 
-    customer.lastRemarks =
-    customer.lastRemarks.slice(0, 2);
+
+    // ================= ASSIGNED TO FALLBACK =================
+    // If the field is present in the request but left blank,
+    // fall back to the current user's name so the customer
+    // stays attributable/filterable by a user in the admin panel.
+    if (
+      Object.prototype.hasOwnProperty.call(req.body, "assignedTo") &&
+      (!req.body.assignedTo || req.body.assignedTo.trim() === "")
+    ) {
+      req.body.assignedTo = req.user?.name || customer.assignedTo || "";
+    }
 
 
     // ================= UPDATE FIELDS =================

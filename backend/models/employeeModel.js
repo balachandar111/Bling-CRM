@@ -31,6 +31,13 @@ new mongoose.Schema(
   salary: Number,
 
   joiningDate: Date,
+
+  // true when this employee record was auto-created from a User account
+  isUserLinked: {
+    type: Boolean,
+    default: false,
+  },
+
 profileImage: {
   type: String,
 },

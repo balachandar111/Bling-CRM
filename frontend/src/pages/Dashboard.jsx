@@ -19,6 +19,16 @@ import "react-calendar/dist/Calendar.css";
 import EmployeeAttendanceModal from "../components/EmployeeAttendanceModal";
 import "../components/EmployeeAttendanceModal.css";
 
+// Admin-only sections
+import Employees from "../admin/Employees";
+import UserManagement from "../admin/UserManagement";
+import LeaveRequests from "../admin/LeaveRequests";
+
+// User-only sections
+import MyAttendance from "../user/MyAttendance";
+import MyProfile from "../user/MyProfile";
+import Tasks from "../user/Tasks";
+
 import {
   useNavigate,
 } from "react-router-dom";
@@ -44,6 +54,7 @@ FaUserCircle,
   FaTrash,
   FaSyncAlt,
 FaSync,
+FaCalendarAlt,
 
 } from "react-icons/fa";
 
@@ -192,10 +203,11 @@ async (e) => {
     );
 
     alert(
-      "User Created Successfully"
+      "User Created Successfully. An employee profile has been auto-created for this user."
     );
 
     fetchUsers();
+    fetchEmployees(); // user now also appears in employee list
 
     setShowUserModal(false);
 
@@ -303,18 +315,20 @@ useState({
   profileImage: null,
 
   documents: [],
+
+  createUserAccount: false,
 });
 const handleEmployeeChange =
 (e) => {
 
-  const { name, value } =
+  const { name, value, type, checked } =
     e.target;
 
   setEmployeeForm({
 
     ...employeeForm,
 
-    [name]: value,
+    [name]: type === "checkbox" ? checked : value,
   });
 };
 const handleEmployeeFiles =
@@ -394,6 +408,11 @@ async (e) => {
       employeeForm.joiningDate
     );
 
+    formData.append(
+      "createUserAccount",
+      employeeForm.createUserAccount ? "true" : "false"
+    );
+
 
     // ================= PROFILE IMAGE =================
 
@@ -457,7 +476,11 @@ async (e) => {
     console.log(data);
 
     alert(
-      "Employee Added Successfully"
+      data.linkedUser
+        ? "Employee Added Successfully. A User login was also created with the same email/password."
+        : data.userCreationWarning
+        ? `Employee Added Successfully. ${data.userCreationWarning}`
+        : "Employee Added Successfully"
     );
 
     fetchEmployees();
@@ -726,6 +749,8 @@ const [sourceFilter,setSourceFilter] = useState("");
 
 const [sectorFilter,setSectorFilter] = useState("");
 
+const [assignedToFilter,setAssignedToFilter] = useState("");
+
 
 const [dashboardType,
 setDashboardType] =
@@ -753,6 +778,8 @@ const fullScreenPages = [
   "users",
   "employees",
   "reminders",
+  "myAttendance",
+  "myProfile",
 ];
 
   setSidebarOpen(
@@ -783,6 +810,8 @@ useState("");
 const [showUserList,
 setShowUserList] =
 useState(false);
+const [showExcelModal, setShowExcelModal] = useState(false);
+const [selectedUserFilter, setSelectedUserFilter] = useState("");
 const filteredUsers =
 users.filter((user) =>
 
@@ -795,6 +824,23 @@ users.filter((user) =>
     .toLowerCase()
   )
 );
+
+// ================= ASSIGNABLE USERS (for "Assigned To") =================
+// Combine users + employees (whichever the current role can see) into a
+// single, de-duplicated list of names to populate the "Assigned To"
+// dropdown and the admin panel filter.
+const assignableUsers = React.useMemo(() => {
+
+  const names = [
+    ...users.map((u) => u.name),
+    ...employees.map((e) => e.name),
+  ].filter(Boolean);
+
+  return Array.from(new Set(names)).sort((a, b) =>
+    a.localeCompare(b)
+  );
+
+}, [users, employees]);
 
 
 //cust update
@@ -819,8 +865,11 @@ async () => {
 const [showEmployeeUpdate,
 setShowEmployeeUpdate] =
 useState(false);
+
 const [showAttendanceModal, setShowAttendanceModal] = useState(false);
 const [attendanceEmployee, setAttendanceEmployee] = useState(null);
+
+
 
 const [selectedEmployee,
 setSelectedEmployee] =
@@ -1146,6 +1195,11 @@ const matchesSector =
     ?.toLowerCase()
     .includes(sectorFilter.toLowerCase());
 
+// ASSIGNED TO
+const matchesAssignedTo =
+  !assignedToFilter ||
+  customer.assignedTo === assignedToFilter;
+
  return (
   matchesSearch &&
   matchesSolution &&
@@ -1153,7 +1207,8 @@ const matchesSector =
   matchesPriority &&
   matchesStatus &&
   matchesSource &&
-  matchesSector
+  matchesSector &&
+  matchesAssignedTo
 );
 });
 
@@ -1287,6 +1342,50 @@ async () => {
   };
 
 
+  // ================= LEAVE REQUESTS (SUPER ADMIN) =================
+
+  const [pendingLeaves, setPendingLeaves] = useState([]);
+  const [pendingLeaveCount, setPendingLeaveCount] = useState(0);
+  const [leaveActionLoading, setLeaveActionLoading] = useState(false);
+
+  const fetchPendingLeaves = async () => {
+    try {
+      const { data } = await API.get("/attendance/leave/pending");
+      setPendingLeaves(data.records || []);
+      setPendingLeaveCount((data.records || []).length);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const approveLeaveRequest = async (id) => {
+    if (!window.confirm("Approve this leave request? It will be marked as leave.")) return;
+    setLeaveActionLoading(true);
+    try {
+      await API.put(`/attendance/leave/${id}/approve`);
+      alert("Leave approved and marked as leave.");
+      fetchPendingLeaves();
+    } catch (error) {
+      console.log(error);
+      alert(error.response?.data?.message || "Failed to approve leave");
+    }
+    setLeaveActionLoading(false);
+  };
+
+  const rejectLeaveRequest = async (id) => {
+    if (!window.confirm("Reject this leave request?")) return;
+    setLeaveActionLoading(true);
+    try {
+      await API.put(`/attendance/leave/${id}/reject`);
+      alert("Leave request rejected.");
+      fetchPendingLeaves();
+    } catch (error) {
+      console.log(error);
+      alert(error.response?.data?.message || "Failed to reject leave");
+    }
+    setLeaveActionLoading(false);
+  };
+
   useEffect(() => {
 
    fetchCustomers();
@@ -1295,6 +1394,9 @@ fetchEmployees();
 
 if (role === "super_admin") {
   fetchUsers();
+  fetchPendingLeaves();
+  // Auto-migrate existing users → linked employee records (idempotent)
+  API.post("/users/migrate-employees").catch(() => {});
 }
 
   }, []);
@@ -2039,6 +2141,8 @@ const performanceData = [
 </li>
 
   {/* EMPLOYEES - SUPER ADMIN ONLY */}
+{
+  role === "super_admin" && (
 <li
 
   className={
@@ -2060,6 +2164,59 @@ const performanceData = [
   <FaUsers />
 
   Employees
+
+</li>
+  )
+}
+
+  {/* ATTENDANCE - USER PANEL ONLY (user is also an employee:
+      check in/out, leave, payslips, attendance history) */}
+
+
+  {/* ATTENDANCE - USER / EMPLOYEE ONLY (removed for admin) */}
+{
+  role !== "super_admin" && (
+<li
+
+  className={
+    activeMenu ===
+    "myAttendance"
+
+      ? "active"
+
+      : ""
+  }
+
+  onClick={() =>
+    setActiveMenu(
+      "myAttendance"
+    )
+  }
+>
+
+  <FaClock />
+
+  Attendance
+
+</li>
+  )
+}
+
+  {/* TASKS - visible to everyone */}
+<li
+
+  className={
+    activeMenu === "tasks"
+      ? "active"
+      : ""
+  }
+
+  onClick={() => setActiveMenu("tasks")}
+>
+
+  <FaTasks />
+
+  Tasks
 
 </li>
 
@@ -2091,6 +2248,51 @@ const performanceData = [
         <FaUserCheck />
 
         User Management
+
+      </li>
+    )
+  }
+
+  {/* LEAVE REQUESTS - SUPER ADMIN ONLY */}
+  {
+    role ===
+    "super_admin" && (
+
+      <li
+
+        className={
+          activeMenu ===
+          "leaveRequests"
+
+            ? "active"
+
+            : ""
+        }
+
+        onClick={() =>
+          setActiveMenu(
+            "leaveRequests"
+          )
+        }
+      >
+
+        <FaCalendarAlt />
+
+        Leave Requests
+        {pendingLeaveCount > 0 && (
+          <span
+            style={{
+              marginLeft: "8px",
+              background: "#ff4d4f",
+              color: "#fff",
+              borderRadius: "10px",
+              padding: "1px 8px",
+              fontSize: "12px",
+            }}
+          >
+            {pendingLeaveCount}
+          </span>
+        )}
 
       </li>
     )
@@ -2947,22 +3149,12 @@ clear-filter-btn
           >
             Add Customer
           </button>
-         <label className="bulk-upload-btn">
-
-  Upload Excel
-
-  <input
-
-    type="file"
-
-    accept=".xlsx,.xls,.csv"
-
-    hidden
-
-    onChange={handleFileUpload}
-  />
-
-</label>
+          <button
+            className="bulk-upload-btn"
+            onClick={() => setShowExcelModal(true)}
+          >
+            📤 Upload Excel
+          </button>
 
         </div>
 
@@ -3138,6 +3330,55 @@ clear-filter-btn
   />
 
 </div>
+<div className="filter-item">
+
+  <label>
+    Assigned To
+  </label>
+
+  <select
+    value={assignedToFilter}
+    onChange={(e)=>
+      setAssignedToFilter(e.target.value)
+    }
+  >
+
+    <option value="">
+      All Users
+    </option>
+
+    {assignableUsers.map(
+      (name) => (
+        <option
+          key={name}
+          value={name}
+        >
+          {name}
+        </option>
+      )
+    )}
+
+  </select>
+
+</div>
+
+{role === "super_admin" && (
+  <div className="filter-item">
+    <label>Filter by User</label>
+    <select
+      value={selectedUserFilter}
+      onChange={(e) => {
+        setSelectedUserFilter(e.target.value);
+        filterByUser(e.target.value);
+      }}
+    >
+      <option value="">All Users</option>
+      {users.map((u) => (
+        <option key={u._id} value={u._id}>{u.name}</option>
+      ))}
+    </select>
+  </div>
+)}
 <button
   className="clear-filter-btn"
   onClick={() => {
@@ -3147,6 +3388,7 @@ clear-filter-btn
     setStatusFilter("");
     setSourceFilter("");
     setSectorFilter("");
+    setAssignedToFilter("");
 
   }}
 >
@@ -3155,24 +3397,74 @@ clear-filter-btn
 
 </button>
 <button
-
-  className="
-download-btn
-"
-
-  onClick={
-    downloadExcel
-  }
+  className="download-btn"
+  onClick={downloadExcel}
 >
-
-  Download Excel
-
+  📥 Download Excel
 </button>
 </div>
 
 
 
-      {/* TABLE */}
+      {/* EXCEL UPLOAD MODAL */}
+{showExcelModal && (
+  <div className="modal-overlay" onClick={() => setShowExcelModal(false)}>
+    <div className="excel-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="excel-modal-header">
+        <h2>📊 Excel Customer Management</h2>
+        <button className="adm-close-btn" onClick={() => setShowExcelModal(false)}>✕</button>
+      </div>
+      <div className="excel-modal-body">
+        {/* Download Template */}
+        <div className="excel-modal-card">
+          <div className="excel-modal-icon">📥</div>
+          <div>
+            <h3>Download Template</h3>
+            <p>Get the Excel template with all required column headers. Fill in your customer data and upload it back.</p>
+          </div>
+          <button
+            className="excel-dl-btn"
+            onClick={() => {
+              const template = [{ Name: "", Email: "", "Contact No": "", Company: "", Status: "", LeadStage: "", Priority: "", Product: "", Sector: "", Source: "", AssignedTo: "", FollowUp: "", Remark: "" }];
+              const ws = XLSX.utils.json_to_sheet(template);
+              const wb = XLSX.utils.book_new();
+              XLSX.utils.book_append_sheet(wb, ws, "Customers");
+              const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+              saveAs(new Blob([buf], { type: "application/octet-stream" }), "Customer_Template.xlsx");
+            }}
+          >
+            Download Template
+          </button>
+        </div>
+
+        <div className="excel-modal-divider"><span>OR</span></div>
+
+        {/* Upload Excel */}
+        <div className="excel-modal-card">
+          <div className="excel-modal-icon">📤</div>
+          <div>
+            <h3>Upload Customer Data</h3>
+            <p>Upload a filled Excel file (.xlsx / .xls / .csv) to bulk-create customers. Make sure columns match the template.</p>
+          </div>
+          <label className="excel-ul-btn">
+            Upload Excel
+            <input
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              hidden
+              onChange={(e) => {
+                handleFileUpload(e);
+                setShowExcelModal(false);
+              }}
+            />
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
+{/* TABLE */}
 
     <div className="customer-table-container">
 
@@ -3422,9 +3714,7 @@ download-btn
             Follow Up Reminders
           </h1>
 
-          <p className="rp1">
-            Select a date to view follow-up customers
-          </p>
+         
 
         </div>
 
@@ -3601,641 +3891,42 @@ download-btn
   )
 }
 
+        {/* ================= MY ATTENDANCE (USER SELF-SERVICE) =================
+            Gives a logged-in User (whose account email matches an Employee
+            record) the full set of employee features: check-in/out, leave
+            request, attendance history, and payslip downloads. */}
+
+      {
+  activeMenu === "myAttendance" && role !== "super_admin" && (
+    <MyAttendance />
+  )
+}
+      {activeMenu === "myProfile" && role !== "super_admin" && (
+        <MyProfile />
+      )}
+
         {/* ================= EMPLOYEES ================= */}
 
       {
-  activeMenu === "employees" && (
-
-    <div className="employee-page">
-
-      {/* TOP HEADER */}
-
-      <div className="employee-topbar">
-
-       <div className="header-left">
-
-    <button
-      className="sidebar-toggle"
-      onClick={() =>
-        setSidebarOpen(
-          prev => !prev
-        )
-      }
-    >
-      ☰
-    </button>
-    <div className="emp">
-
-          <h1>
-            Employee Management
-          </h1>
-
-          <p>
-            Manage employee records
-          </p>
-</div>
-        </div>
-
-        <button
-          className="add-btn"
-          onClick={() =>
-            setShowEmployeeModal(true)
-          }
-        >
-
-          <FaPlus />
-
-          Add Employee
-
-        </button>
-
-      </div>
-
-
-      {/* TABLE */}
-
-      <div className="employee-table-container">
-
-        <table className="minimal-employee-table">
-
-          <thead>
-
-            <tr>
-
-              <th>
-                Employee
-              </th>
-
-              <th>
-                Department
-              </th>
-
-              <th>
-                Designation
-              </th>
-
-              <th>
-                Contact
-              </th>
-
-              <th>
-                Salary
-              </th>
-
-              <th>
-                Documents
-              </th>
-               <th>Payslip</th>
-
-              <th>
-                Actions
-              </th>
-
-            </tr>
-
-          </thead>
-
-
-          <tbody>
-
-            {
-              [...employees]
-
-              .sort(
-                (a, b) =>
-
-                  new Date(b.createdAt) -
-                  new Date(a.createdAt)
-              )
-
-              .map((employee) => (
-
-                <tr
-                  key={employee._id}
-                >
-
-                  {/* EMPLOYEE */}
-
-                  <td>
-
-                    <div className="employee-info">
-
-                      <img
-
-                        src={
-                          employee.profileImage
-                        }
-
-                        alt="profile"
-
-                        className="employee-avatar"
-                      />
-
-                      <div>
-
-                        <h4>
-                          {employee.name}
-                        </h4>
-
-                        <p>
-                          {employee.email}
-                        </p>
-
-                      </div>
-
-                    </div>
-
-                  </td>
-
-
-                  {/* DEPARTMENT */}
-
-                  <td>
-                    {employee.department}
-                  </td>
-
-
-                  {/* DESIGNATION */}
-
-                  <td>
-                    {employee.designation}
-                  </td>
-
-
-                  {/* CONTACT */}
-
-                  <td>
-                    {employee.phone}
-                  </td>
-
-
-                  {/* SALARY */}
-
-                  <td>
-
-                    ₹{employee.salary}
-
-                  </td>
-
-
-                  {/* DOCUMENTS */}
-
-                  <td>
-
-                    {
-                      employee.documents
-                      ?.length > 0 ? (
-
-                        <a
-
-                          href={
-                            employee.documents[0]
-                          }
-
-                          target="_blank"
-
-                          rel="noreferrer"
-
-                          className="view-doc-btn"
-                        >
-
-                          View
-
-                        </a>
-
-                      ) : (
-
-                        <span className="no-doc">
-
-                          No Docs
-
-                        </span>
-                      )
-                    }
-
-                  </td>
-
-
-                  {/* ACTIONS */}
-                  <td>
-       {
-role === "super_admin" && (
-
-<button
-
- className="payslip-btn"
-
- onClick={()=>{
-
-  setSelectedEmployee(
-   employee
-  );
-
-  setShowPayslipModal(true);
-
- }}
-
->
-
- Upload Payslip
-
-</button>
-
-)
-}</td>
-<td>
-  {role === "super_admin" && (
-  <button
-    className="att-view-btn"
-    onClick={() => {
-      setAttendanceEmployee(employee);
-      setShowAttendanceModal(true);
-    }}
-  >
-    📅 Attendance
-  </button>
-)}
-</td>
-
-
-                  <td>
-
-                    <div className="employee-action-buttons">
-
-                      <button
-
-                        className="table-edit-btn"
-
-                        onClick={() =>
-                          handleEmployeeUpdate(
-                            employee
-                          )
-                        }
-                      >
-
-                        Edit
-
-                      </button>
-
-
-                      <button
-
-                        className="table-delete-btn"
-
-                        onClick={
-                          async () => {
-
-                            const confirmDelete =
-                              window.confirm(
-                                "Delete this employee?"
-                              );
-
-                            if (!confirmDelete)
-                              return;
-
-                            try {
-
-                              await API.delete(
-
-                                `/employees/${employee._id}`
-                              );
-
-                              alert(
-                                "Employee Deleted"
-                              );
-
-                              fetchEmployees();
-
-                            } catch (error) {
-
-                              console.log(error);
-
-                              alert(
-                                error.response?.data?.message
-                              );
-                            }
-                          }
-                        }
-                      >
-
-                        Delete
-
-                      </button>
-
-                    </div>
-
-                  </td>
-
-                </tr>
-              ))
-            }
-
-          </tbody>
-
-        </table>
-
-      </div>
-
-    </div>
+  role === "super_admin" && activeMenu === "employees" && (
+
+    <Employees
+            employees={employees} role={role} fetchEmployees={fetchEmployees}
+            handleEmployeeUpdate={handleEmployeeUpdate} setSelectedEmployee={setSelectedEmployee}
+            setSidebarOpen={setSidebarOpen}
+            employeeForm={employeeForm} setEmployeeForm={setEmployeeForm}
+            handleEmployeeChange={handleEmployeeChange} handleEmployeeFiles={handleEmployeeFiles}
+            addEmployee={addEmployee} showEmployeeModal={showEmployeeModal} setShowEmployeeModal={setShowEmployeeModal}
+            attendanceEmployee={attendanceEmployee} setAttendanceEmployee={setAttendanceEmployee}
+            showAttendanceModal={showAttendanceModal} setShowAttendanceModal={setShowAttendanceModal}
+            payslipData={payslipData} setPayslipData={setPayslipData}
+            showPayslipModal={showPayslipModal} setShowPayslipModal={setShowPayslipModal} uploadPayslip={uploadPayslip}
+            showEmployeeUpdate={showEmployeeUpdate} setShowEmployeeUpdate={setShowEmployeeUpdate} updateEmployee={updateEmployee}
+          />
   )
 }
-        {
-  showEmployeeModal && (
+        
 
-    <div className="modal-overlay">
-
-      <div className="modal">
-
-        <div className="modal-header">
-
-          <h2>
-            Add Employee
-          </h2>
-
-          <span
-
-            className="close-icon"
-
-            onClick={() =>
-              setShowEmployeeModal(false)
-            }
-          >
-
-            ✕
-
-          </span>
-
-        </div>
-
-
-        <form
-          onSubmit={addEmployee}
-        >
-
-          <div className="form-grid">
-
-            {/* NAME */}
-
-            <div className="input-group">
-
-              <label>
-                Name
-              </label>
-
-              <input
-
-                type="text"
-
-                name="name"
-
-                onChange={
-                  handleEmployeeChange
-                }
-
-                required
-              />
-
-            </div>
-
-
-            {/* EMAIL */}
-
-            <div className="input-group">
-
-              <label>
-                Email
-              </label>
-
-              <input
-
-                type="email"
-
-                name="email"
-
-                onChange={
-                  handleEmployeeChange
-                }
-
-                required
-              />
-
-            </div>
-
-
-            {/* PASSWORD */}
-
-            <div className="input-group">
-
-              <label>
-                Password
-              </label>
-
-              <input
-
-                type="password"
-
-                name="password"
-
-                onChange={
-                  handleEmployeeChange
-                }
-
-                required
-              />
-
-            </div>
-
-
-            {/* PHONE */}
-
-            <div className="input-group">
-
-              <label>
-                Contact No
-              </label>
-
-              <input
-
-                type="text"
-
-                name="phone"
-
-                onChange={
-                  handleEmployeeChange
-                }
-
-              />
-
-            </div>
-
-
-            {/* DEPARTMENT */}
-
-            <div className="input-group">
-
-              <label>
-                Department
-              </label>
-
-              <input
-
-                type="text"
-
-                name="department"
-
-                onChange={
-                  handleEmployeeChange
-                }
-
-              />
-
-            </div>
-
-
-            {/* DESIGNATION */}
-
-            <div className="input-group">
-
-              <label>
-                Designation
-              </label>
-
-              <input
-
-                type="text"
-
-                name="designation"
-
-                onChange={
-                  handleEmployeeChange
-                }
-
-              />
-
-            </div>
-
-
-            {/* SALARY */}
-
-            <div className="input-group">
-
-              <label>
-                Salary
-              </label>
-
-              <input
-
-                type="number"
-
-                name="salary"
-
-                onChange={
-                  handleEmployeeChange
-                }
-
-              />
-
-            </div>
-
-
-            {/* JOINING DATE */}
-
-            <div className="input-group">
-
-              <label>
-                Joining Date
-              </label>
-
-              <input
-
-                type="date"
-
-                name="joiningDate"
-
-                onChange={
-                  handleEmployeeChange
-                }
-
-              />
-
-            </div>
-
-
-            {/* PROFILE IMAGE */}
-
-            <div className="input-group">
-
-              <label>
-                Profile Image
-              </label>
-
-             <input
-
-  type="file"
-
-  name="profileImage"
-
-  accept="image/*"
-
-  onChange={
-    handleEmployeeFiles
-  }
-/>
-
-            </div>
-
-
-            {/* DOCUMENTS */}
-
-            <div className="input-group">
-
-              <label>
-                Documents
-              </label>
-
-              <input
-
-  type="file"
-
-  name="documents"
-
-  multiple
-
-  onChange={
-    handleEmployeeFiles
-  }
-/>
-
-            </div>
-
-          </div>
-
-
-          <button
-            type="submit"
-            className="submit-btn"
-          >
-
-            Add Employee
-
-          </button>
-
-        </form>
-
-      </div>
-
-    </div>
-  )
-}
-{showAttendanceModal && attendanceEmployee && (
-  <EmployeeAttendanceModal
-    employee={attendanceEmployee}
-    onClose={() => {
-      setShowAttendanceModal(false);
-      setAttendanceEmployee(null);
-    }}
-  />
-)}
         {/* ================= USER MANAGEMENT ================= */}
 
 {
@@ -4245,643 +3936,37 @@ role === "super_admin" && (
   role ===
   "super_admin" && (
 
-    <div className="employee-section">
-
-     <div className="employee-header">
-
-  <div className="header-left">
-
-    <button
-      className="sidebar-toggle"
-      onClick={() =>
-        setSidebarOpen(
-          prev => !prev
-        )
-      }
-    >
-      ☰
-    </button>
-
-    <div>
-
-      <h1>
-        User Management
-      </h1>
-
-      <p>
-        Manage users and roles
-      </p>
-
-    </div>
-
-  </div>
-
-
-  <div className="header-right">
-
-    <button
-      className="add-btn"
-      onClick={() =>
-        setShowUserModal(true)
-      }
-    >
-
-      <FaPlus />
-
-      Add User
-
-    </button>
-
-  </div>
-
-</div>
-
-
-      <div className="employee-table-wrapper">
-
-        <table className="employee-table">
-
-          <thead>
-
-            <tr>
-
-              <th>
-                Name
-              </th>
-
-              <th>
-                Email
-              </th>
-
-              <th>
-                Role
-              </th>
-
-              <th>
-                Change Role
-              </th>
-
-            </tr>
-
-          </thead>
-
-
-          <tbody>
-
-            {
-              users.map(
-                (user) => (
-
-                  <tr
-                    key={user._id}
-                  >
-
-                    <td>
-                      {user.name}
-                    </td>
-
-                    <td>
-                      {user.email}
-                    </td>
-
-                    <td>
-                      {user.role}
-                    </td>
-
-                  <td>
-
-  <div
-    style={{
-      display: "flex",
-      gap: "10px",
-    }}
-  >
-
-    {/* ROLE */}
-
-    <select
-
-      value={
-        user.role
-      }
-
-      onChange={
-        async (e) => {
-
-          try {
-
-            await API.put(
-
-              `/users/${user._id}/role`,
-
-              {
-                role:
-                e.target.value,
-              }
-            );
-
-            fetchUsers();
-
-            alert(
-              "Role Updated"
-            );
-
-          } catch (error) {
-
-            console.log(error);
-          }
-        }
-      }
-    >
-
-      <option value="user">
-
-        User
-
-      </option>
-
-      <option value="super_admin">
-
-        Super Admin
-
-      </option>
-
-    </select>
-
-
-    {/* DELETE */}
-    <button
-
-  style={{
-    background: "#2563EB",
-    color: "white",
-    border: "none",
-    padding: "8px 14px",
-    borderRadius: "8px",
-    cursor: "pointer",
-  }}
-
-  onClick={() =>
-    handleEditUser(user)
-  }
->
-
-  Update
-
-</button>
-
-    <button
-
-      style={{
-        background: "#EF4444",
-        color: "white",
-        border: "none",
-        padding: "8px 14px",
-        borderRadius: "8px",
-        cursor: "pointer",
-      }}
-
-      onClick={
-        async () => {
-
-          try {
-
-            await API.delete(
-
-              `/users/${user._id}`
-            );
-
-            fetchUsers();
-
-            alert(
-              "User Deleted"
-            );
-
-          } catch (error) {
-
-            console.log(error);
-          }
-        }
-      }
-    >
-
-      Delete
-
-    </button>
-
-  </div>
-
-                    </td>
-
-                  </tr>
-                )
-              )
-            }
-
-          </tbody>
-
-        </table>
-
-      </div>
-
-    </div>
+    <UserManagement
+            users={users} fetchUsers={fetchUsers} handleEditUser={handleEditUser} setSidebarOpen={setSidebarOpen}
+            editUserForm={editUserForm} setEditUserForm={setEditUserForm}
+            showEditUserModal={showEditUserModal} setShowEditUserModal={setShowEditUserModal} updateUserData={updateUserData}
+            userForm={userForm} handleUserChange={handleUserChange} createUser={createUser}
+            showUserModal={showUserModal} setShowUserModal={setShowUserModal}
+          />
   )
 }
-{
-  showEditUserModal && (
 
-    <div className="modal-overlay">
 
-      <div className="modal">
-
-        <div className="modal-header">
-
-          <h2>
-            Update User
-          </h2>
-
-          <span
-
-            className="close-icon"
-
-            onClick={() =>
-              setShowEditUserModal(false)
-            }
-          >
-
-            ✕
-
-          </span>
-
-        </div>
-
-
-        <form
-          onSubmit={updateUserData}
-        >
-
-          <div className="form-grid">
-
-            {/* NAME */}
-
-            <div className="input-group">
-
-              <label>
-                Name
-              </label>
-
-              <input
-
-                type="text"
-
-                value={
-                  editUserForm.name
-                }
-
-                onChange={(e) =>
-
-                  setEditUserForm({
-
-                    ...editUserForm,
-
-                    name:
-                    e.target.value,
-                  })
-                }
-              />
-
-            </div>
-
-
-            {/* EMAIL */}
-
-            <div className="input-group">
-
-              <label>
-                Email
-              </label>
-
-              <input
-
-                type="email"
-
-                value={
-                  editUserForm.email
-                }
-
-                onChange={(e) =>
-
-                  setEditUserForm({
-
-                    ...editUserForm,
-
-                    email:
-                    e.target.value,
-                  })
-                }
-              />
-
-            </div>
-
-
-            {/* PASSWORD */}
-
-            <div className="input-group">
-
-              <label>
-                Password
-              </label>
-
-              <input
-
-                type="password"
-
-                placeholder="
-Leave empty if no change
-"
-
-                value={
-                  editUserForm.password
-                }
-
-                onChange={(e) =>
-
-                  setEditUserForm({
-
-                    ...editUserForm,
-
-                    password:
-                    e.target.value,
-                  })
-                }
-              />
-
-            </div>
-
-
-            {/* ROLE */}
-
-            <div className="input-group">
-
-              <label>
-                Role
-              </label>
-
-              <select
-
-                value={
-                  editUserForm.role
-                }
-
-                onChange={(e) =>
-
-                  setEditUserForm({
-
-                    ...editUserForm,
-
-                    role:
-                    e.target.value,
-                  })
-                }
-              >
-
-                <option value="user">
-
-                  User
-
-                </option>
-
-                <option value="super_admin">
-
-                  Super Admin
-
-                </option>
-
-              </select>
-
-            </div>
-
-          </div>
-
-
-          <button
-            type="submit"
-            className="submit-btn"
-          >
-
-            Update User
-
-          </button>
-
-        </form>
-
-      </div>
-
-    </div>
-  )
-}
 
 {
-  showUserModal && (
-
-    <div className="modal-overlay">
-
-      <div className="modal">
-
-        <div className="modal-header">
-
-          <h2>
-            Add New User
-          </h2>
-
-          <span
-
-            className="close-icon"
-
-            onClick={() =>
-              setShowUserModal(false)
-            }
-          >
-
-            ✕
-
-          </span>
-
-        </div>
-
-
-        <form
-          onSubmit={createUser}
-        >
-
-          <div className="form-grid">
-
-            {/* NAME */}
-
-            <div className="input-group">
-
-              <label>
-                Name
-              </label>
-
-              <input
-
-                type="text"
-
-                name="name"
-
-                placeholder="Enter name"
-
-                value={
-                  userForm.name
-                }
-
-                onChange={
-                  handleUserChange
-                }
-
-                required
-              />
-
-            </div>
-
-
-            {/* EMAIL */}
-
-            <div className="input-group">
-
-              <label>
-                Email
-              </label>
-
-              <input
-
-                type="email"
-
-                name="email"
-
-                placeholder="Enter email"
-
-                value={
-                  userForm.email
-                }
-
-                onChange={
-                  handleUserChange
-                }
-
-                required
-              />
-
-            </div>
-
-
-            {/* PASSWORD */}
-
-            <div className="input-group">
-
-              <label>
-                Password
-              </label>
-
-              <input
-
-                type="password"
-
-                name="password"
-
-                placeholder="Enter password"
-
-                value={
-                  userForm.password
-                }
-
-                onChange={
-                  handleUserChange
-                }
-
-                required
-              />
-
-            </div>
-
-
-            {/* ROLE */}
-
-            <div className="input-group">
-
-              <label>
-                Role
-              </label>
-
-              <select
-
-                name="role"
-
-                value={
-                  userForm.role
-                }
-
-                onChange={
-                  handleUserChange
-                }
-              >
-
-                <option value="user">
-
-                  User
-
-                </option>
-
-                <option value="super_admin">
-
-                  Super Admin
-
-                </option>
-
-              </select>
-
-            </div>
-
-          </div>
-
-
-          <button
-            type="submit"
-            className="submit-btn"
-          >
-
-            Create User
-
-          </button>
-
-        </form>
-
-      </div>
-
-    </div>
-  )
-}
-        {
+  activeMenu === "leaveRequests" &&
   role === "super_admin" && (
 
-    <ul
-      className={
-        activeMenu === "users"
-          ? "active"
-          : ""
-      }
-
-      onClick={() =>
-        setActiveMenu("users")
-      }
-    >
-
-      
-
-    </ul>
+    <LeaveRequests
+            pendingLeaves={pendingLeaves} leaveActionLoading={leaveActionLoading}
+            fetchPendingLeaves={fetchPendingLeaves} approveLeaveRequest={approveLeaveRequest}
+            rejectLeaveRequest={rejectLeaveRequest} setSidebarOpen={setSidebarOpen}
+          />
   )
 }
+
+{/* ================= TASKS / DAILY REPORTS ================= */}
+{
+  activeMenu === "tasks" && (
+    <Tasks role={role} setSidebarOpen={setSidebarOpen} />
+  )
+}
+        
 {
   showProfile && (
 
@@ -5014,7 +4099,7 @@ Leave empty if no change
                 placeholder="Enter customer name"
                 value={formData.name}
                 onChange={handleChange}
-                required
+              
               />
 
             </div>
@@ -5182,15 +4267,28 @@ Leave empty if no change
                 Assigned To
               </label>
 
-              <input
-                type="text"
+              <select
                 name="assignedTo"
-                placeholder="Assigned employee"
                 value={
                   formData.assignedTo
                 }
                 onChange={handleChange}
-              />
+              >
+                <option value="">
+                  Unassigned (defaults to you)
+                </option>
+
+                {assignableUsers.map(
+                  (name) => (
+                    <option
+                      key={name}
+                      value={name}
+                    >
+                      {name}
+                    </option>
+                  )
+                )}
+              </select>
 
             </div>
 {/* PRODUCT */}
@@ -5246,7 +4344,7 @@ Leave empty if no change
                 placeholder="Enter sector"
                 value={formData.sector}
                 onChange={handleChange}
-                required
+            
               />
 
             </div>
@@ -5308,431 +4406,8 @@ Leave empty if no change
     </div>
   )
 }
-{
-showPayslipModal && (
 
-<div className="modal-overlay">
 
- <div className="modal">
-
-  <h2>
-   Upload Payslip
-  </h2>
-
-  <input
-
-   type="month"
-
-   onChange={(e)=>
-
-   setPayslipData({
-
-    ...payslipData,
-
-    month:
-    e.target.value
-
-   })
-
-   }
-  />
-
-  <input
-
-   type="file"
-
-   accept=".pdf"
-
-   onChange={(e)=>
-
-   setPayslipData({
-
-    ...payslipData,
-
-    file:
-    e.target.files[0]
-
-   })
-
-   }
-  />
-
-  <button
-   onClick={
-    uploadPayslip
-   }
-  >
-
-   Upload
-
-  </button>
-
- </div>
-
-</div>
-
-)}
-{
-  showEmployeeUpdate && (
-
-    <div className="modal-overlay">
-
-      <div className="modal">
-
-        <div className="modal-header">
-
-          <h2>
-            Update Employee
-          </h2>
-
-          <span
-
-            className="close-icon"
-
-            onClick={() =>
-              setShowEmployeeUpdate(false)
-            }
-          >
-
-            ✕
-
-          </span>
-
-        </div>
-
-
-        <form
-          onSubmit={updateEmployee}
-        >
-
-          <div className="form-grid">
-
-            {/* NAME */}
-
-            <div className="input-group">
-
-              <label>
-                Name
-              </label>
-
-              <input
-
-                type="text"
-
-                value={
-                  employeeForm.name
-                }
-
-                onChange={(e) =>
-
-                  setEmployeeForm({
-
-                    ...employeeForm,
-
-                    name:
-                    e.target.value,
-                  })
-                }
-              />
-
-            </div>
-
-
-            {/* EMAIL */}
-
-            <div className="input-group">
-
-              <label>
-                Email
-              </label>
-
-              <input
-
-                type="email"
-
-                value={
-                  employeeForm.email
-                }
-
-                onChange={(e) =>
-
-                  setEmployeeForm({
-
-                    ...employeeForm,
-
-                    email:
-                    e.target.value,
-                  })
-                }
-              />
-
-            </div>
-
-
-            {/* PASSWORD */}
-
-            <div className="input-group">
-
-              <label>
-                Password
-              </label>
-
-              <input
-
-                type="password"
-
-                placeholder="
-Leave empty if no change
-"
-
-                value={
-                  employeeForm.password
-                }
-
-                onChange={(e) =>
-
-                  setEmployeeForm({
-
-                    ...employeeForm,
-
-                    password:
-                    e.target.value,
-                  })
-                }
-              />
-
-            </div>
-
-
-            {/* PHONE */}
-
-            <div className="input-group">
-
-              <label>
-                Phone
-              </label>
-
-              <input
-
-                type="text"
-
-                value={
-                  employeeForm.phone
-                }
-
-                onChange={(e) =>
-
-                  setEmployeeForm({
-
-                    ...employeeForm,
-
-                    phone:
-                    e.target.value,
-                  })
-                }
-              />
-
-            </div>
-
-
-            {/* DEPARTMENT */}
-
-            <div className="input-group">
-
-              <label>
-                Department
-              </label>
-
-              <input
-
-                type="text"
-
-                value={
-                  employeeForm.department
-                }
-
-                onChange={(e) =>
-
-                  setEmployeeForm({
-
-                    ...employeeForm,
-
-                    department:
-                    e.target.value,
-                  })
-                }
-              />
-
-            </div>
-
-
-            {/* DESIGNATION */}
-
-            <div className="input-group">
-
-              <label>
-                Designation
-              </label>
-
-              <input
-
-                type="text"
-
-                value={
-                  employeeForm.designation
-                }
-
-                onChange={(e) =>
-
-                  setEmployeeForm({
-
-                    ...employeeForm,
-
-                    designation:
-                    e.target.value,
-                  })
-                }
-              />
-
-            </div>
-
-
-            {/* SALARY */}
-
-            <div className="input-group">
-
-              <label>
-                Salary
-              </label>
-
-              <input
-
-                type="number"
-
-                value={
-                  employeeForm.salary
-                }
-
-                onChange={(e) =>
-
-                  setEmployeeForm({
-
-                    ...employeeForm,
-
-                    salary:
-                    e.target.value,
-                  })
-                }
-              />
-
-            </div>
-
-
-            {/* JOINING DATE */}
-
-            <div className="input-group">
-
-              <label>
-                Joining Date
-              </label>
-
-              <input
-
-                type="date"
-
-                value={
-                  employeeForm.joiningDate
-                }
-
-                onChange={(e) =>
-
-                  setEmployeeForm({
-
-                    ...employeeForm,
-
-                    joiningDate:
-                    e.target.value,
-                  })
-                }
-              />
-
-            </div>
-
-
-            {/* PROFILE IMAGE */}
-
-            <div className="input-group">
-
-              <label>
-                Profile Image
-              </label>
-
-              <input
-
-                type="file"
-
-                onChange={(e) =>
-
-                  setEmployeeForm({
-
-                    ...employeeForm,
-
-                    profileImage:
-                    e.target.files[0],
-                  })
-                }
-              />
-
-            </div>
-
-
-            {/* DOCUMENTS */}
-
-            <div className="input-group">
-
-              <label>
-                Documents
-              </label>
-
-              <input
-
-                type="file"
-
-                multiple
-
-                onChange={(e) =>
-
-                  setEmployeeForm({
-
-                    ...employeeForm,
-
-                    documents:
-                    e.target.files,
-                  })
-                }
-              />
-
-            </div>
-
-          </div>
-
-
-          <button
-            type="submit"
-            className="submit-btn"
-          >
-
-            Update Employee
-
-          </button>
-
-        </form>
-
-      </div>
-
-    </div>
-  )
-}
 
 {
   showCustomerUpdate && (
@@ -6030,9 +4705,7 @@ Leave empty if no change
                 Assigned To
               </label>
 
-              <input
-
-                type="text"
+              <select
 
                 value={formData.assignedTo}
 
@@ -6046,7 +4719,22 @@ Leave empty if no change
                     e.target.value,
                   })
                 }
-              />
+              >
+                <option value="">
+                  Unassigned (defaults to you)
+                </option>
+
+                {assignableUsers.map(
+                  (name) => (
+                    <option
+                      key={name}
+                      value={name}
+                    >
+                      {name}
+                    </option>
+                  )
+                )}
+              </select>
 
             </div>
 
@@ -6468,46 +5156,23 @@ Leave empty if no change
   </span>
 
   {
-
-    selectedCustomer
-    ?.lastRemarks
-    ?.length > 0 ? (
-
-      selectedCustomer
-      .lastRemarks
-      .map((item, index) => (
-
-        <div
-          key={index}
-          className="
-remark-history
-"
-        >
-
-          <p>
-
-            {item.remark}
-
-          </p>
-
-          <small>
-
-            {
-              new Date(
-                item.updatedAt
-              ).toLocaleString()
-            }
-
-          </small>
-
+    selectedCustomer?.lastRemarks?.length > 0 ? (
+      /* Show ALL remarks — no slice/limit */
+      selectedCustomer.lastRemarks.map((item, index) => (
+        <div key={index} className="remark-history">
+          <p>{item.remark}</p>
+          {/* Date only — no time */}
+          <span className="remark-date">
+            {new Date(item.updatedAt).toLocaleDateString("en-IN", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })}
+          </span>
         </div>
       ))
-
     ) : (
-
-      <p>
-        No previous remarks
-      </p>
+      <p>No previous remarks</p>
     )
   }
 

@@ -684,6 +684,37 @@ async (req, res) => {
   }
 };
 
+// ================= USER PANEL: GET MY PAYSLIPS (self-service) =================
+// Used by logged-in Users (not employees) in the Dashboard "Attendance"
+// section, resolving the Employee record linked to their account by email.
+const getMyPayslipsAsUser = async (req, res) => {
+  try {
+    if (!req.user || !req.user.email) {
+      return res.status(401).json({ success: false, message: "Not authorized" });
+    }
+
+    const employee = await Employee.findOne({ email: req.user.email });
+
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        message:
+          "No employee profile is linked to your account yet. Ask a super admin to create an employee record using the same email.",
+      });
+    }
+
+    res.json({
+      success: true,
+      payslips: employee.payslips || [],
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 module.exports = {
 
   registerEmployee,
@@ -704,4 +735,5 @@ module.exports = {
   getEmployeePayslips,
 
   updateEmployeeDocument,
+  getMyPayslipsAsUser,
 };

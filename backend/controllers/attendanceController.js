@@ -45,7 +45,12 @@ const checkIn = async (req, res) => {
     } else if (record.status === "leave") {
       return res.status(400).json({
         success: false,
-        message: "You have applied leave for today. Cannot check in.",
+        message: "You are on approved leave for today. Cannot check in.",
+      });
+    } else if (record.status === "leave-pending") {
+      return res.status(400).json({
+        success: false,
+        message: "Your leave request for today is pending approval. Cannot check in.",
       });
     } else {
       // Already has a record — check if last session is open
@@ -132,7 +137,8 @@ const checkOut = async (req, res) => {
 };
 
 // ============================================================
-// APPLY LEAVE
+// APPLY LEAVE (employee) -> goes into "pending" state, awaiting
+// super admin approval. It is NOT marked as "leave" yet.
 // ============================================================
 const applyLeave = async (req, res) => {
   try {
@@ -159,21 +165,122 @@ const applyLeave = async (req, res) => {
       });
     }
 
+    if (existing && existing.leaveStatus === "pending") {
+      return res.status(400).json({
+        success: false,
+        message: "A leave request for this date is already pending approval.",
+      });
+    }
+
     const record = await Attendance.findOneAndUpdate(
       { employee: employeeId, date: leaveDate },
       {
         employee: employeeId,
         date: leaveDate,
-        status: "leave",
+        status: "leave-pending",
+        leaveStatus: "pending",
         leaveReason: reason,
         leaveDate: leaveDate,
+        leaveDecisionBy: null,
+        leaveDecisionAt: null,
       },
       { upsert: true, new: true }
     );
 
     return res.json({
       success: true,
-      message: "Leave applied successfully",
+      message: "Leave request submitted. Waiting for super admin approval.",
+      record,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ============================================================
+// SUPER ADMIN: GET ALL PENDING LEAVE REQUESTS
+// ============================================================
+const getPendingLeaves = async (req, res) => {
+  try {
+    const records = await Attendance.find({ leaveStatus: "pending" })
+      .populate("employee", "name email department designation profileImage")
+      .sort({ createdAt: -1 });
+
+    return res.json({
+      success: true,
+      records,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ============================================================
+// SUPER ADMIN: APPROVE LEAVE REQUEST -> marks as "leave"
+// ============================================================
+const approveLeave = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const adminId = req.user?._id;
+
+    const record = await Attendance.findById(id);
+    if (!record) {
+      return res.status(404).json({ success: false, message: "Leave request not found." });
+    }
+    if (record.leaveStatus !== "pending") {
+      return res.status(400).json({
+        success: false,
+        message: "Only pending leave requests can be approved.",
+      });
+    }
+
+    record.status = "leave";
+    record.leaveStatus = "approved";
+    record.leaveDecisionBy = adminId || null;
+    record.leaveDecisionAt = new Date();
+    await record.save();
+
+    return res.json({
+      success: true,
+      message: "Leave approved and marked as leave.",
+      record,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ============================================================
+// SUPER ADMIN: REJECT LEAVE REQUEST
+// ============================================================
+const rejectLeave = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const adminId = req.user?._id;
+
+    const record = await Attendance.findById(id);
+    if (!record) {
+      return res.status(404).json({ success: false, message: "Leave request not found." });
+    }
+    if (record.leaveStatus !== "pending") {
+      return res.status(400).json({
+        success: false,
+        message: "Only pending leave requests can be rejected.",
+      });
+    }
+
+    record.status = "leave-rejected";
+    record.leaveStatus = "rejected";
+    record.leaveDecisionBy = adminId || null;
+    record.leaveDecisionAt = new Date();
+    await record.save();
+
+    return res.json({
+      success: true,
+      message: "Leave request rejected.",
       record,
     });
   } catch (error) {
@@ -334,4 +441,7 @@ module.exports = {
   getDateAttendance,
   getEmployeeAttendanceSummary,
   getEmployeeDateAttendance,
+  getPendingLeaves,
+  approveLeave,
+  rejectLeave,
 };
