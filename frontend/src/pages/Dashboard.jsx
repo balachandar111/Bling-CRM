@@ -3425,7 +3425,7 @@ clear-filter-btn
           <button
             className="excel-dl-btn"
             onClick={() => {
-              const template = [{ Name: "", Email: "", "Contact No": "", Company: "", Status: "", LeadStage: "", Priority: "", Product: "", Sector: "", Source: "", AssignedTo: "", FollowUp: "", Remark: "" }];
+              const template = [{ name: "", email: "", "phone": "", company: "", status: "", leadStage: "", priority: "", source: "", assignedTo: "", product: "", sector: "",followUpDate: "", remark: "" }];
               const ws = XLSX.utils.json_to_sheet(template);
               const wb = XLSX.utils.book_new();
               XLSX.utils.book_append_sheet(wb, ws, "Customers");
