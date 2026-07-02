@@ -162,14 +162,13 @@ const MyAttendance = ({ setSidebarOpen }) => {
   return (
     <div className="employee-page">
       <div className="employee-page-header">
-       <button
-      className="sidebar-toggle"
-      onClick={() =>
-        setSidebarOpen(prev => !prev)
-      }
-    >
-      ☰
-    </button>
+        <button
+          type="button"
+          className="sidebar-toggle"
+          onClick={() => setSidebarOpen((prev) => !prev)}
+        >
+          ☰
+        </button>
         <h2>📅 My Attendance</h2>
       </div>
       {myAttError ? (

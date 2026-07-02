@@ -778,7 +778,7 @@ const fullScreenPages = [
   "users",
   "employees",
   "reminders",
-  "myAttendance",
+  "MyAttendance",
   "myProfile",
 ];
 
@@ -1761,6 +1761,7 @@ async (e) => {
       console.log(response.data);
 
       alert(
+        response.data?.message ||
         "Customers Uploaded"
       );
 
@@ -2180,7 +2181,7 @@ const performanceData = [
 
   className={
     activeMenu ===
-    "myAttendance"
+    "MyAttendance"
 
       ? "active"
 
@@ -2189,7 +2190,7 @@ const performanceData = [
 
   onClick={() =>
     setActiveMenu(
-      "myAttendance"
+      "MyAttendance"
     )
   }
 >
@@ -3897,8 +3898,8 @@ clear-filter-btn
             request, attendance history, and payslip downloads. */}
 
       {
-  activeMenu === "myAttendance" && role !== "super_admin" && (
-    <MyAttendance />
+  activeMenu === "MyAttendance" && role !== "super_admin" && (
+    <MyAttendance setSidebarOpen={setSidebarOpen} />
   )
 }
       {activeMenu === "myProfile" && role !== "super_admin" && (

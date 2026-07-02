@@ -365,16 +365,82 @@ async (req, res) => {
       );
 
 
-    await Customer.insertMany(
-      formattedCustomers
+    // ================= DUPLICATE PHONE CHECK =================
+    // Reject any customer whose phone number is already used by
+    // another customer already in the DB, or repeats earlier in
+    // this same upload batch. Every other (non-duplicate) customer
+    // still gets uploaded.
+
+    const rejectedCustomers = [];
+    const acceptedCustomers = [];
+    const seenPhonesInBatch = new Set();
+
+    // Phone numbers present in this batch (ignore blank phones,
+    // since there's nothing to de-duplicate against for those).
+    const phonesToCheck = [
+      ...new Set(
+        formattedCustomers
+          .map((c) => c.phone)
+          .filter((phone) => phone && phone.trim() !== "")
+      ),
+    ];
+
+    const existingCustomers = phonesToCheck.length
+      ? await Customer.find({
+          phone: { $in: phonesToCheck },
+        }).select("phone")
+      : [];
+
+    const existingPhones = new Set(
+      existingCustomers.map((c) => c.phone)
     );
+
+    for (const customer of formattedCustomers) {
+      const phone = customer.phone
+        ? customer.phone.trim()
+        : "";
+
+      const isDuplicate =
+        phone !== "" &&
+        (existingPhones.has(phone) ||
+          seenPhonesInBatch.has(phone));
+
+      if (isDuplicate) {
+        rejectedCustomers.push({
+          name: customer.name,
+          phone: customer.phone,
+          reason: "Duplicate phone number",
+        });
+        continue;
+      }
+
+      if (phone !== "") {
+        seenPhonesInBatch.add(phone);
+      }
+
+      acceptedCustomers.push(customer);
+    }
+
+    if (acceptedCustomers.length) {
+      await Customer.insertMany(
+        acceptedCustomers
+      );
+    }
 
     res.status(200).json({
 
       success: true,
 
       message:
-      "Customers uploaded successfully",
+        rejectedCustomers.length
+          ? `${acceptedCustomers.length} customer(s) uploaded successfully, ${rejectedCustomers.length} duplicate customer(s) rejected`
+          : "Customers uploaded successfully",
+
+      insertedCount: acceptedCustomers.length,
+
+      rejectedCount: rejectedCustomers.length,
+
+      rejectedCustomers,
     });
 
   } catch (error) {
