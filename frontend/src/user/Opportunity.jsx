@@ -34,7 +34,6 @@ const Opportunity = ({ setSidebarOpen }) => {
   const [viewCustomer, setViewCustomer] = useState(null);
 
   useEffect(() => {
-    if (typeof setSidebarOpen === "function") setSidebarOpen(true);
     fetchCustomers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -125,12 +124,21 @@ const Opportunity = ({ setSidebarOpen }) => {
   return (
     <div className="customer-page">
       <div className="customer-topbar">
-        <div>
-          <h2 className="page-title">Opportunity</h2>
-          <p className="page-subtitle">
-            Customers in the Desire stage — upload closing documents and
-            mark the deal as closed.
-          </p>
+        <div className="header-left">
+          <button
+            className="sidebar-toggle"
+            onClick={() => setSidebarOpen((prev) => !prev)}
+          >
+            ☰
+          </button>
+
+          <div>
+            <h2 className="page-title">Opportunity</h2>
+            <p className="page-subtitle">
+              Customers in the Desire stage — upload closing documents and
+              mark the deal as closed.
+            </p>
+          </div>
         </div>
       </div>
 
