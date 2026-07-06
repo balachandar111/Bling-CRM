@@ -20,6 +20,8 @@ const {
 
   deleteCustomer,
 
+  bulkDeleteCustomers,
+
   bulkUploadCustomers,
 
 } = require(
@@ -113,6 +115,17 @@ router.put(
     }
   }
 );
+
+// BULK DELETE
+// NOTE: this must be registered BEFORE the "/:id" delete route below,
+// otherwise Express will treat "bulk-delete" as an :id value.
+
+router.delete(
+  "/bulk-delete",
+  protect,
+  bulkDeleteCustomers
+);
+
 
 // DELETE
 

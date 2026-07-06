@@ -21,6 +21,14 @@ const formatHours = (hours) => {
   return `${h}h ${m}m`;
 };
 
+// Small icon for each work mode, used on the calendar and in tables.
+const workModeIcon = (mode) => {
+  if (mode === "Work From Office") return "🏢";
+  if (mode === "Work From Home") return "🏠";
+  if (mode === "Site Visit") return "📍";
+  return "";
+};
+
 // ===================== MINI CALENDAR =====================
 const AdminAttCalendar = ({ records, onDateClick }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -55,11 +63,14 @@ const AdminAttCalendar = ({ records, onDateClick }) => {
         key={dateStr}
         className={`adm-att-cell ${cls} ${dateStr === today ? "adm-today" : ""}`}
         onClick={() => onDateClick(dateStr)}
-        title={dateStr}
+        title={rec && rec.workMode ? `${dateStr} — ${rec.workMode}` : dateStr}
       >
         <span className="adm-day-num">{d}</span>
         {rec && <span className={`adm-dot ${rec.status}-dot`} />}
         {!rec && dateStr < today && <span className="adm-dot absent-dot" />}
+        {rec && rec.workMode && (
+          <span className="adm-workmode-icon">{workModeIcon(rec.workMode)}</span>
+        )}
       </div>
     );
   }
@@ -75,6 +86,9 @@ const AdminAttCalendar = ({ records, onDateClick }) => {
         <span><span className="adm-dot present-dot" /> Present</span>
         <span><span className="adm-dot absent-dot" /> Absent</span>
         <span><span className="adm-dot leave-dot" /> Leave</span>
+        <span>🏢 Office</span>
+        <span>🏠 Home</span>
+        <span>📍 Site Visit</span>
       </div>
       <div className="adm-cal-days">
         {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d => (
@@ -195,6 +209,7 @@ const EmployeeAttendanceModal = ({ employee, onClose }) => {
                     <tr>
                       <th>Date</th>
                       <th>Status</th>
+                      <th>Work Mode</th>
                       <th>Check In</th>
                       <th>Check Out</th>
                       <th>Hours</th>
@@ -215,6 +230,7 @@ const EmployeeAttendanceModal = ({ employee, onClose }) => {
                               : "❌ Absent"}
                           </span>
                         </td>
+                        <td>{r.workMode ? `${workModeIcon(r.workMode)} ${r.workMode}` : "—"}</td>
                         <td>{formatTime(r.checkIn)}</td>
                         <td>{formatTime(r.checkOut)}</td>
                         <td>{r.totalHours ? formatHours(r.totalHours) : "—"}</td>
@@ -245,6 +261,14 @@ const EmployeeAttendanceModal = ({ employee, onClose }) => {
                   </div>
                   {selectedRecord.status === "present" && (
                     <>
+                      <div className="adm-date-row">
+                        <span>Work Mode</span>
+                        <strong>
+                          {selectedRecord.workMode
+                            ? `${workModeIcon(selectedRecord.workMode)} ${selectedRecord.workMode}`
+                            : "—"}
+                        </strong>
+                      </div>
                       <div className="adm-date-row">
                         <span>First Check-In</span>
                         <strong>{formatTime(selectedRecord.checkIn)}</strong>

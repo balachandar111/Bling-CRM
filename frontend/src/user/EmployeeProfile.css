@@ -1027,3 +1027,58 @@ body{
   }
 }
 
+
+/* ================================================================
+   WORK MODE — check-in popup & calendar icon
+================================================================ */
+
+.att-workmode-icon {
+  position: absolute;
+  bottom: 2px;
+  right: 3px;
+  font-size: 9px;
+  line-height: 1;
+}
+
+.workmode-modal {
+  width: 380px;
+  max-width: 92vw;
+}
+
+.workmode-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.workmode-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 2px solid #e5e7eb;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  text-align: left;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.workmode-option:hover {
+  border-color: #a5b4fc;
+  background: #f8fafc;
+}
+
+.workmode-option-selected {
+  border-color: #6366f1;
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.workmode-option-icon {
+  font-size: 20px;
+}

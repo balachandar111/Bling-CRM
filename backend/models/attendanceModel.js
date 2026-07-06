@@ -24,6 +24,15 @@ const attendanceSchema = new mongoose.Schema(
       default: null,
     },
 
+    // How the employee/user was working on this day (selected via
+    // the check-in popup). Updated to the latest selection if they
+    // check in again later the same day.
+    workMode: {
+      type: String,
+      enum: ["", "Work From Office", "Work From Home", "Site Visit"],
+      default: "",
+    },
+
     checkOut: {
       type: Date,
       default: null,

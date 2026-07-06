@@ -330,6 +330,10 @@ table {
   min-width: 950px;
 }
 
+.customer-full-table {
+  min-width: 1500px;
+}
+
 .charts-grid {
   grid-template-columns: 1fr;
 }
@@ -1883,51 +1887,37 @@ RESPONSIVE CUSTOMER TABLE
   text-overflow: ellipsis;
 }
 
-/* COLUMN WIDTHS */
+/* COLUMN WIDTHS (rebuilt customer table — 15 columns) */
+/* Scoped to .customer-full-table so it doesn't affect any other
+   table that might use the base .minimal-table class. */
 
-.minimal-table th:nth-child(1),
-.minimal-table td:nth-child(1) {
-  width: 12%;
+.customer-full-table {
+  min-width: 1500px;
 }
 
-.minimal-table th:nth-child(2),
-.minimal-table td:nth-child(2) {
-  width: 12%;
+.customer-full-table th.col-checkbox,
+.customer-full-table td.col-checkbox {
+  width: 34px;
+  text-align: center;
 }
 
-.minimal-table th:nth-child(3),
-.minimal-table td:nth-child(3) {
-  width: 10%;
+.customer-full-table th.col-sno,
+.customer-full-table td.col-sno {
+  width: 46px;
+  text-align: center;
+  color: #6b7280;
+  font-weight: 600;
 }
 
-.minimal-table th:nth-child(4),
-.minimal-table td:nth-child(4) {
-  width: 10%;
+.customer-full-table th.col-remark,
+.customer-full-table td.col-remark {
+  width: 60px;
+  text-align: center;
 }
 
-.minimal-table th:nth-child(5),
-.minimal-table td:nth-child(5) {
-  width: 10%;
-}
-
-.minimal-table th:nth-child(6),
-.minimal-table td:nth-child(6) {
-  width: 12%;
-}
-
-.minimal-table th:nth-child(7),
-.minimal-table td:nth-child(7) {
-  width: 12%;
-}
-
-.minimal-table th:nth-child(8),
-.minimal-table td:nth-child(8) {
-  width: 15%;
-}
-
-.minimal-table th:nth-child(9),
-.minimal-table td:nth-child(9) {
-  width: 7%;
+.customer-full-table th.col-actions,
+.customer-full-table td.col-actions {
+  width: 110px;
 }
 
 /* HOVER */
@@ -1943,6 +1933,10 @@ RESPONSIVE CUSTOMER TABLE
 @media(max-width:1024px) {
 .minimal-table {
   min-width: 1000px;
+}
+
+.customer-full-table {
+  min-width: 1500px;
 }
 
 .charts-grid, .chart-grid {
@@ -4499,4 +4493,227 @@ table tr:hover, .minimal-table tr:hover, .minimal-employee-table tr:hover {
 
 @media (max-width: 768px) {
   .employee-page-header h2 { margin-left: 46px; }
+}
+/* ================================================================
+   CUSTOMER TABLE — REBUILT COLUMN SET
+   (Serial No, Location, Lead, Service, AIDA Stage, Lead Status,
+   Remark popup toggle)
+================================================================ */
+
+/* ---- Generic pill/badge used only inside the rebuilt table ----
+   Named "crm-pill" (rather than reusing the sitewide .badge /
+   .status-badge classes) so it can't be affected by, or accidentally
+   affect, badges used elsewhere in the app. */
+
+.crm-pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  line-height: 1.6;
+}
+
+/* LEAD (leadStage) colors */
+
+.crm-pill-lead {
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.crm-pill-lead-awareness {
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.crm-pill-lead-interest {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.crm-pill-lead-desire {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.crm-pill-lead-closure {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+/* SERVICE */
+
+.crm-pill-service {
+  background: #f3e8ff;
+  color: #7e22ce;
+}
+
+/* AIDA STAGE (priority-style weighting) */
+
+.crm-pill-aida-high {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.crm-pill-aida-medium {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.crm-pill-aida-low {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+/* LEAD STATUS (status: lead / customer / lost) — still used in the
+   Customer Details popup as plain text, pill classes kept for any
+   future reuse but no longer applied to the table column. */
+
+.crm-pill-status-lead {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.crm-pill-status-customer {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.crm-pill-status-lost {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+/* ---- Remark toggle icon (inside table cell) ---- */
+
+.remark-toggle-icon {
+  background: #eff6ff;
+  color: #2563eb;
+  border: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.remark-toggle-icon:hover {
+  background: #dbeafe;
+  transform: scale(1.08);
+}
+
+/* ---- Remark popup ---- */
+
+.remark-popup-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.remark-popup {
+  background: #fff;
+  width: 420px;
+  max-width: 92vw;
+  max-height: 80vh;
+  overflow-y: auto;
+  border-radius: 14px;
+  padding: 20px 22px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.18);
+}
+
+.remark-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 10px;
+  margin-bottom: 14px;
+}
+
+.remark-popup-header h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+  padding-right: 10px;
+}
+
+.remark-popup-body {
+  font-size: 13px;
+  color: #1f2937;
+}
+
+.remark-current {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0 0 14px 0;
+}
+
+.remark-empty {
+  color: #9ca3af;
+  font-style: italic;
+  margin: 0 0 14px 0;
+}
+
+.remark-history-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #6b7280;
+  margin-bottom: 8px;
+}
+
+.remark-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.remark-history-list li {
+  background: #fafafa;
+  border: 1px solid #f1f5f9;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.remark-history-text {
+  display: block;
+  color: #374151;
+  font-size: 12.5px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.remark-history-date {
+  display: block;
+  margin-top: 4px;
+  color: #9ca3af;
+  font-size: 10.5px;
+}
+
+/* ---- Mobile tweaks ---- */
+
+@media (max-width: 600px) {
+  .remark-popup {
+    width: 92vw;
+    padding: 16px;
+  }
 }

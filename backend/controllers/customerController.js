@@ -29,6 +29,9 @@ async (req, res) => {
   sector,
   solution,
   product,
+  location,
+  service,
+  aidaStage,
 
 } = req.body;
 
@@ -60,6 +63,9 @@ await Customer.create({
   solution,
   product,
   sector,
+  location,
+  service,
+  aidaStage,
   createdBy:
   req.user._id,
 });
@@ -316,7 +322,10 @@ async (req, res) => {
             customer.email || "",
 
           phone:
-            customer.phone || "",
+            customer.phone !== undefined &&
+            customer.phone !== null
+              ? String(customer.phone).trim()
+              : "",
 
           company:
             customer.company || "",
@@ -357,6 +366,15 @@ async (req, res) => {
 
           sector: 
             customer.sector || "",
+
+          location:
+            customer.location || "",
+
+          service:
+            customer.service || "",
+
+          aidaStage:
+            customer.aidaStage || "",
 
           createdBy:
             req.user._id,
@@ -505,6 +523,49 @@ async (req, res) => {
     });
   }
 };
+// ================= BULK DELETE CUSTOMERS =================
+
+const bulkDeleteCustomers =
+async (req, res) => {
+
+  try {
+
+    const { ids } = req.body;
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+
+      return res.status(400).json({
+        success: false,
+        message:
+        "No customer IDs provided",
+      });
+    }
+
+    const result =
+    await Customer.deleteMany({
+      _id: { $in: ids },
+    });
+
+    res.json({
+      success: true,
+      message:
+      `${result.deletedCount} customer(s) deleted`,
+      deletedCount:
+      result.deletedCount,
+    });
+
+  } catch (error) {
+
+    console.log(error);
+
+    res.status(500).json({
+      success: false,
+      message:
+      "Server Error",
+    });
+  }
+};
+
 const updateCustomer =
 async (req, res) => {
 
@@ -611,5 +672,6 @@ module.exports = {
   getCustomer,
   updateCustomer,
   deleteCustomer,
+  bulkDeleteCustomers,
   bulkUploadCustomers,
 };

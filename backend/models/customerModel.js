@@ -21,6 +21,39 @@ new mongoose.Schema(
     type: String,
   },
 
+  // LOCATION (free-text, entered by the user)
+  location: {
+    type: String,
+    default: "",
+  },
+
+  // SERVICE OFFERED
+  service: {
+    type: String,
+
+    enum: [
+      "",
+      "CRM",
+      "WhatsApp Bots",
+    ],
+
+    default: "",
+  },
+
+  // AIDA STAGE (marketing funnel weight, separate from leadStage)
+  aidaStage: {
+    type: String,
+
+    enum: [
+      "",
+      "High",
+      "Medium",
+      "Low",
+    ],
+
+    default: "",
+  },
+
 
   // CUSTOMER STATUS
 status: {

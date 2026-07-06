@@ -20,6 +20,15 @@ const computeHours = (start, end) => {
 };
 
 // ============================================================
+// WORK MODE OPTIONS (selected by the employee/user at check-in)
+// ============================================================
+const VALID_WORK_MODES = [
+  "Work From Office",
+  "Work From Home",
+  "Site Visit",
+];
+
+// ============================================================
 // CHECK IN
 // ============================================================
 const checkIn = async (req, res) => {
@@ -27,6 +36,19 @@ const checkIn = async (req, res) => {
     const employeeId = req.employee.id;
     const today = getTodayIST();
     const now = new Date();
+
+    // ================= WORK MODE =================
+    // The check-in popup requires the employee/user to pick how
+    // they're working today before the check-in is recorded.
+    const { workMode } = req.body;
+
+    if (!workMode || !VALID_WORK_MODES.includes(workMode)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Please select a work mode (Work From Office, Work From Home, or Site Visit) to check in.",
+      });
+    }
 
     let record = await Attendance.findOne({
       employee: employeeId,
@@ -40,6 +62,7 @@ const checkIn = async (req, res) => {
         date: today,
         status: "present",
         checkIn: now,
+        workMode,
         sessions: [{ checkIn: now, checkOut: null, hours: 0 }],
       });
     } else if (record.status === "leave") {
@@ -61,9 +84,11 @@ const checkIn = async (req, res) => {
           message: "Already checked in. Please check out first.",
         });
       }
-      // Allow extra login after checkout
+      // Allow extra login after checkout — refresh the work mode in
+      // case it changed (e.g. moved from Work From Home to Site Visit).
       record.sessions.push({ checkIn: now, checkOut: null, hours: 0 });
       record.status = "present";
+      record.workMode = workMode;
       await record.save();
     }
 

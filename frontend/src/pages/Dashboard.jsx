@@ -55,6 +55,7 @@ FaUserCircle,
   FaSyncAlt,
 FaSync,
 FaCalendarAlt,
+FaCommentDots,
 
 } from "react-icons/fa";
 
@@ -279,6 +280,85 @@ const deleteCustomer = async (customer) => {
       error.response?.data?.message ||
 
       "Delete Failed"
+    );
+  }
+};
+
+// ================= TOGGLE SINGLE CHECKBOX =================
+
+const toggleCustomerChecked = (id) => {
+
+  setCheckedCustomerIds((prev) =>
+
+    prev.includes(id)
+      ? prev.filter((c) => c !== id)
+      : [...prev, id]
+  );
+};
+
+// ================= TOGGLE "SELECT ALL" FOR CURRENT PAGE =================
+
+const toggleSelectAllCustomers = (pageCustomers) => {
+
+  const pageIds = pageCustomers.map((c) => c._id);
+
+  const allChecked = pageIds.every((id) =>
+    checkedCustomerIds.includes(id)
+  );
+
+  if (allChecked) {
+
+    // unchecking: remove this page's ids from the selection
+    setCheckedCustomerIds((prev) =>
+      prev.filter((id) => !pageIds.includes(id))
+    );
+
+  } else {
+
+    // checking: add this page's ids (no duplicates)
+    setCheckedCustomerIds((prev) => [
+      ...prev,
+      ...pageIds.filter((id) => !prev.includes(id)),
+    ]);
+  }
+};
+
+// ================= BULK DELETE SELECTED CUSTOMERS =================
+
+const bulkDeleteCustomers = async () => {
+
+  if (checkedCustomerIds.length === 0) {
+
+    alert("No customers selected");
+    return;
+  }
+
+  const confirmDelete = window.confirm(
+    `Delete ${checkedCustomerIds.length} selected customer(s)? This cannot be undone.`
+  );
+
+  if (!confirmDelete)
+    return;
+
+  try {
+
+    await API.delete("/customers/bulk-delete", {
+      data: { ids: checkedCustomerIds },
+    });
+
+    alert("Selected customers deleted successfully");
+
+    setCheckedCustomerIds([]);
+
+    fetchCustomers();
+
+  } catch (error) {
+
+    console.log(error);
+
+    alert(
+      error.response?.data?.message ||
+      "Bulk delete failed"
     );
   }
 };
@@ -751,6 +831,10 @@ const [sectorFilter,setSectorFilter] = useState("");
 
 const [assignedToFilter,setAssignedToFilter] = useState("");
 
+const [serviceFilter, setServiceFilter] = useState("");
+
+const [aidaStageFilter, setAidaStageFilter] = useState("");
+
 
 const [dashboardType,
 setDashboardType] =
@@ -798,6 +882,21 @@ useState(new Date());
 const [selectedCustomers,
 setSelectedCustomers] =
 useState([]);
+
+// ================= MULTI-SELECT (BULK DELETE) =================
+// Holds the _ids of customer rows checked via the table checkboxes.
+// Kept separate from `selectedCustomers` above (which is used for the
+// date-based reminder list) to avoid clashing with existing logic.
+const [checkedCustomerIds,
+setCheckedCustomerIds] =
+useState([]);
+
+// ================= REMARK POPUP =================
+// Holds the customer whose remark is currently being viewed in the
+// small popup triggered by the toggle icon in the Remark column.
+const [remarkPopupCustomer,
+setRemarkPopupCustomer] =
+useState(null);
 
 const [todayReminders,
 setTodayReminders] =
@@ -1200,6 +1299,16 @@ const matchesAssignedTo =
   !assignedToFilter ||
   customer.assignedTo === assignedToFilter;
 
+// SERVICE
+const matchesService =
+  !serviceFilter ||
+  customer.service === serviceFilter;
+
+// AIDA STAGE
+const matchesAidaStage =
+  !aidaStageFilter ||
+  customer.aidaStage === aidaStageFilter;
+
  return (
   matchesSearch &&
   matchesSolution &&
@@ -1208,7 +1317,9 @@ const matchesAssignedTo =
   matchesStatus &&
   matchesSource &&
   matchesSector &&
-  matchesAssignedTo
+  matchesAssignedTo &&
+  matchesService &&
+  matchesAidaStage
 );
 });
 
@@ -1220,6 +1331,7 @@ useState({
   phone: "",
   company: "",
   sector: "",
+  location: "",
 
   status: "lead",
   leadStage: "Awareness",
@@ -1231,6 +1343,8 @@ useState({
   assignedTo: "",
   solution: "",
   product: "",
+  service: "",
+  aidaStage: "",
 });
 // ================= PAGINATION =================
 
@@ -1488,9 +1602,12 @@ useEffect(() => {
         source: "Website",
 
         sector: "",
+        location: "",
         assignedTo: "",
         solution: "",
 product: "",
+service: "",
+aidaStage: "",
       });
 
       alert(
@@ -1539,7 +1656,10 @@ const handleFullUpdate = (customer) => {
 
     assignedTo: customer.assignedTo || "",
     sector: customer.sector || "",
+    location: customer.location || "",
     product:customer.product || "",
+    service: customer.service || "",
+    aidaStage: customer.aidaStage || "",
 
     remark: customer.remark || "",
 
@@ -3334,6 +3454,66 @@ clear-filter-btn
 <div className="filter-item">
 
   <label>
+    Service
+  </label>
+
+  <select
+    value={serviceFilter}
+    onChange={(e)=>
+      setServiceFilter(e.target.value)
+    }
+  >
+
+    <option value="">
+      All Services
+    </option>
+
+    <option value="CRM">
+      CRM
+    </option>
+
+    <option value="WhatsApp Bots">
+      WhatsApp Bots
+    </option>
+
+  </select>
+
+</div>
+<div className="filter-item">
+
+  <label>
+    AIDA Stage
+  </label>
+
+  <select
+    value={aidaStageFilter}
+    onChange={(e)=>
+      setAidaStageFilter(e.target.value)
+    }
+  >
+
+    <option value="">
+      All AIDA Stages
+    </option>
+
+    <option value="High">
+      High
+    </option>
+
+    <option value="Medium">
+      Medium
+    </option>
+
+    <option value="Low">
+      Low
+    </option>
+
+  </select>
+
+</div>
+<div className="filter-item">
+
+  <label>
     Assigned To
   </label>
 
@@ -3390,6 +3570,8 @@ clear-filter-btn
     setSourceFilter("");
     setSectorFilter("");
     setAssignedToFilter("");
+    setServiceFilter("");
+    setAidaStageFilter("");
 
   }}
 >
@@ -3403,6 +3585,16 @@ clear-filter-btn
 >
   📥 Download Excel
 </button>
+
+{checkedCustomerIds.length > 0 && (
+  <button
+    className="download-btn"
+    style={{ background: "#e53935" }}
+    onClick={bulkDeleteCustomers}
+  >
+    🗑️ Delete Selected ({checkedCustomerIds.length})
+  </button>
+)}
 </div>
 
 
@@ -3469,29 +3661,52 @@ clear-filter-btn
 
     <div className="customer-table-container">
 
-        <table className="minimal-table">
+        <table className="minimal-table customer-full-table">
 
           <thead>
 
             <tr>
 
+              <th className="col-checkbox">
+                <input
+                  type="checkbox"
+                  checked={
+                    currentCustomers.length > 0 &&
+                    currentCustomers.every((c) =>
+                      checkedCustomerIds.includes(c._id)
+                    )
+                  }
+                  onChange={() =>
+                    toggleSelectAllCustomers(currentCustomers)
+                  }
+                />
+              </th>
+
+              <th className="col-sno">S.No</th>
+
+              <th>Company Name</th>
+
               <th>Name</th>
 
-              <th>Company</th>
+              <th>Created Date</th>
 
-              <th>Contact no</th>
+              <th>Contact</th>
 
-               <th>Lead Source</th>
-          
+              <th>Location</th>
+
+              <th>LeadStage</th>
+
               <th>Product</th>
+
+              <th>Service</th>
+
               <th>Sector</th>
 
-             
-              <th>
-  Last Modified
-</th>
+              <th>AIDA Stage</th>
 
-              <th>Actions</th>
+              <th className="col-remark">Remark</th>
+
+              <th className="col-actions">Actions</th>
 
             </tr>
 
@@ -3501,7 +3716,7 @@ clear-filter-btn
 
             {
                currentCustomers.map(
-    (customer) => (
+    (customer, index) => (
 
                   <tr
                     key={customer._id}
@@ -3518,46 +3733,118 @@ clear-filter-btn
                     }}
                   >
 
-                    <td>
-                      {customer.name}
+                    <td
+                      className="col-checkbox"
+                      onClick={(e) =>
+                        e.stopPropagation()
+                      }
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checkedCustomerIds.includes(
+                          customer._id
+                        )}
+                        onChange={() =>
+                          toggleCustomerChecked(customer._id)
+                        }
+                      />
+                    </td>
+
+                    <td className="col-sno">
+                      {indexOfFirstCustomer + index + 1}
                     </td>
 
                     <td>
-                      {customer.company}
+                      {customer.company || "-"}
                     </td>
 
                     <td>
-                      {customer.phone}
+                      {customer.name || "-"}
                     </td>
 
-                   
-
-                 
-          
-<td>
-  {customer.source}
-</td>
-<td>
-  {customer.product || "-"}
-</td>
-<td>
-  {customer.sector}
-</td>
-           <td>
-
-  {
-    customer.lastModified
-
-    ? new Date(
-        customer.lastModified
-      ).toLocaleString()
-
-    : "Not Modified"
-  }
-
-</td>
+                    <td>
+                      {
+                        customer.createdAt
+                        ? new Date(
+                            customer.createdAt
+                          ).toLocaleDateString()
+                        : "-"
+                      }
+                    </td>
 
                     <td>
+                      {customer.phone || "-"}
+                    </td>
+
+                    <td>
+                      {customer.location || "-"}
+                    </td>
+
+                    <td>
+                      {customer.leadStage ? (
+                        <span
+                          className={
+                            "crm-pill crm-pill-lead crm-pill-lead-" +
+                            customer.leadStage.toLowerCase()
+                          }
+                        >
+                          {customer.leadStage}
+                        </span>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
+
+                    <td>
+                      {customer.product || "-"}
+                    </td>
+
+                    <td>
+                      {customer.service ? (
+                        <span className="crm-pill crm-pill-service">{customer.service}
+                        </span>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
+
+                    <td>
+                      {customer.sector || "-"}
+                    </td>
+
+                    <td>
+                      {customer.aidaStage ? (
+                        <span
+                          className={
+                            "crm-pill crm-pill-aida crm-pill-aida-" +
+                            customer.aidaStage.toLowerCase()
+                          }
+                        >
+                          {customer.aidaStage}
+                        </span>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
+
+                    <td
+                      className="col-remark"
+                      onClick={(e) =>
+                        e.stopPropagation()
+                      }
+                    >
+                      <button
+                        className="icon-btn remark-toggle-icon"
+                        title="View Remark"
+                        onClick={() =>
+                          setRemarkPopupCustomer(customer)
+                        }
+                      >
+                        <FaCommentDots />
+                      </button>
+                    </td>
+
+                    <td className="col-actions">
 
                  <div
   className="action-icons"
@@ -3614,6 +3901,72 @@ clear-filter-btn
           </tbody>
 
         </table>
+
+        {/* ================= REMARK POPUP ================= */}
+        {remarkPopupCustomer && (
+          <div
+            className="modal-overlay remark-popup-overlay"
+            onClick={() => setRemarkPopupCustomer(null)}
+          >
+            <div
+              className="remark-popup"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="remark-popup-header">
+                <h3>
+                  Remark — {remarkPopupCustomer.name || "Customer"}
+                </h3>
+                <span
+                  className="close-icon"
+                  onClick={() => setRemarkPopupCustomer(null)}
+                >
+                  ✕
+                </span>
+              </div>
+
+              <div className="remark-popup-body">
+                {remarkPopupCustomer.remark ? (
+                  <p className="remark-current">
+                    {remarkPopupCustomer.remark}
+                  </p>
+                ) : (
+                  <p className="remark-empty">
+                    No remark added yet.
+                  </p>
+                )}
+
+                {remarkPopupCustomer.lastRemarks &&
+                  remarkPopupCustomer.lastRemarks.length > 0 && (
+                    <>
+                      <div className="remark-history-title">
+                        Previous Remarks
+                      </div>
+
+                      <ul className="remark-history-list">
+                        {remarkPopupCustomer.lastRemarks.map(
+                          (item, i) => (
+                            <li key={i}>
+                              <span className="remark-history-text">
+                                {item.remark || "(empty)"}
+                              </span>
+                              <span className="remark-history-date">
+                                {item.updatedAt
+                                  ? new Date(
+                                      item.updatedAt
+                                    ).toLocaleString()
+                                  : ""}
+                              </span>
+                            </li>
+                          )
+                        )}
+                      </ul>
+                    </>
+                  )}
+              </div>
+            </div>
+          </div>
+        )}
+
           <div className="pagination">
 
           <button
@@ -3635,33 +3988,61 @@ clear-filter-btn
 
 
           {
-            [...Array(totalPages)]
-            .map((_, index) => (
+            // ================= WINDOWED PAGE NUMBERS =================
+            // Only show 10 page numbers at a time. Once the current
+            // page moves past this window (via Next/Previous), the
+            // window automatically slides to the next/previous set
+            // of 10 numbers.
+            (() => {
 
-              <button
+              const pagesPerGroup = 10;
 
-                key={index}
+              const currentGroup = Math.floor(
+                (currentPage - 1) / pagesPerGroup
+              );
 
-                className={
-                  currentPage ===
-                  index + 1
+              const groupStart =
+                currentGroup * pagesPerGroup + 1;
 
-                    ? "active-page"
+              const groupEnd = Math.min(
+                groupStart + pagesPerGroup - 1,
+                totalPages
+              );
 
-                    : ""
-                }
+              const pageNumbers = [];
 
-                onClick={() =>
-                  setCurrentPage(
-                    index + 1
-                  )
-                }
-              >
+              for (
+                let page = groupStart;
+                page <= groupEnd;
+                page++
+              ) {
+                pageNumbers.push(page);
+              }
 
-                {index + 1}
+              return pageNumbers.map((page) => (
 
-              </button>
-            ))
+                <button
+
+                  key={page}
+
+                  className={
+                    currentPage === page
+
+                      ? "active-page"
+
+                      : ""
+                  }
+
+                  onClick={() =>
+                    setCurrentPage(page)
+                  }
+                >
+
+                  {page}
+
+                </button>
+              ));
+            })()
           }
 
 
@@ -4160,6 +4541,24 @@ clear-filter-btn
 
             </div> 
 
+            {/* LOCATION */}
+
+            <div className="input-group">
+
+              <label>
+                Location
+              </label>
+
+              <input
+                type="text"
+                name="location"
+                placeholder="Enter location"
+                value={formData.location}
+                onChange={handleChange}
+              />
+
+            </div>
+
 
           
 
@@ -4349,6 +4748,70 @@ clear-filter-btn
               />
 
             </div>
+
+{/* SERVICE */}
+
+<div className="input-group">
+
+  <label>
+    Service
+  </label>
+
+  <select
+    name="service"
+    value={formData.service}
+    onChange={handleChange}
+  >
+
+    <option value="">
+      Select Service
+    </option>
+
+    <option value="CRM">
+      CRM
+    </option>
+
+    <option value="WhatsApp Bots">
+      WhatsApp Bots
+    </option>
+
+  </select>
+
+</div>
+
+{/* AIDA STAGE */}
+
+<div className="input-group">
+
+  <label>
+    AIDA Stage
+  </label>
+
+  <select
+    name="aidaStage"
+    value={formData.aidaStage}
+    onChange={handleChange}
+  >
+
+    <option value="">
+      Select AIDA Stage
+    </option>
+
+    <option value="High">
+      High
+    </option>
+
+    <option value="Medium">
+      Medium
+    </option>
+
+    <option value="Low">
+      Low
+    </option>
+
+  </select>
+
+</div>
 
             {/* FOLLOWUP */}
 
@@ -4560,6 +5023,81 @@ clear-filter-btn
               />
 
             </div>
+
+            {/* PRODUCT */}
+
+            <div className="input-group">
+
+              <label>
+                Product
+              </label>
+
+              <select
+
+                value={formData.product}
+
+                onChange={(e) =>
+
+                  setFormData({
+
+                    ...formData,
+
+                    product:
+                    e.target.value,
+                  })
+                }
+              >
+
+                <option value="">
+                  Select Product
+                </option>
+                <option>
+                  Bling Rewards
+                </option>
+                <option>
+                  Digital Warranty
+                </option>
+                <option>
+                  Track and Trace
+                </option>
+                <option>
+                  Dealer Module
+                </option>
+                <option>
+                  Custom Application Development
+                </option>
+
+              </select>
+
+            </div>
+
+            {/* LOCATION */}
+
+            <div className="input-group">
+
+              <label>
+                Location
+              </label>
+
+              <input
+
+                type="text"
+
+                value={formData.location}
+
+                onChange={(e) =>
+
+                  setFormData({
+
+                    ...formData,
+
+                    location:
+                    e.target.value,
+                  })
+                }
+              />
+
+            </div>
             <div className="input-group">
 
   <label>
@@ -4582,6 +5120,90 @@ clear-filter-btn
                   })
                 }
   />
+
+</div>
+
+{/* SERVICE */}
+
+<div className="input-group">
+
+  <label>
+    Service
+  </label>
+
+  <select
+
+    value={formData.service}
+
+    onChange={(e) =>
+
+      setFormData({
+
+        ...formData,
+
+        service:
+        e.target.value,
+      })
+    }
+  >
+
+    <option value="">
+      Select Service
+    </option>
+
+    <option value="CRM">
+      CRM
+    </option>
+
+    <option value="WhatsApp Bots">
+      WhatsApp Bots
+    </option>
+
+  </select>
+
+</div>
+
+{/* AIDA STAGE */}
+
+<div className="input-group">
+
+  <label>
+    AIDA Stage
+  </label>
+
+  <select
+
+    value={formData.aidaStage}
+
+    onChange={(e) =>
+
+      setFormData({
+
+        ...formData,
+
+        aidaStage:
+        e.target.value,
+      })
+    }
+  >
+
+    <option value="">
+      Select AIDA Stage
+    </option>
+
+    <option value="High">
+      High
+    </option>
+
+    <option value="Medium">
+      Medium
+    </option>
+
+    <option value="Low">
+      Low
+    </option>
+
+  </select>
 
 </div>
 
@@ -5035,10 +5657,43 @@ clear-filter-btn
 
           <div className="detail-row">
 
+            <span>Location</span>
+
+            <h4>
+              {selectedCustomer.location || "N/A"}
+            </h4>
+
+          </div>
+
+
+          <div className="detail-row">
+
             <span>Lead Stage</span>
 
             <h4>
               {selectedCustomer.leadStage}
+            </h4>
+
+          </div>
+
+
+          <div className="detail-row">
+
+            <span>Lead Status</span>
+
+            <h4>
+              {selectedCustomer.status || "N/A"}
+            </h4>
+
+          </div>
+
+
+          <div className="detail-row">
+
+            <span>Lead Source</span>
+
+            <h4>
+              {selectedCustomer.source || "N/A"}
             </h4>
 
           </div>
@@ -5111,6 +5766,55 @@ clear-filter-btn
 
   <h4>
     {selectedCustomer.product}
+  </h4>
+
+</div>
+
+
+<div className="view-box">
+
+  <span>
+    Service
+  </span>
+
+  <h4>
+    {selectedCustomer.service || "N/A"}
+  </h4>
+
+</div>
+
+
+<div className="view-box">
+
+  <span>
+    AIDA Stage
+  </span>
+
+  <h4>
+    {selectedCustomer.aidaStage || "N/A"}
+  </h4>
+
+</div>
+
+
+<div className="view-box">
+
+  <span>
+    Created Date
+  </span>
+
+  <h4>
+
+    {
+      selectedCustomer.createdAt
+
+      ? new Date(
+          selectedCustomer.createdAt
+        ).toLocaleDateString()
+
+      : "N/A"
+    }
+
   </h4>
 
 </div>

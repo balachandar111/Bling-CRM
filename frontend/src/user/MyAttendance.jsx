@@ -17,6 +17,14 @@ const formatHours = (hours) => {
   return h + "h " + m + "m";
 };
 
+// Small icon for each work mode, used on the calendar and in tables.
+const workModeIcon = (mode) => {
+  if (mode === "Work From Office") return "🏢";
+  if (mode === "Work From Home") return "🏠";
+  if (mode === "Site Visit") return "📍";
+  return "";
+};
+
 const AttCalendar = ({ records, onDateClick, currentMonth, setCurrentMonth }) => {
   const year = currentMonth.getFullYear();
   const month = currentMonth.getMonth();
@@ -34,7 +42,8 @@ const AttCalendar = ({ records, onDateClick, currentMonth, setCurrentMonth }) =>
     let cls = "";
     if (rec) cls = rec.status === "present" ? "adm-present" : (rec.status === "leave" || rec.status === "leave-pending") ? "adm-leave" : "adm-absent";
     else if (dateStr < today) cls = "adm-absent";
-    cells.push(<div key={dateStr} className={"adm-att-cell " + cls + (dateStr === today ? " adm-today" : "")} onClick={() => onDateClick(dateStr)} title={dateStr}><span className="adm-day-num">{d}</span>{rec && <span className={"adm-dot " + rec.status + "-dot"} />}{!rec && dateStr < today && <span className="adm-dot absent-dot" />}</div>);
+    const title = rec && rec.workMode ? dateStr + " — " + rec.workMode : dateStr;
+    cells.push(<div key={dateStr} className={"adm-att-cell " + cls + (dateStr === today ? " adm-today" : "")} onClick={() => onDateClick(dateStr)} title={title}><span className="adm-day-num">{d}</span>{rec && <span className={"adm-dot " + rec.status + "-dot"} />}{!rec && dateStr < today && <span className="adm-dot absent-dot" />}{rec && rec.workMode && <span className="adm-workmode-icon">{workModeIcon(rec.workMode)}</span>}</div>);
   }
   return (
     <div className="adm-calendar">
@@ -47,6 +56,9 @@ const AttCalendar = ({ records, onDateClick, currentMonth, setCurrentMonth }) =>
         <span><span className="adm-dot present-dot" /> Present</span>
         <span><span className="adm-dot absent-dot" /> Absent</span>
         <span><span className="adm-dot leave-dot" /> Leave</span>
+        <span>🏢 Office</span>
+        <span>🏠 Home</span>
+        <span>📍 Site Visit</span>
       </div>
       <div className="adm-cal-days">{["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d => <div key={d} className="adm-cal-day-name">{d}</div>)}</div>
       <div className="adm-cal-grid">{cells}</div>
@@ -101,6 +113,8 @@ const MyAttendance = ({ setSidebarOpen }) => {
   const [showDetail, setShowDetail] = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [leaveForm, setLeaveForm] = useState({ date:"", reason:"" });
+  const [showWorkModeModal, setShowWorkModeModal] = useState(false);
+  const [selectedWorkMode, setSelectedWorkMode] = useState("");
 
   const myIsCheckedIn = myToday && myToday.status === "present" && myToday.sessions?.length > 0 && !myToday.sessions[myToday.sessions.length - 1]?.checkOut;
   const myIsOnLeave = myToday && myToday.status === "leave";
@@ -127,11 +141,23 @@ const MyAttendance = ({ setSidebarOpen }) => {
 
   useEffect(() => { fetchTodayStatus(); fetchHistory(); fetchPayslips(); }, [fetchTodayStatus, fetchHistory, fetchPayslips]);
 
-  const handleCheckIn = async () => {
+  const handleCheckIn = async (workMode) => {
     setMyAttLoading(true);
-    try { await API.post("/attendance/me/checkin"); await fetchTodayStatus(); await fetchHistory(); }
+    try { await API.post("/attendance/me/checkin", { workMode }); await fetchTodayStatus(); await fetchHistory(); }
     catch (err) { alert(err.response?.data?.message || "Check-in failed"); }
     setMyAttLoading(false);
+  };
+
+  // Opens the work-mode selection popup instead of checking in directly.
+  const openWorkModeModal = () => {
+    setSelectedWorkMode("");
+    setShowWorkModeModal(true);
+  };
+
+  const confirmWorkModeCheckIn = async () => {
+    if (!selectedWorkMode) { alert("Please select a work mode."); return; }
+    await handleCheckIn(selectedWorkMode);
+    setShowWorkModeModal(false);
   };
 
   const handleCheckOut = async () => {
@@ -180,6 +206,7 @@ const MyAttendance = ({ setSidebarOpen }) => {
               <h3 style={{ margin:0 }}>Today — {myTodayDate || "—"}</h3>
               <p style={{ margin:"6px 0 0", color:"#666" }}>Status: <strong>{myIsOnLeave ? "📅 On Approved Leave" : myIsLeavePending ? "⏳ Leave Pending Approval" : myIsCheckedIn ? "✅ Checked In" : myToday?.status === "present" ? "✅ Present (Checked Out)" : "❌ Not Checked In"}</strong></p>
               {myToday?.checkIn && <p style={{ margin:"4px 0 0", color:"#666" }}>First Check-In: {formatTime(myToday.checkIn)}{myToday.checkOut && " · Last Check-Out: " + formatTime(myToday.checkOut)}</p>}
+              {myToday?.workMode && <p style={{ margin:"4px 0 0", color:"#666" }}>Work Mode: <strong>{workModeIcon(myToday.workMode)} {myToday.workMode}</strong></p>}
               {myToday?.status === "present" && myToday?.totalHours != null && (
                 <p style={{ margin:"4px 0 0", color: myToday.totalHours >= 8 ? "#389e0d" : "#d46b08" }}>
                   {myToday.totalHours >= 8 ? "✅" : "⚠️"} {formatHours(myToday.totalHours)} worked today{myToday.totalHours < 8 && " (" + formatHours(8 - myToday.totalHours) + " remaining for 8h)"}
@@ -187,7 +214,7 @@ const MyAttendance = ({ setSidebarOpen }) => {
               )}
             </div>
             <div style={{ display:"flex", gap:"10px", flexWrap:"wrap" }}>
-              <button className="add-btn" disabled={myAttLoading || myIsCheckedIn || myIsOnLeave || myIsLeavePending} onClick={handleCheckIn}>Check In</button>
+              <button className="add-btn" disabled={myAttLoading || myIsCheckedIn || myIsOnLeave || myIsLeavePending} onClick={openWorkModeModal}>Check In</button>
               <button className="add-btn" disabled={myAttLoading || !myIsCheckedIn} onClick={handleCheckOut}>Check Out</button>
               <button className="add-btn" disabled={myIsOnLeave || myIsLeavePending} onClick={() => setShowLeaveModal(true)}>Apply Leave</button>
             </div>
@@ -211,12 +238,13 @@ const MyAttendance = ({ setSidebarOpen }) => {
             <h3 style={{ marginTop:0 }}>Attendance History</h3>
             <div style={{ overflowX:"auto" }}>
               <table className="minimal-employee-table">
-                <thead><tr><th>Date</th><th>Status</th><th>Check In</th><th>Check Out</th><th>Hours</th></tr></thead>
+                <thead><tr><th>Date</th><th>Status</th><th>Work Mode</th><th>Check In</th><th>Check Out</th><th>Hours</th></tr></thead>
                 <tbody>
-                  {records.length === 0 ? <tr><td colSpan={5} style={{ textAlign:"center", padding:"20px" }}>No attendance records yet.</td></tr> : records.slice(0,30).map((r,i) => (
+                  {records.length === 0 ? <tr><td colSpan={6} style={{ textAlign:"center", padding:"20px" }}>No attendance records yet.</td></tr> : records.slice(0,30).map((r,i) => (
                     <tr key={i} onClick={() => handleDateClick(r.date)} className="adm-record-row" style={{ cursor:"pointer" }}>
                       <td>{r.date}</td>
                       <td><span className={"adm-status-badge " + r.status}>{r.status === "present" ? "✅ Present" : r.status === "leave" ? "📅 Leave" : r.status === "leave-pending" ? "⏳ Leave Pending" : r.status === "leave-rejected" ? "🚫 Leave Rejected" : "❌ Absent"}</span></td>
+                      <td>{r.workMode ? workModeIcon(r.workMode) + " " + r.workMode : "—"}</td>
                       <td>{formatTime(r.checkIn)}</td><td>{formatTime(r.checkOut)}</td><td>{r.totalHours ? formatHours(r.totalHours) : "—"}</td>
                     </tr>
                   ))}
@@ -241,6 +269,29 @@ const MyAttendance = ({ setSidebarOpen }) => {
         </>
       )}
 
+      {showWorkModeModal && (
+        <div className="modal-overlay" onClick={() => setShowWorkModeModal(false)}>
+          <div className="modal workmode-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header"><h2>Select Work Mode</h2><span className="close-icon" onClick={() => setShowWorkModeModal(false)}>✕</span></div>
+            <p style={{ margin:"0 0 16px", color:"#666" }}>How are you working today?</p>
+            <div className="workmode-options">
+              {["Work From Office", "Work From Home", "Site Visit"].map((mode) => (
+                <button
+                  type="button"
+                  key={mode}
+                  className={"workmode-option" + (selectedWorkMode === mode ? " workmode-option-selected" : "")}
+                  onClick={() => setSelectedWorkMode(mode)}
+                >
+                  <span className="workmode-option-icon">{workModeIcon(mode)}</span>
+                  <span>{mode}</span>
+                </button>
+              ))}
+            </div>
+            <button type="button" className="submit-btn" disabled={!selectedWorkMode || myAttLoading} onClick={confirmWorkModeCheckIn}>Confirm Check In</button>
+          </div>
+        </div>
+      )}
+
       {showLeaveModal && (
         <div className="modal-overlay" onClick={() => setShowLeaveModal(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
@@ -262,6 +313,7 @@ const MyAttendance = ({ setSidebarOpen }) => {
               <div className="adm-date-body">
                 <div className={"adm-status-badge-big " + selectedRecord.status}>{selectedRecord.status === "present" ? "✅ Present" : selectedRecord.status === "leave" ? "📅 On Leave" : "❌ Absent"}</div>
                 {selectedRecord.status === "present" && (<>
+                  <div className="adm-date-row"><span>Work Mode</span><strong>{selectedRecord.workMode ? workModeIcon(selectedRecord.workMode) + " " + selectedRecord.workMode : "—"}</strong></div>
                   <div className="adm-date-row"><span>First Check-In</span><strong>{formatTime(selectedRecord.checkIn)}</strong></div>
                   <div className="adm-date-row"><span>Last Check-Out</span><strong>{formatTime(selectedRecord.checkOut)}</strong></div>
                   <div className="adm-date-row"><span>Total Hours</span><strong>{formatHours(selectedRecord.totalHours)}</strong></div>

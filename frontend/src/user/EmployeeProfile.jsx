@@ -48,6 +48,14 @@ const getTodayString = () => {
   return istDate.toISOString().slice(0, 10);
 };
 
+// Small icon for each work mode, used on the calendar and in tables.
+const workModeIcon = (mode) => {
+  if (mode === "Work From Office") return "🏢";
+  if (mode === "Work From Home") return "🏠";
+  if (mode === "Site Visit") return "📍";
+  return "";
+};
+
 // ===================== CALENDAR COMPONENT =====================
 const AttendanceCalendar = ({ records, onDateClick }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -104,7 +112,7 @@ const AttendanceCalendar = ({ records, onDateClick }) => {
         key={dateStr}
         className={`att-cal-cell ${statusClass} ${dateStr === today ? "att-today" : ""}`}
         onClick={() => onDateClick(dateStr)}
-        title={dateStr}
+        title={rec && rec.workMode ? `${dateStr} — ${rec.workMode}` : dateStr}
       >
         <span className="att-day-num">{d}</span>
         {rec && rec.status === "present" && (
@@ -118,6 +126,9 @@ const AttendanceCalendar = ({ records, onDateClick }) => {
         )}
         {((!rec && dateStr < today) || (rec && (rec.status === "absent" || rec.status === "leave-rejected"))) && (
           <span className="att-dot absent-dot" />
+        )}
+        {rec && rec.workMode && (
+          <span className="att-workmode-icon">{workModeIcon(rec.workMode)}</span>
         )}
       </div>
     );
@@ -134,6 +145,9 @@ const AttendanceCalendar = ({ records, onDateClick }) => {
         <span><span className="att-dot present-dot" /> Present</span>
         <span><span className="att-dot absent-dot" /> Absent</span>
         <span><span className="att-dot leave-dot" /> Leave</span>
+        <span>🏢 Office</span>
+        <span>🏠 Home</span>
+        <span>📍 Site Visit</span>
       </div>
       <div className="att-cal-days-header">
         {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((d) => (
@@ -175,6 +189,8 @@ const EmployeeProfile = () => {
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [leaveForm, setLeaveForm] = useState({ date: "", reason: "" });
   const [attLoading, setAttLoading] = useState(false);
+  const [showWorkModeModal, setShowWorkModeModal] = useState(false);
+  const [selectedWorkMode, setSelectedWorkMode] = useState("");
 
   // -------- Fetch Profile --------
   const fetchProfile = useCallback(async () => {
@@ -231,16 +247,31 @@ const EmployeeProfile = () => {
   }, [fetchProfile, fetchPayslips, fetchTodayStatus, fetchMyAttendance]);
 
   // -------- Attendance Actions --------
-  const handleCheckIn = async () => {
+  const handleCheckIn = async (workMode) => {
     setAttLoading(true);
     try {
-      await API.post("/attendance/checkin");
+      await API.post("/attendance/checkin", { workMode });
       await fetchTodayStatus();
       await fetchMyAttendance();
     } catch (error) {
       alert(error.response?.data?.message || "Check-in failed");
     }
     setAttLoading(false);
+  };
+
+  // Opens the work-mode selection popup instead of checking in directly.
+  const openWorkModeModal = () => {
+    setSelectedWorkMode("");
+    setShowWorkModeModal(true);
+  };
+
+  const confirmWorkModeCheckIn = async () => {
+    if (!selectedWorkMode) {
+      alert("Please select a work mode.");
+      return;
+    }
+    await handleCheckIn(selectedWorkMode);
+    setShowWorkModeModal(false);
   };
 
   const handleCheckOut = async () => {
@@ -523,6 +554,13 @@ const EmployeeProfile = () => {
                       ✅ Present — Total time today:{" "}
                       <strong>{formatHours(todayRecord.totalHours)}</strong>
                       {isCheckedIn && " (Currently logged in)"}
+                      {todayRecord?.workMode && (
+                        <>
+                          {" · "}
+                          {workModeIcon(todayRecord.workMode)}{" "}
+                          {todayRecord.workMode}
+                        </>
+                      )}
                     </div>
                   ) : (
                     <div className="att-status-banner notcheckin-banner">
@@ -534,7 +572,7 @@ const EmployeeProfile = () => {
                     {/* CHECK IN */}
                     <button
                       className="att-btn checkin-btn"
-                      onClick={handleCheckIn}
+                      onClick={openWorkModeModal}
                       disabled={
                         attLoading ||
                         isCheckedIn ||
@@ -651,6 +689,43 @@ const EmployeeProfile = () => {
         </div>
       )}
 
+      {/* ================= WORK MODE MODAL ================= */}
+      {showWorkModeModal && (
+        <div className="modal-overlay" onClick={() => setShowWorkModeModal(false)}>
+          <div className="update-modal workmode-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Select Work Mode</h2>
+              <span className="close-icon" onClick={() => setShowWorkModeModal(false)}>✕</span>
+            </div>
+            <p style={{ margin: "0 0 16px", color: "#666" }}>How are you working today?</p>
+            <div className="workmode-options">
+              {["Work From Office", "Work From Home", "Site Visit"].map((mode) => (
+                <button
+                  type="button"
+                  key={mode}
+                  className={
+                    "workmode-option" +
+                    (selectedWorkMode === mode ? " workmode-option-selected" : "")
+                  }
+                  onClick={() => setSelectedWorkMode(mode)}
+                >
+                  <span className="workmode-option-icon">{workModeIcon(mode)}</span>
+                  <span>{mode}</span>
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="submit-btn"
+              disabled={!selectedWorkMode || attLoading}
+              onClick={confirmWorkModeCheckIn}
+            >
+              Confirm Check In
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ================= LEAVE MODAL ================= */}
       {showLeaveModal && (
         <div className="modal-overlay">
@@ -714,6 +789,14 @@ const EmployeeProfile = () => {
                 </div>
                 {selectedDateRecord.status === "present" && (
                   <>
+                    <div className="date-detail-row">
+                      <span>Work Mode</span>
+                      <strong>
+                        {selectedDateRecord.workMode
+                          ? `${workModeIcon(selectedDateRecord.workMode)} ${selectedDateRecord.workMode}`
+                          : "—"}
+                      </strong>
+                    </div>
                     <div className="date-detail-row">
                       <span>First Check-In</span>
                       <strong>{formatTime(selectedDateRecord.checkIn)}</strong>
