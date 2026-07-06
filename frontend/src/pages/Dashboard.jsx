@@ -26,8 +26,10 @@ import LeaveRequests from "../admin/LeaveRequests";
 
 // User-only sections
 import MyAttendance from "../user/MyAttendance";
+import Reimbursement from "../user/Reimbursement";
 import MyProfile from "../user/MyProfile";
 import Tasks from "../user/Tasks";
+import Opportunity from "../user/Opportunity";
 
 import {
   useNavigate,
@@ -56,6 +58,7 @@ FaUserCircle,
 FaSync,
 FaCalendarAlt,
 FaCommentDots,
+FaHandshake,
 
 } from "react-icons/fa";
 
@@ -863,7 +866,9 @@ const fullScreenPages = [
   "employees",
   "reminders",
   "MyAttendance",
+  "Reimbursement",
   "myProfile",
+  "opportunity",
 ];
 
   setSidebarOpen(
@@ -1342,6 +1347,8 @@ useState({
   source: "Website",
   assignedTo: "",
   solution: "",
+  hasProduct: false,
+  hasService: false,
   product: "",
   service: "",
   aidaStage: "",
@@ -1386,12 +1393,14 @@ const formatDate = (date) => {
 
   const handleChange = (e) => {
 
+    const { name, type, value, checked } = e.target;
+
     setFormData({
 
       ...formData,
 
-      [e.target.name]:
-        e.target.value,
+      [name]:
+        type === "checkbox" ? checked : value,
     });
   };
 
@@ -1605,6 +1614,8 @@ useEffect(() => {
         location: "",
         assignedTo: "",
         solution: "",
+hasProduct: false,
+hasService: false,
 product: "",
 service: "",
 aidaStage: "",
@@ -1657,6 +1668,8 @@ const handleFullUpdate = (customer) => {
     assignedTo: customer.assignedTo || "",
     sector: customer.sector || "",
     location: customer.location || "",
+    hasProduct: !!customer.product,
+    hasService: !!customer.service,
     product:customer.product || "",
     service: customer.service || "",
     aidaStage: customer.aidaStage || "",
@@ -2158,6 +2171,174 @@ const performanceData = [
 ];
 
 
+// ================= CLOSED LEADS =================
+
+const closedLeadCustomers =
+analyticsCustomers.filter(
+  (c) =>
+    c.leadStage ===
+    "Closure"
+);
+
+
+// ================= TOTAL CLOSED LEAD VALUE =================
+
+const totalClosedValue =
+closedLeadCustomers.reduce(
+  (sum, c) =>
+    sum + (Number(c.value) || 0),
+  0
+);
+
+
+// ================= PRODUCT DATA =================
+
+const productData = Object.values(
+
+  analyticsCustomers
+    .filter((c) => c.product && c.product.trim())
+    .reduce(
+    (acc, c) => {
+
+      const key = c.product.trim();
+
+      if (!acc[key]) {
+
+        acc[key] = {
+          name: key,
+          value: 0,
+        };
+      }
+
+      acc[key].value += 1;
+
+      return acc;
+    },
+    {}
+  )
+);
+
+
+// ================= SERVICE DATA =================
+
+const serviceData = [
+
+  {
+    name: "CRM",
+
+    value:
+      analyticsCustomers.filter(
+        (c) =>
+          c.service ===
+          "CRM"
+      ).length,
+  },
+
+  {
+    name: "WhatsApp Bot",
+
+    value:
+      analyticsCustomers.filter(
+        (c) =>
+          c.service ===
+          "WhatsApp Bot Service Sales"
+      ).length,
+  },
+
+  {
+    name: "Custom App",
+
+    value:
+      analyticsCustomers.filter(
+        (c) =>
+          c.service ===
+          "Customized Application Sales"
+      ).length,
+  },
+
+  {
+    name: "Genuinity",
+
+    value:
+      analyticsCustomers.filter(
+        (c) =>
+          c.service ===
+          "Genuinity"
+      ).length,
+  },
+
+  {
+    name: "Quick Commerce",
+
+    value:
+      analyticsCustomers.filter(
+        (c) =>
+          c.service ===
+          "Quick Commerce Marketing Business"
+      ).length,
+  },
+];
+
+
+// ================= CLOSED LEAD BY MONTH DATA =================
+
+const closedLeadData = (() => {
+
+  const monthsBack = 6;
+
+  const now = new Date();
+
+  const buckets = [];
+
+  for (let i = monthsBack - 1; i >= 0; i--) {
+
+    const d = new Date(
+      now.getFullYear(),
+      now.getMonth() - i,
+      1
+    );
+
+    buckets.push({
+      key: `${d.getFullYear()}-${d.getMonth()}`,
+      name: d.toLocaleString("en-IN", {
+        month: "short",
+        year: "2-digit",
+      }),
+      value: 0,
+    });
+  }
+
+  closedLeadCustomers.forEach((c) => {
+
+    const dateSource =
+      c.lastModified ||
+      c.createdAt;
+
+    if (!dateSource) return;
+
+    const d = new Date(dateSource);
+
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+
+    const bucket = buckets.find(
+      (b) => b.key === key
+    );
+
+    if (bucket) {
+      bucket.value += 1;
+    }
+  });
+
+  return buckets.map(
+    ({ name, value }) => ({
+      name,
+      value,
+    })
+  );
+
+})();
+
+
 
 // ================= FILTER CUSTOMERS =================
 
@@ -2318,6 +2499,64 @@ const performanceData = [
   <FaClock />
 
   Attendance
+
+</li>
+  )
+}
+
+  {/* REIMBURSEMENT - USER PANEL ONLY */}
+{
+  role !== "super_admin" && (
+<li
+
+  className={
+    activeMenu ===
+    "Reimbursement"
+
+      ? "active"
+
+      : ""
+  }
+
+  onClick={() =>
+    setActiveMenu(
+      "Reimbursement"
+    )
+  }
+>
+
+  <FaMoneyBillWave />
+
+  Reimbursement
+
+</li>
+  )
+}
+
+  {/* OPPORTUNITY - USER PANEL ONLY (customers in Desire stage) */}
+{
+  role !== "super_admin" && (
+<li
+
+  className={
+    activeMenu ===
+    "opportunity"
+
+      ? "active"
+
+      : ""
+  }
+
+  onClick={() =>
+    setActiveMenu(
+      "opportunity"
+    )
+  }
+>
+
+  <FaHandshake />
+
+  Opportunity
 
 </li>
   )
@@ -2906,23 +3145,6 @@ clear-filter-btn
                 </div>
 
 
-                <div className="stat-card">
-
-                  <div>
-
-                    <h4>
-                      Converted
-                    </h4>
-
-                    <h2>
-                      {converted}
-                    </h2>
-
-                  </div>
-
-                  <FaUserCheck className="icon purple" />
-
-                </div>
 <div
   className="stat-card clickable-card"
   onClick={() => {
@@ -3000,6 +3222,42 @@ clear-filter-btn
 
                 </div>
 
+                <div className="stat-card">
+
+                  <div>
+
+                    <h4>
+                      Closed Lead
+                    </h4>
+
+                    <h2>
+                      {converted}
+                    </h2>
+
+                  </div>
+
+                  <FaHandshake className="icon green" />
+
+                </div>
+
+                <div className="stat-card">
+
+                  <div>
+
+                    <h4>
+                      Value
+                    </h4>
+
+                    <h2>
+                      ₹{totalClosedValue.toLocaleString("en-IN")}
+                    </h2>
+
+                  </div>
+
+                  <FaMoneyBillWave className="icon purple" />
+
+                </div>
+
               </div>
 
 
@@ -3061,7 +3319,7 @@ clear-filter-btn
                 <div className="chart-card">
 
                  <h3>
-  User Performance Analytics
+  Product Analytics
 </h3>
 
                   <ResponsiveContainer
@@ -3070,7 +3328,7 @@ clear-filter-btn
                   >
 
                     <BarChart
-                     data={performanceData}
+                     data={productData}
                     >
 
                       <CartesianGrid
@@ -3105,7 +3363,7 @@ clear-filter-btn
                 <div className="chart-card">
 
                   <h3>
-                    Lead Source Analytics
+                    Service Analytics
                   </h3>
 
                   <ResponsiveContainer
@@ -3113,8 +3371,8 @@ clear-filter-btn
                     height={320}
                   >
 
-                    <AreaChart
-                      data={sourceData}
+                    <BarChart
+                      data={serviceData}
                     >
 
                       <CartesianGrid
@@ -3129,14 +3387,12 @@ clear-filter-btn
 
                       <Tooltip />
 
-                      <Area
-                        type="monotone"
+                      <Bar
                         dataKey="value"
-                        stroke="#7C3AED"
-                        fill="#C4B5FD"
+                        fill="#7C3AED"
                       />
 
-                    </AreaChart>
+                    </BarChart>
 
                   </ResponsiveContainer>
 
@@ -3146,7 +3402,7 @@ clear-filter-btn
                 <div className="chart-card">
 
                   <h3>
-                    Customer Pipeline
+                    Closed Lead Analytics
                   </h3>
 
                   <ResponsiveContainer
@@ -3154,8 +3410,8 @@ clear-filter-btn
                     height={320}
                   >
 
-                    <LineChart
-                      data={stageData}
+                    <BarChart
+                      data={closedLeadData}
                     >
 
                       <CartesianGrid
@@ -3170,14 +3426,12 @@ clear-filter-btn
 
                       <Tooltip />
 
-                      <Line
-                        type="monotone"
+                      <Bar
                         dataKey="value"
-                        stroke="#2563EB"
-                        strokeWidth={4}
+                        fill="#16A34A"
                       />
 
-                    </LineChart>
+                    </BarChart>
 
                   </ResponsiveContainer>
 
@@ -3472,8 +3726,20 @@ clear-filter-btn
       CRM
     </option>
 
-    <option value="WhatsApp Bots">
-      WhatsApp Bots
+    <option value="WhatsApp Bot Service Sales">
+      WhatsApp Bot Service Sales
+    </option>
+
+    <option value="Customized Application Sales">
+      Customized Application Sales
+    </option>
+
+    <option value="Genuinity">
+      Genuinity
+    </option>
+
+    <option value="Quick Commerce Marketing Business">
+      Quick Commerce Marketing Business
     </option>
 
   </select>
@@ -4283,9 +4549,26 @@ clear-filter-btn
     <MyAttendance setSidebarOpen={setSidebarOpen} />
   )
 }
+      {
+  activeMenu === "Reimbursement" && role !== "super_admin" && (
+    <Reimbursement setSidebarOpen={setSidebarOpen} />
+  )
+}
       {activeMenu === "myProfile" && role !== "super_admin" && (
         <MyProfile />
       )}
+
+        {/* ================= OPPORTUNITY (USER PANEL) =================
+            Customers currently in the "Desire" stage. Lets the user
+            upload the closing documents (Quotation / PO Received /
+            SO / SOW / Invoice), enter the deal value, and mark the
+            deal as closed — which moves the customer to "Closure". */}
+
+      {
+  activeMenu === "opportunity" && role !== "super_admin" && (
+    <Opportunity setSidebarOpen={setSidebarOpen} />
+  )
+}
 
         {/* ================= EMPLOYEES ================= */}
 
@@ -4691,8 +4974,43 @@ clear-filter-btn
               </select>
 
             </div>
+{/* PRODUCT / SERVICE TYPE */}
+
+<div className="form-group">
+
+  <label>
+    Offering
+  </label>
+
+  <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
+
+    <label style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: "normal" }}>
+      <input
+        type="checkbox"
+        name="hasProduct"
+        checked={formData.hasProduct}
+        onChange={handleChange}
+      />
+      Product
+    </label>
+
+    <label style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: "normal" }}>
+      <input
+        type="checkbox"
+        name="hasService"
+        checked={formData.hasService}
+        onChange={handleChange}
+      />
+      Service
+    </label>
+
+  </div>
+
+</div>
+
 {/* PRODUCT */}
 
+{formData.hasProduct && (
 <div className="form-group">
 
   <label>
@@ -4732,6 +5050,7 @@ clear-filter-btn
   </select>
 
 </div>
+)}
 <div className="input-group">
 
               <label>
@@ -4751,6 +5070,7 @@ clear-filter-btn
 
 {/* SERVICE */}
 
+{formData.hasService && (
 <div className="input-group">
 
   <label>
@@ -4771,13 +5091,26 @@ clear-filter-btn
       CRM
     </option>
 
-    <option value="WhatsApp Bots">
-      WhatsApp Bots
+    <option value="WhatsApp Bot Service Sales">
+      WhatsApp Bot Service Sales
+    </option>
+
+    <option value="Customized Application Sales">
+      Customized Application Sales
+    </option>
+
+    <option value="Genuinity">
+      Genuinity
+    </option>
+
+    <option value="Quick Commerce Marketing Business">
+      Quick Commerce Marketing Business
     </option>
 
   </select>
 
 </div>
+)}
 
 {/* AIDA STAGE */}
 
@@ -5024,8 +5357,51 @@ clear-filter-btn
 
             </div>
 
+            {/* PRODUCT / SERVICE TYPE */}
+
+            <div className="input-group">
+
+              <label>
+                Offering
+              </label>
+
+              <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
+
+                <label style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: "normal" }}>
+                  <input
+                    type="checkbox"
+                    checked={formData.hasProduct}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        hasProduct: e.target.checked,
+                      })
+                    }
+                  />
+                  Product
+                </label>
+
+                <label style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: "normal" }}>
+                  <input
+                    type="checkbox"
+                    checked={formData.hasService}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        hasService: e.target.checked,
+                      })
+                    }
+                  />
+                  Service
+                </label>
+
+              </div>
+
+            </div>
+
             {/* PRODUCT */}
 
+            {formData.hasProduct && (
             <div className="input-group">
 
               <label>
@@ -5070,6 +5446,7 @@ clear-filter-btn
               </select>
 
             </div>
+            )}
 
             {/* LOCATION */}
 
@@ -5125,6 +5502,7 @@ clear-filter-btn
 
 {/* SERVICE */}
 
+{formData.hasService && (
 <div className="input-group">
 
   <label>
@@ -5155,13 +5533,26 @@ clear-filter-btn
       CRM
     </option>
 
-    <option value="WhatsApp Bots">
-      WhatsApp Bots
+    <option value="WhatsApp Bot Service Sales">
+      WhatsApp Bot Service Sales
+    </option>
+
+    <option value="Customized Application Sales">
+      Customized Application Sales
+    </option>
+
+    <option value="Genuinity">
+      Genuinity
+    </option>
+
+    <option value="Quick Commerce Marketing Business">
+      Quick Commerce Marketing Business
     </option>
 
   </select>
 
 </div>
+)}
 
 {/* AIDA STAGE */}
 

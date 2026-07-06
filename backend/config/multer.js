@@ -50,6 +50,23 @@ new CloudinaryStorage({
       };
     }
 
+    // REIMBURSEMENT BILL / RECEIPT
+
+    if (
+      file.fieldname ===
+      "billAttachment"
+    ) {
+
+      return {
+
+        folder:
+          "crm_reimbursements",
+
+        resource_type:
+          "auto",
+      };
+    }
+
     // DOCUMENTS
 
     return {

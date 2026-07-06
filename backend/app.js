@@ -58,6 +58,11 @@ app.use(
   require("./routes/taskRoutes")
 );
 
+app.use(
+  "/api/reimbursements",
+  require("./routes/reimbursementRoutes")
+);
+
 
 // ================= TEST =================
 

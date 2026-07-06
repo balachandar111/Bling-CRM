@@ -24,9 +24,14 @@ const {
 
   bulkUploadCustomers,
 
+  closeOpportunity,
+
 } = require(
   "../controllers/customerController"
 );
+
+const upload =
+require("../config/multer");
 
 
 // BULK UPLOAD
@@ -115,6 +120,25 @@ router.put(
     }
   }
 );
+
+// ================= OPPORTUNITY: DEAL CLOSED =================
+// Used by the "Opportunity" section of the user panel. Uploads up to
+// 5 PDFs (Quotation / PO Received / SO / SOW / Invoice) + a value,
+// then moves the customer's leadStage from "Desire" to "Closure".
+
+router.put(
+  "/:id/opportunity",
+  protect,
+  upload.fields([
+    { name: "quotation", maxCount: 1 },
+    { name: "poReceived", maxCount: 1 },
+    { name: "so", maxCount: 1 },
+    { name: "sow", maxCount: 1 },
+    { name: "invoice", maxCount: 1 },
+  ]),
+  closeOpportunity
+);
+
 
 // BULK DELETE
 // NOTE: this must be registered BEFORE the "/:id" delete route below,

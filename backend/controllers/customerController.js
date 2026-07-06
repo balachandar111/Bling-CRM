@@ -665,6 +665,108 @@ async (req, res) => {
   }
 };
 
+// ================= CLOSE OPPORTUNITY (DESIRE -> CLOSURE) =================
+// Used by the "Opportunity" section of the user panel. Accepts up to 5
+// PDF documents (Quotation, PO Received, SO, SOW, Invoice) + a deal
+// value, then moves the customer's leadStage to "Closure".
+
+const closeOpportunity =
+async (req, res) => {
+
+  try {
+
+    const customer =
+    await Customer.findById(
+      req.params.id
+    );
+
+    if (!customer) {
+
+      return res.status(404)
+      .json({
+
+        success: false,
+
+        message:
+        "Customer not found",
+      });
+    }
+
+    const files =
+    req.files || {};
+
+    // Keep any previously uploaded document if a new one
+    // wasn't sent this time.
+    const pickUrl =
+    (fieldName) =>
+      files[fieldName] &&
+      files[fieldName][0]
+        ? files[fieldName][0].path
+        : (customer.opportunityDocuments &&
+           customer.opportunityDocuments[fieldName]) ||
+          "";
+
+    customer.opportunityDocuments = {
+
+      quotation:
+      pickUrl("quotation"),
+
+      poReceived:
+      pickUrl("poReceived"),
+
+      so:
+      pickUrl("so"),
+
+      sow:
+      pickUrl("sow"),
+
+      invoice:
+      pickUrl("invoice"),
+    };
+
+    if (
+      req.body.value !== undefined &&
+      req.body.value !== ""
+    ) {
+
+      customer.value =
+      Number(req.body.value);
+    }
+
+    // ================= MOVE STAGE =================
+
+    customer.leadStage =
+    "Closure";
+
+    customer.status =
+    "customer";
+
+    customer.lastModified =
+    new Date();
+
+    await customer.save();
+
+    res.status(200).json({
+
+      success: true,
+
+      customer,
+    });
+
+  } catch (error) {
+
+    console.log(error);
+
+    res.status(500).json({
+
+      success: false,
+
+      message:
+      error.message,
+    });
+  }
+};
+
 module.exports = {
 
   createCustomer,
@@ -674,4 +776,5 @@ module.exports = {
   deleteCustomer,
   bulkDeleteCustomers,
   bulkUploadCustomers,
+  closeOpportunity,
 };

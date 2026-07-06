@@ -4717,3 +4717,89 @@ table tr:hover, .minimal-table tr:hover, .minimal-employee-table tr:hover {
     padding: 16px;
   }
 }
+
+/* ================================================================
+   REIMBURSEMENT (User Panel)
+================================================================ */
+
+.bill-icon {
+  background: #dcfce7;
+  color: #15803d;
+  text-decoration: none;
+}
+
+/* Reasonable column widths on the reimbursement table even though
+   it uses the base .minimal-table (not the customer-specific
+   .customer-full-table width overrides). */
+
+/* Reasonable column widths on the reimbursement table even though
+   it uses the base .minimal-table (not the customer-specific
+   .customer-full-table width overrides). Widths add up to 100% so
+   every column lines up cleanly under table-layout: fixed. */
+
+.reimbursement-page .minimal-table {
+  table-layout: fixed;
+}
+
+/* Header text is centered here (instead of the default left align)
+   so it lines up exactly with the centered body cells below it. */
+.reimbursement-page .minimal-table th {
+  text-align: center;
+}
+
+.reimbursement-page .minimal-table th.col-sno,
+.reimbursement-page .minimal-table td.col-sno {
+  width: 7%;
+  text-align: center;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.reimbursement-page .minimal-table th.col-company,
+.reimbursement-page .minimal-table td.col-company {
+  width: 31%;
+  text-align: center;
+}
+
+.reimbursement-page .minimal-table th.col-from-to,
+.reimbursement-page .minimal-table td.col-from-to {
+  width: 15%;
+  text-align: center;
+}
+
+.reimbursement-page .minimal-table th.col-remark,
+.reimbursement-page .minimal-table td.col-remark {
+  width: 12%;
+  text-align: center;
+}
+
+.reimbursement-page .minimal-table th.col-bill,
+.reimbursement-page .minimal-table td.col-bill {
+  width: 10%;
+  text-align: center;
+}
+
+.reimbursement-page .minimal-table th.col-actions,
+.reimbursement-page .minimal-table td.col-actions {
+  width: 10%;
+  text-align: center;
+}
+
+/* Center the icon buttons within their cells (rather than relying
+   on inline/default alignment, which can drift when a cell also
+   needs to render "-" as plain text). */
+.reimbursement-page .minimal-table td.col-remark,
+.reimbursement-page .minimal-table td.col-bill {
+  display: table-cell;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.reimbursement-page .minimal-table td.col-remark .icon-btn,
+.reimbursement-page .minimal-table td.col-bill .icon-btn {
+  margin: 0 auto;
+}
+
+.reimbursement-page .minimal-table td.col-actions .action-icons {
+  justify-content: center;
+}

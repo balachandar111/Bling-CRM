@@ -34,7 +34,10 @@ new mongoose.Schema(
     enum: [
       "",
       "CRM",
-      "WhatsApp Bots",
+      "WhatsApp Bot Service Sales",
+      "Customized Application Sales",
+      "Genuinity",
+      "Quick Commerce Marketing Business",
     ],
 
     default: "",
@@ -170,6 +173,37 @@ solution: {
 
 product: {
   type: String,
+},
+
+// ================= OPPORTUNITY (DESIRE -> CLOSURE) =================
+// Deal value entered by the user while closing the opportunity.
+value: {
+  type: Number,
+  default: 0,
+},
+
+// PDF documents uploaded while closing an opportunity.
+opportunityDocuments: {
+  quotation: {
+    type: String,
+    default: "",
+  },
+  poReceived: {
+    type: String,
+    default: "",
+  },
+  so: {
+    type: String,
+    default: "",
+  },
+  sow: {
+    type: String,
+    default: "",
+  },
+  invoice: {
+    type: String,
+    default: "",
+  },
 },
 sector: {
   type: String,
