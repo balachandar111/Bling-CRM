@@ -76,12 +76,28 @@ router.get(
     req.employee.id
    );
 
+   const uploaded = (employee.payslips || []).map((p) => ({
+    month: p.month,
+    year: p.year,
+    pdfUrl: p.pdfUrl,
+    uploadedAt: p.uploadedAt,
+   }));
+
+   const generated = (employee.generatedPayslips || [])
+    .filter((p) => p.status === "sent")
+    .map((p) => ({
+     month: String(p.month),
+     year: p.year,
+     pdfUrl: p.pdfUrl,
+     uploadedAt: p.sentAt || p.generatedAt,
+    }));
+
    res.json({
 
     success:true,
 
     payslips:
-    employee.payslips || []
+    [...uploaded, ...generated]
 
    });
 

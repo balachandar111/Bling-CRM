@@ -23,6 +23,7 @@ import "../components/EmployeeAttendanceModal.css";
 import Employees from "../admin/Employees";
 import UserManagement from "../admin/UserManagement";
 import LeaveRequests from "../admin/LeaveRequests";
+import ClosedLeadsReimbursements from "../admin/ClosedLeadsReimbursements";
 
 // User-only sections
 import MyAttendance from "../user/MyAttendance";
@@ -58,7 +59,8 @@ FaUserCircle,
 FaSync,
 FaCalendarAlt,
 FaCommentDots,
-FaHandshake,
+  FaHandshake,
+  FaFileAlt,
 
 } from "react-icons/fa";
 
@@ -80,6 +82,17 @@ import {
   Area,
 
 } from "recharts";
+
+// Closing documents uploaded while an Opportunity is marked "Closed"
+// (Quotation / PO Received / SO / SOW / Invoice). Shared by the
+// Customer Details modal so admins can review every uploaded file.
+const DOC_FIELDS = [
+  { key: "quotation", label: "Quotation" },
+  { key: "poReceived", label: "PO Received" },
+  { key: "so", label: "SO" },
+  { key: "sow", label: "SOW" },
+  { key: "invoice", label: "Invoice" },
+];
 
 
 const Dashboard = () => {
@@ -869,6 +882,7 @@ const fullScreenPages = [
   "Reimbursement",
   "myProfile",
   "opportunity",
+  "closedLeadsReimbursements",
 ];
 
   setSidebarOpen(
@@ -1509,6 +1523,24 @@ async () => {
     setLeaveActionLoading(false);
   };
 
+  // ================= ALL REIMBURSEMENTS (SUPER ADMIN) =================
+  // Powers the "Closed Leads & Reimbursements" admin section, which
+  // shows every employee's reimbursement claims alongside closed leads.
+
+  const [adminReimbursements, setAdminReimbursements] = useState([]);
+  const [loadingReimbursements, setLoadingReimbursements] = useState(false);
+
+  const fetchAllReimbursements = async () => {
+    setLoadingReimbursements(true);
+    try {
+      const { data } = await API.get("/reimbursements/all");
+      setAdminReimbursements(data.reimbursements || []);
+    } catch (error) {
+      console.log(error);
+    }
+    setLoadingReimbursements(false);
+  };
+
   useEffect(() => {
 
    fetchCustomers();
@@ -1518,6 +1550,7 @@ fetchEmployees();
 if (role === "super_admin") {
   fetchUsers();
   fetchPendingLeaves();
+  fetchAllReimbursements();
   // Auto-migrate existing users → linked employee records (idempotent)
   API.post("/users/migrate-employees").catch(() => {});
 }
@@ -2653,6 +2686,38 @@ const closedLeadData = (() => {
             {pendingLeaveCount}
           </span>
         )}
+
+      </li>
+    )
+  }
+
+
+  {/* CLOSED LEADS & REIMBURSEMENTS - SUPER ADMIN ONLY */}
+  {
+    role ===
+    "super_admin" && (
+
+      <li
+
+        className={
+          activeMenu ===
+          "closedLeadsReimbursements"
+
+            ? "active"
+
+            : ""
+        }
+
+        onClick={() =>
+          setActiveMenu(
+            "closedLeadsReimbursements"
+          )
+        }
+      >
+
+        <FaMoneyBillWave />
+
+        Closed Leads &amp; Reimbursements
 
       </li>
     )
@@ -4625,6 +4690,23 @@ clear-filter-btn
   )
 }
 
+{
+  activeMenu === "closedLeadsReimbursements" &&
+  role === "super_admin" && (
+
+    <ClosedLeadsReimbursements
+            closedLeadCustomers={closedLeadCustomers}
+            totalClosedValue={totalClosedValue}
+            reimbursements={adminReimbursements}
+            loadingReimbursements={loadingReimbursements}
+            fetchAllReimbursements={fetchAllReimbursements}
+            setSidebarOpen={setSidebarOpen}
+            setSelectedCustomer={setSelectedCustomer}
+            setShowCustomerDetails={setShowCustomerDetails}
+          />
+  )
+}
+
 {/* ================= TASKS / DAILY REPORTS ================= */}
 {
   activeMenu === "tasks" && (
@@ -6273,6 +6355,63 @@ clear-filter-btn
   }
 
 </div>
+
+          {/* CLOSING DOCUMENTS */}
+          <div className="view-box full-width">
+
+            <span>
+              Closing Documents
+            </span>
+
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "10px",
+                marginTop: "8px",
+              }}
+            >
+
+              {DOC_FIELDS.map(({ key, label }) =>
+                selectedCustomer.opportunityDocuments?.[key] ? (
+                  <a
+                    key={key}
+                    href={selectedCustomer.opportunityDocuments[key]}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      padding: "6px 12px",
+                      borderRadius: "6px",
+                      background: "#EFF6FF",
+                      color: "#2563EB",
+                      fontSize: "13px",
+                      textDecoration: "none",
+                    }}
+                  >
+                    <FaFileAlt /> {label}
+                  </a>
+                ) : (
+                  <span
+                    key={key}
+                    style={{
+                      padding: "6px 12px",
+                      borderRadius: "6px",
+                      background: "#F3F4F6",
+                      color: "#9CA3AF",
+                      fontSize: "13px",
+                    }}
+                  >
+                    {label} — not uploaded
+                  </span>
+                )
+              )}
+
+            </div>
+
+          </div>
 
         </div>
 

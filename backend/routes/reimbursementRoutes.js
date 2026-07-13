@@ -7,6 +7,9 @@ express.Router();
 const protect =
 require("../middlewares/authMiddleware");
 
+const superAdmin =
+require("../middlewares/superAdmin");
+
 const upload =
 require("../config/multer");
 
@@ -14,6 +17,7 @@ const {
 
   createReimbursement,
   getMyReimbursements,
+  getAllReimbursements,
   deleteReimbursement,
 
 } = require(
@@ -37,6 +41,16 @@ router.get(
   "/my",
   protect,
   getMyReimbursements
+);
+
+
+// ================= LIST ALL (ADMIN) =================
+
+router.get(
+  "/all",
+  protect,
+  superAdmin,
+  getAllReimbursements
 );
 
 

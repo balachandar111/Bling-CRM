@@ -60,6 +60,9 @@ require("./routes/taskRoutes");
 const reimbursementRoutes =
 require("./routes/reimbursementRoutes");
 
+const payslipRoutes =
+require("./routes/payslipRoutes");
+
 
 // AUTH
 
@@ -114,6 +117,14 @@ app.use(
 app.use(
   "/api/reimbursements",
   reimbursementRoutes
+);
+
+
+// PAYSLIPS
+
+app.use(
+  "/api/payslips",
+  payslipRoutes
 );
 
 

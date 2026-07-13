@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import API from "../services/api";
 import { FaPlus } from "react-icons/fa";
 import EmployeeAttendanceModal from "../components/EmployeeAttendanceModal";
@@ -30,6 +30,153 @@ const Employees = ({
   setShowEmployeeUpdate,
   updateEmployee
 }) => {
+
+  // ================= GENERATE PAYSLIP (POPUP) =================
+  // Self-contained: this button + modal don't touch any of the props
+  // above — they call the payslip API directly, the same way the
+  // Payslips sidebar page does.
+  const now = new Date();
+  const MONTHS = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+  ];
+
+  const emptyPayslipForm = {
+    month: now.getMonth() + 1,
+    year: now.getFullYear(),
+    effectiveWorkDays: 30,
+    lop: 0,
+    location: "",
+    bankName: "",
+    bankAccountNo: "",
+    panNumber: "",
+    pfNo: "",
+    pfUan: "",
+    designation: "",
+    department: "",
+    earnings: {
+      basic: 0,
+      hra: 0,
+      conveyance: 0,
+      specialAllowance: 0,
+      communicationAllowance: 0,
+      reimbursement: 0,
+    },
+    deductions: {
+      profTax: 0,
+      incomeTax: 0,
+    },
+  };
+
+  const [showGenerateModal, setShowGenerateModal] = useState(false);
+  const [generateEmployee, setGenerateEmployee] = useState(null);
+  const [generateForm, setGenerateForm] = useState(emptyPayslipForm);
+  const [generateSaving, setGenerateSaving] = useState(false);
+  const [generateError, setGenerateError] = useState("");
+  const [generatedPayslip, setGeneratedPayslip] = useState(null);
+  const [generateSending, setGenerateSending] = useState(false);
+
+  // Builds a sensible starting split from the employee's stored salary,
+  // same approach the backend uses — the admin can edit every number
+  // before generating.
+  const defaultBreakupFor = (employee) => {
+    const salary = Number(employee?.salary) || 0;
+    const conveyance = salary > 0 ? 1600 : 0;
+    const communicationAllowance = salary > 0 ? 1500 : 0;
+    const basic = Math.round(salary * 0.5);
+    const hra = Math.round(salary * 0.25);
+    const reimbursement = 0;
+    const specialAllowance = Math.max(
+      0,
+      salary - (basic + hra + conveyance + communicationAllowance + reimbursement)
+    );
+
+    let profTax = 0;
+    if (salary > 75000) profTax = 1250;
+    else if (salary > 45000) profTax = 810;
+    else if (salary > 30000) profTax = 590;
+    else if (salary > 21000) profTax = 235;
+
+    return {
+      earnings: { basic, hra, conveyance, specialAllowance, communicationAllowance, reimbursement },
+      deductions: { profTax, incomeTax: 0 },
+    };
+  };
+
+  const openGenerateModal = (employee) => {
+    const defaults = defaultBreakupFor(employee);
+    setGenerateEmployee(employee);
+    setGeneratedPayslip(null);
+    setGenerateError("");
+    setGenerateForm({
+      ...emptyPayslipForm,
+      designation: employee.designation || "",
+      department: employee.department || "",
+      bankName: employee.bankName || "",
+      bankAccountNo: employee.bankAccountNo || "",
+      earnings: defaults.earnings,
+      deductions: defaults.deductions,
+    });
+    setShowGenerateModal(true);
+  };
+
+  const closeGenerateModal = () => {
+    setShowGenerateModal(false);
+    setGenerateEmployee(null);
+    setGeneratedPayslip(null);
+    setGenerateError("");
+  };
+
+  const setGenerateField = (field, value) =>
+    setGenerateForm((f) => ({ ...f, [field]: value }));
+
+  const setGenerateEarning = (key, value) =>
+    setGenerateForm((f) => ({ ...f, earnings: { ...f.earnings, [key]: value } }));
+
+  const setGenerateDeduction = (key, value) =>
+    setGenerateForm((f) => ({ ...f, deductions: { ...f.deductions, [key]: value } }));
+
+  const generateTotalEarnings = Object.values(generateForm.earnings).reduce(
+    (s, v) => s + (Number(v) || 0),
+    0
+  );
+  const generateTotalDeductions = Object.values(generateForm.deductions).reduce(
+    (s, v) => s + (Number(v) || 0),
+    0
+  );
+  const generateNetPay = generateTotalEarnings - generateTotalDeductions;
+
+  const submitGeneratePayslip = async () => {
+    if (!generateEmployee) return;
+    setGenerateSaving(true);
+    setGenerateError("");
+    try {
+      const { data } = await API.post(
+        `/payslips/employee/${generateEmployee._id}/generate`,
+        generateForm
+      );
+      setGeneratedPayslip(data.payslip);
+    } catch (err) {
+      setGenerateError(err.response?.data?.message || "Failed to generate payslip");
+    }
+    setGenerateSaving(false);
+  };
+
+  const sendGeneratedPayslip = async () => {
+    if (!generateEmployee || !generatedPayslip?._id) return;
+    setGenerateSending(true);
+    setGenerateError("");
+    try {
+      await API.put(
+        `/payslips/employee/${generateEmployee._id}/${generatedPayslip._id}/send`
+      );
+      setGeneratedPayslip((p) => ({ ...p, status: "sent" }));
+    } catch (err) {
+      setGenerateError(err.response?.data?.message || "Failed to send payslip");
+    }
+    setGenerateSending(false);
+  };
+
   return (
     <>
 <div className="employee-page">
@@ -279,6 +426,25 @@ role === "super_admin" && (
 >
 
  Upload Payslip
+
+</button>
+
+)
+}
+{
+role === "super_admin" && (
+
+<button
+
+ className="payslip-btn"
+
+ style={{ marginLeft: "6px" }}
+
+ onClick={() => openGenerateModal(employee)}
+
+>
+
+ Generate Payslip
 
 </button>
 
@@ -750,6 +916,195 @@ role === "super_admin" && (
 
  </div>
 
+</div>
+)}
+{showGenerateModal && generateEmployee && (
+<div className="modal-overlay" onClick={closeGenerateModal}>
+  <div
+    className="modal"
+    style={{ maxWidth: "640px", width: "95%", maxHeight: "88vh", overflowY: "auto" }}
+    onClick={(e) => e.stopPropagation()}
+  >
+    <h2>
+      Generate Payslip — {generateEmployee.name} ({MONTHS[generateForm.month - 1]} {generateForm.year})
+    </h2>
+
+    {generateError && (
+      <div style={{ background: "#fdecea", color: "#c0392b", padding: "10px 14px", borderRadius: "8px", marginBottom: "12px" }}>
+        {generateError}
+      </div>
+    )}
+
+    {!generatedPayslip ? (
+      <>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "14px" }}>
+          <label>
+            Month
+            <select
+              value={generateForm.month}
+              onChange={(e) => setGenerateField("month", Number(e.target.value))}
+            >
+              {MONTHS.map((m, i) => (
+                <option key={m} value={i + 1}>{m}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Year
+            <input
+              type="number"
+              value={generateForm.year}
+              onChange={(e) => setGenerateField("year", Number(e.target.value))}
+            />
+          </label>
+          <label>
+            Designation
+            <input value={generateForm.designation} onChange={(e) => setGenerateField("designation", e.target.value)} />
+          </label>
+          <label>
+            Department
+            <input value={generateForm.department} onChange={(e) => setGenerateField("department", e.target.value)} />
+          </label>
+          <label>
+            Location
+            <input value={generateForm.location} onChange={(e) => setGenerateField("location", e.target.value)} />
+          </label>
+          <label>
+            Effective Work Days
+            <input
+              type="number"
+              value={generateForm.effectiveWorkDays}
+              onChange={(e) => setGenerateField("effectiveWorkDays", e.target.value)}
+            />
+          </label>
+          <label>
+            LOP
+            <input type="number" value={generateForm.lop} onChange={(e) => setGenerateField("lop", e.target.value)} />
+          </label>
+          <label>
+            Bank Name
+            <input value={generateForm.bankName} onChange={(e) => setGenerateField("bankName", e.target.value)} />
+          </label>
+          <label>
+            Bank Account No
+            <input value={generateForm.bankAccountNo} onChange={(e) => setGenerateField("bankAccountNo", e.target.value)} />
+          </label>
+          <label>
+            PAN Number
+            <input value={generateForm.panNumber} onChange={(e) => setGenerateField("panNumber", e.target.value)} />
+          </label>
+          <label>
+            PF No
+            <input value={generateForm.pfNo} onChange={(e) => setGenerateField("pfNo", e.target.value)} />
+          </label>
+          <label>
+            PF UAN
+            <input value={generateForm.pfUan} onChange={(e) => setGenerateField("pfUan", e.target.value)} />
+          </label>
+        </div>
+
+        <h4>Earnings</h4>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "14px" }}>
+          <label>
+            Basic
+            <input type="number" value={generateForm.earnings.basic} onChange={(e) => setGenerateEarning("basic", e.target.value)} />
+          </label>
+          <label>
+            HRA
+            <input type="number" value={generateForm.earnings.hra} onChange={(e) => setGenerateEarning("hra", e.target.value)} />
+          </label>
+          <label>
+            Conveyance
+            <input type="number" value={generateForm.earnings.conveyance} onChange={(e) => setGenerateEarning("conveyance", e.target.value)} />
+          </label>
+          <label>
+            Special Allowance
+            <input type="number" value={generateForm.earnings.specialAllowance} onChange={(e) => setGenerateEarning("specialAllowance", e.target.value)} />
+          </label>
+          <label>
+            Communication Allowance
+            <input type="number" value={generateForm.earnings.communicationAllowance} onChange={(e) => setGenerateEarning("communicationAllowance", e.target.value)} />
+          </label>
+         
+        </div>
+
+        <h4>Deductions</h4>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "14px" }}>
+          <label>
+            Professional Tax
+            <input type="number" value={generateForm.deductions.profTax} onChange={(e) => setGenerateDeduction("profTax", e.target.value)} />
+          </label>
+          <label>
+            Income Tax
+            <input type="number" value={generateForm.deductions.incomeTax} onChange={(e) => setGenerateDeduction("incomeTax", e.target.value)} />
+          </label>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            fontWeight: 600,
+            borderTop: "1px solid #eee",
+            paddingTop: "10px",
+            marginBottom: "16px",
+          }}
+        >
+          <span>Total Earnings: {generateTotalEarnings.toLocaleString("en-IN")}</span>
+          <span>Total Deductions: {generateTotalDeductions.toLocaleString("en-IN")}</span>
+          <span>Net Pay: {generateNetPay.toLocaleString("en-IN")}</span>
+        </div>
+
+        <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
+          <button onClick={closeGenerateModal} disabled={generateSaving}>
+            Cancel
+          </button>
+          <button className="payslip-btn" onClick={submitGeneratePayslip} disabled={generateSaving}>
+            {generateSaving ? "Generating..." : "Generate Payslip"}
+          </button>
+        </div>
+      </>
+    ) : (
+      <div>
+        <p style={{ color: "#1a9d5b", fontWeight: 600 }}>
+          Payslip generated as a {generatedPayslip.status === "sent" ? "sent" : "draft"} — net pay{" "}
+          {Number(generatedPayslip.netPay || 0).toLocaleString("en-IN")}.
+        </p>
+        <p style={{ color: "#777" }}>
+          {generatedPayslip.status === "sent"
+            ? "This payslip is now visible to the employee under My Payslips."
+            : "It is saved as a draft and is not visible to the employee yet. Click Send when you're ready."}
+        </p>
+
+        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginTop: "12px" }}>
+          {generatedPayslip.pdfUrl && (
+            <a
+              href={generatedPayslip.pdfUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="view-doc-btn"
+            >
+              View / Download PDF
+            </a>
+          )}
+
+          {generatedPayslip.status !== "sent" && (
+            <button className="payslip-btn" onClick={sendGeneratedPayslip} disabled={generateSending}>
+              {generateSending ? "Sending..." : "Send to Employee"}
+            </button>
+          )}
+
+          <button onClick={() => setGeneratedPayslip(null)}>
+            Edit Again
+          </button>
+
+          <button onClick={closeGenerateModal}>
+            Close
+          </button>
+        </div>
+      </div>
+    )}
+  </div>
 </div>
 )}
 {showEmployeeUpdate && (

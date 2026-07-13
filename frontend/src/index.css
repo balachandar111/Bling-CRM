@@ -4803,3 +4803,382 @@ table tr:hover, .minimal-table tr:hover, .minimal-employee-table tr:hover {
 .reimbursement-page .minimal-table td.col-actions .action-icons {
   justify-content: center;
 }
+
+/* ================================================================
+   CLOSED LEADS & REIMBURSEMENTS (ADMIN)
+================================================================ */
+
+.clr-page .customer-topbar {
+  margin-bottom: 4px;
+}
+
+/* ---- Summary cards row: force a clean 3-column, evenly spaced
+   layout instead of relying on auto-fit (which can leave the last
+   card stretched or oddly aligned when there are exactly 3). ---- */
+.clr-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 900px) {
+  .clr-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .clr-stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.clr-stats-grid .stat-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.clr-stats-grid .stat-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: currentColor;
+  opacity: 0.25;
+}
+
+.clr-stats-grid .stat-card:nth-child(1) { color: #10b981; }
+.clr-stats-grid .stat-card:nth-child(2) { color: #7c3aed; }
+.clr-stats-grid .stat-card:nth-child(3) { color: #f59e0b; }
+
+/* ---- Tab bar ---- */
+.clr-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 18px;
+  padding: 5px;
+  background: #f3f4f6;
+  border-radius: 12px;
+  width: fit-content;
+}
+
+.clr-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: #6b7280;
+  font-weight: 600;
+  font-size: 13.5px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.clr-tab svg {
+  font-size: 14px;
+}
+
+.clr-tab:hover {
+  color: #111827;
+}
+
+.clr-tab.active {
+  color: #4f46e5;
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(79, 70, 229, 0.18);
+}
+
+.clr-tab .clr-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  color: #374151;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.clr-tab.active .clr-tab-count {
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+/* ---- Panel: search bar row above each table ---- */
+.clr-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.clr-toolbar .search-input {
+  max-width: 320px;
+  flex: 1 1 220px;
+}
+
+.clr-search-wrap {
+  position: relative;
+  flex: 1 1 220px;
+  max-width: 320px;
+}
+
+.clr-search-wrap .search-input {
+  width: 100%;
+  max-width: none;
+  padding-left: 34px;
+}
+
+.clr-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12.5px;
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+.clr-toolbar-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.clr-toolbar-title svg {
+  color: #4f46e5;
+}
+
+/* ---- Table polish (scoped so it doesn't leak into other pages) ---- */
+
+/* Fixed layout so every column keeps an exact, predictable width and
+   the header cells always line up with the body cells beneath them
+   (percentages below add up to 100% for each table). */
+.clr-table-wrap .minimal-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.clr-table-wrap .minimal-table th,
+.clr-table-wrap .minimal-table td {
+  text-align: center;
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clr-table-wrap .minimal-table thead th {
+  background: #f8fafc;
+  color: #475569;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+/* Shared S.No column (used by both tables in this section) */
+.clr-table-wrap .minimal-table th.col-sno,
+.clr-table-wrap .minimal-table td.col-sno {
+  width: 6%;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+/* --- Closed Leads columns --- */
+.clr-table-wrap .minimal-table th.col-lead-company,
+.clr-table-wrap .minimal-table td.col-lead-company {
+  width: 20%;
+  white-space: normal;
+}
+
+.clr-table-wrap .minimal-table th.col-lead-contact,
+.clr-table-wrap .minimal-table td.col-lead-contact {
+  width: 16%;
+  white-space: normal;
+}
+
+.clr-table-wrap .minimal-table th.col-lead-assigned,
+.clr-table-wrap .minimal-table td.col-lead-assigned {
+  width: 14%;
+}
+
+.clr-table-wrap .minimal-table th.col-lead-service,
+.clr-table-wrap .minimal-table td.col-lead-service {
+  width: 14%;
+}
+
+.clr-table-wrap .minimal-table th.col-lead-value,
+.clr-table-wrap .minimal-table td.col-lead-value {
+  width: 12%;
+}
+
+.clr-table-wrap .minimal-table th.col-lead-date,
+.clr-table-wrap .minimal-table td.col-lead-date {
+  width: 12%;
+}
+
+.clr-table-wrap .minimal-table th.col-actions,
+.clr-table-wrap .minimal-table td.col-actions {
+  width: 6%;
+}
+
+/* --- Reimbursements columns --- */
+.clr-table-wrap .minimal-table th.col-employee,
+.clr-table-wrap .minimal-table td.col-employee {
+  width: 18%;
+}
+
+.clr-table-wrap .minimal-table th.col-company,
+.clr-table-wrap .minimal-table td.col-company {
+  width: 21%;
+  white-space: normal;
+}
+
+.clr-table-wrap .minimal-table th.col-from-to,
+.clr-table-wrap .minimal-table td.col-from-to {
+  width: 11%;
+}
+
+.clr-table-wrap .minimal-table th.col-remark,
+.clr-table-wrap .minimal-table td.col-remark {
+  width: 9%;
+}
+
+.clr-table-wrap .minimal-table th.col-bill,
+.clr-table-wrap .minimal-table td.col-bill {
+  width: 9%;
+}
+
+.clr-table-wrap .minimal-table th.col-date,
+.clr-table-wrap .minimal-table td.col-date {
+  width: 16%;
+}
+
+/* Center icon buttons / interactive controls within their cells */
+.clr-table-wrap .minimal-table td.col-actions .action-icons {
+  justify-content: center;
+}
+
+.clr-table-wrap .minimal-table td.col-remark .icon-btn,
+.clr-table-wrap .minimal-table td.col-bill .icon-btn {
+  margin: 0 auto;
+}
+
+.clr-table-wrap .minimal-table td.col-employee .clr-employee-cell {
+  justify-content: center;
+}
+
+.clr-table-wrap .minimal-table tbody tr {
+  transition: background 0.15s ease;
+}
+
+.clr-table-wrap .minimal-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.clr-table-wrap .minimal-table tbody tr:nth-child(even) {
+  background: #fcfcfd;
+}
+
+.clr-table-wrap .minimal-table tbody tr:nth-child(even):hover {
+  background: #f8fafc;
+}
+
+.clr-empty-cell {
+  text-align: center;
+  padding: 40px 20px;
+  color: #9ca3af;
+  font-size: 13.5px;
+}
+
+/* Money / value pill */
+.clr-value-pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #059669;
+  font-weight: 700;
+  font-size: 12.5px;
+}
+
+/* Employee name cell */
+.clr-employee-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.clr-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #eef2ff;
+  color: #4f46e5;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* View / refresh buttons */
+.clr-table-wrap .icon-btn.view-icon {
+  color: #4f46e5;
+}
+
+.clr-table-wrap .icon-btn.view-icon:hover {
+  background: #eef2ff;
+}
+
+.clr-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.clr-refresh-btn svg {
+  transition: transform 0.4s ease;
+}
+
+.clr-refresh-btn:hover svg {
+  transform: rotate(180deg);
+}
+
+/* Fade-in when switching tabs */
+.clr-table-wrap {
+  animation: clrFadeIn 0.22s ease;
+}
+
+@keyframes clrFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

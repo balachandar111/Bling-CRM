@@ -116,6 +116,42 @@ async (req, res) => {
 };
 
 
+// ================= GET ALL REIMBURSEMENTS (ADMIN) =================
+// Used by the "Closed Leads & Reimbursements" admin section so admins
+// can see every employee's reimbursement claims in one place.
+
+const getAllReimbursements =
+async (req, res) => {
+
+  try {
+
+    const reimbursements =
+    await Reimbursement.find()
+      .populate("createdBy", "name email")
+      .sort({ createdAt: -1 });
+
+    res.json({
+
+      success: true,
+
+      reimbursements,
+    });
+
+  } catch (error) {
+
+    console.log(error);
+
+    res.status(500).json({
+
+      success: false,
+
+      message:
+      "Server Error",
+    });
+  }
+};
+
+
 // ================= DELETE REIMBURSEMENT =================
 
 const deleteReimbursement =
@@ -191,5 +227,6 @@ module.exports = {
 
   createReimbursement,
   getMyReimbursements,
+  getAllReimbursements,
   deleteReimbursement,
 };

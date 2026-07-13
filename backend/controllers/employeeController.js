@@ -1,6 +1,30 @@
 const Employee =
 require("../models/employeeModel");
 
+// ================= MERGE PAYSLIPS =================
+// "My Payslips" (user self-service) shows both manually-uploaded payslips
+// and admin-"Generate Payslip" entries — but only once a generated one has
+// been sent (status "sent"); drafts stay hidden from the employee.
+const mergePayslips = (employee) => {
+  const uploaded = (employee.payslips || []).map((p) => ({
+    month: p.month,
+    year: p.year,
+    pdfUrl: p.pdfUrl,
+    uploadedAt: p.uploadedAt,
+  }));
+
+  const generated = (employee.generatedPayslips || [])
+    .filter((p) => p.status === "sent")
+    .map((p) => ({
+      month: String(p.month),
+      year: p.year,
+      pdfUrl: p.pdfUrl,
+      uploadedAt: p.sentAt || p.generatedAt,
+    }));
+
+  return [...uploaded, ...generated];
+};
+
 const jwt =
 require("jsonwebtoken");
 
@@ -211,7 +235,7 @@ async (req,res)=>{
     success:true,
 
     payslips:
-    employee.payslips || []
+    mergePayslips(employee)
 
   });
 
@@ -705,7 +729,7 @@ const getMyPayslipsAsUser = async (req, res) => {
 
     res.json({
       success: true,
-      payslips: employee.payslips || [],
+      payslips: mergePayslips(employee),
     });
   } catch (error) {
     res.status(500).json({

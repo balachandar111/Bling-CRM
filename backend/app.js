@@ -63,6 +63,11 @@ app.use(
   require("./routes/reimbursementRoutes")
 );
 
+app.use(
+  "/api/payslips",
+  require("./routes/payslipRoutes")
+);
+
 
 // ================= TEST =================
 
