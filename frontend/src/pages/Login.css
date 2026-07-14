@@ -32,10 +32,10 @@ body{
 
   background:
   linear-gradient(
-    135deg,
-    #eef2ff,
-    #f8fafc,
-    #dbeafe
+    160deg,
+    #eef4fd,
+    #f5f8fc 55%,
+    #e7f0fb
   );
 }
 
@@ -47,18 +47,18 @@ body{
 
   position:absolute;
 
-  width:400px;
-  height:400px;
+  width:420px;
+  height:420px;
 
   background:
-  rgba(37,99,235,.15);
+  rgba(37,99,235,.16);
 
   border-radius:50%;
 
-  top:-120px;
+  top:-140px;
   right:-120px;
 
-  filter:blur(60px);
+  filter:blur(70px);
 }
 
 .login-page::after{
@@ -67,18 +67,18 @@ body{
 
   position:absolute;
 
-  width:350px;
-  height:350px;
+  width:360px;
+  height:360px;
 
   background:
-  rgba(124,58,237,.15);
+  rgba(29,78,216,.14);
 
   border-radius:50%;
 
-  bottom:-120px;
-  left:-120px;
+  bottom:-130px;
+  left:-110px;
 
-  filter:blur(60px);
+  filter:blur(70px);
 }
 
 /* CARD */
@@ -89,16 +89,17 @@ body{
   max-width:450px;
 
   background:
-  rgba(255,255,255,.85);
+  rgba(255,255,255,.94);
 
   backdrop-filter:
   blur(18px);
 
   border:
   1px solid
-  rgba(255,255,255,.5);
+  rgba(37,99,235,.18);
 
-  border-radius:24px;
+  border-radius:20px;
+  border-top: 4px solid #2563eb;
 
   padding:40px;
 
@@ -107,8 +108,8 @@ body{
   z-index:10;
 
   box-shadow:
-  0 20px 50px
-  rgba(0,0,0,.08);
+  0 25px 60px
+  rgba(37,99,235,.14);
 }
 
 /* LOGO */
@@ -201,7 +202,7 @@ body{
 
   box-shadow:
   0 0 0 4px
-  rgba(37,99,235,.10);
+  rgba(37,99,235,.14);
 
   transform:
   translateY(-1px);
@@ -243,8 +244,8 @@ body{
   background:
   linear-gradient(
     135deg,
-    #2563eb,
-    #7c3aed
+    #1d4ed8,
+    #2563eb
   );
 
   color:white;
@@ -271,7 +272,9 @@ body{
 
   box-shadow:
   0 12px 25px
-  rgba(37,99,235,.25);
+  rgba(37,99,235,.3);
+
+  filter: brightness(1.1);
 }
 
 /* FOOTER */

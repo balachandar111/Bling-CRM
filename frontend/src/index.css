@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+
 /* ===================================
 GLOBAL PROFESSIONAL CRM UI
 =================================== */
@@ -4169,7 +4171,7 @@ table tr:hover, .minimal-table tr:hover, .minimal-employee-table tr:hover {
   margin-top: -4px;
 }
 .leave-header-text h2 { margin: 0; }
-.leave-header-text p { margin-top: 4px !important; }
+.leave-header-text p { margin-top: 4px; }
 
 @media (max-width: 768px) {
   .leave-header-text { margin-left: 46px; margin-top: 0; }
@@ -5181,4 +5183,420 @@ table tr:hover, .minimal-table tr:hover, .minimal-employee-table tr:hover {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+
+/* ================================================================
+   ================================================================
+   BLING CRM — BRAND IDENTITY SYSTEM
+   Charcoal + gold + crimson, drawn from the Bling Tech mark itself,
+   in place of a generic indigo/violet SaaS gradient. This section
+   is last in the cascade on purpose: it re-skins the shared classes
+   already used throughout the app (sidebar, buttons, stat cards,
+   badges, tabs, tables, modals, pagination) into one deliberate
+   identity, without requiring changes to any component file.
+   ================================================================
+================================================================ */
+
+:root {
+  /* ---- Neutrals (cool, blue-leaning) ---- */
+  --ink: #0f172a;           /* slate-900 — headings, strong text */
+  --ink-soft: #1e293b;      /* slate-800 */
+  --paper: #f5f8fc;         /* cool off-white page background */
+  --surface: #ffffff;
+  --border: #dbe4f0;
+  --muted: #64748b;
+
+  /* ---- Brand accent: blue family ---- */
+  --accent-light: #60a5fa;
+  --accent: #2563eb;
+  --accent-soft: rgba(37, 99, 235, 0.12);
+  --accent-deep: #1d4ed8;
+  --accent-deep-soft: rgba(29, 78, 216, 0.10);
+
+  /* ---- Semantic (kept distinct so status stays legible) ---- */
+  --success: #1f8a5f;
+  --success-soft: rgba(31, 138, 95, 0.12);
+  --danger: #dc2626;
+  --danger-soft: rgba(220, 38, 38, 0.10);
+  --warning: #b9790a;
+  --warning-soft: rgba(185, 121, 10, 0.13);
+  --info: #2f6fa8;
+  --info-soft: rgba(47, 111, 168, 0.10);
+
+  /* ---- Elevation & shape ---- */
+  --shadow-1: 0 1px 2px rgba(15, 23, 42, 0.04), 0 2px 8px rgba(15, 23, 42, 0.05);
+  --shadow-2: 0 10px 26px rgba(15, 23, 42, 0.10);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+}
+
+/* ---------- Base typography: Sora for headings, Inter for body/data ---------- */
+body {
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+h1, h2, h3, h4,
+.page-title,
+.header-left h1,
+.header-left h2 {
+  font-family: 'Sora', 'Inter', sans-serif;
+  letter-spacing: -0.01em;
+}
+
+/* ---------- Scrollbars ---------- */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #c7d5ea;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+/* ---------- Sidebar: light shell, blue signature rail ---------- */
+.sidebar {
+  background: linear-gradient(185deg, #ffffff 0%, #f6f9fd 100%);
+  color: #445168;
+  box-shadow: 4px 0 24px rgba(15, 23, 42, 0.06);
+  border-right: 1px solid var(--border);
+}
+
+.sidebar .logo {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 18px;
+  position: relative;
+}
+
+.sidebar .logo::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 56px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+}
+
+.crm-logo {
+  filter: drop-shadow(0 4px 10px rgba(15, 23, 42, 0.12));
+}
+
+.sidebar ul li {
+  color: #4b5877;
+  border-left: 3px solid transparent;
+  border-radius: 0 10px 10px 0;
+}
+
+.sidebar ul li:hover {
+  background: var(--accent-soft);
+  color: var(--ink);
+  transform: none;
+  border-left-color: rgba(37, 99, 235, 0.5);
+}
+
+.sidebar ul li.active {
+  background: var(--accent-soft);
+  color: var(--ink);
+  box-shadow: none;
+  border-left-color: var(--accent);
+  font-weight: 600;
+}
+
+.sidebar ul li svg {
+  color: #8896b0;
+}
+
+.sidebar ul li.active svg,
+.sidebar ul li:hover svg {
+  color: var(--accent-deep);
+  opacity: 1;
+}
+
+.logout-btn {
+  background: var(--danger-soft);
+  color: #e37b7b;
+  border: 1px solid rgba(220, 38, 38, 0.25);
+}
+
+.logout-btn:hover {
+  background: var(--danger);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 6px 16px rgba(220, 38, 38, 0.3);
+}
+
+.sidebar-toggle {
+  background: var(--accent);
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.35);
+}
+
+.sidebar-toggle:hover {
+  background: var(--accent-deep);
+  transform: scale(1.05);
+}
+
+/* ---------- Page headers ---------- */
+.header-left h1,
+.header-left h2,
+.page-title,
+.customer-topbar h2,
+.employee-topbar h2,
+.reminder-header h2 {
+  color: var(--ink);
+  position: relative;
+  padding-bottom: 6px;
+}
+
+.header-left h1::after,
+.header-left h2::after,
+.page-title::after {
+  content: "";
+  display: block;
+  width: 34px;
+  height: 3px;
+  margin-top: 6px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--accent-light), var(--accent-deep));
+}
+
+/* ---------- Stat cards ---------- */
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-1);
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+}
+
+.stat-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: linear-gradient(180deg, var(--accent-light), var(--accent-deep));
+}
+
+.stat-card:hover {
+  box-shadow: var(--shadow-2);
+  transform: translateY(-2px);
+}
+
+.stat-card h2 {
+  font-family: 'Sora', 'Inter', sans-serif;
+  color: var(--ink);
+}
+
+.icon.blue    { color: var(--accent); }
+.icon.green   { color: var(--success); }
+.icon.purple  { color: var(--accent-deep); }
+.icon.orange  { color: var(--accent-light); }
+
+.clr-stats-grid .stat-card:nth-child(1) { color: var(--success); }
+.clr-stats-grid .stat-card:nth-child(2) { color: var(--accent-deep); }
+.clr-stats-grid .stat-card:nth-child(3) { color: var(--accent-light); }
+
+/* ---------- Buttons ---------- */
+button {
+  font-family: 'Inter', sans-serif;
+}
+
+.add-btn,
+.add-employee-btn,
+.submit-btn,
+.task-submit-btn,
+.excel-ul-btn {
+  background: linear-gradient(135deg, var(--accent-deep) 0%, var(--accent) 130%);
+  border: none;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
+  border-radius: var(--radius-sm);
+}
+
+.add-btn:hover,
+.add-employee-btn:hover,
+.submit-btn:hover,
+.task-submit-btn:hover,
+.excel-ul-btn:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
+  transform: translateY(-1px);
+}
+
+.submit-btn:disabled {
+  background: #d1d0d6;
+  box-shadow: none;
+}
+
+.upload-btn,
+.excel-dl-btn,
+.payslip-btn,
+.download-btn,
+.leave-approve-btn,
+.checkin-btn {
+  background: linear-gradient(135deg, #167a54, var(--success));
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(31, 138, 95, 0.22);
+}
+
+.delete-btn,
+.delete-icon,
+.delete-customer-btn,
+.table-delete-btn,
+.leave-reject-btn,
+.checkout-btn {
+  background: linear-gradient(135deg, var(--danger), #ef4444);
+  color: #fff;
+}
+
+.clr-refresh-btn {
+  background: var(--accent-deep);
+  color: #fff;
+}
+
+.clr-refresh-btn:hover {
+  background: var(--accent);
+}
+
+/* ---------- Badges / pills ---------- */
+.status-badge,
+.priority-badge {
+  background: var(--info-soft);
+  color: var(--info);
+}
+
+.stage-pill,
+.crm-pill {
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+
+.crm-pill-service {
+  background: var(--info-soft);
+  color: var(--info);
+}
+
+.priority-pill,
+.task-submitted-badge,
+.leave-pending-badge,
+.date-badge {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.task-user-badge {
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+
+.notify-badge {
+  background: var(--danger);
+  color: #fff;
+}
+
+.clr-value-pill {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.clr-avatar {
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+
+/* ---------- Tabs ---------- */
+.clr-tab.active,
+.profile-tab-switcher .active,
+.profile-tab-switcher button.active {
+  background: var(--accent) !important;
+  color: #fff !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.clr-tab.active .clr-tab-count {
+  background: var(--accent-light);
+  color: var(--accent-deep);
+}
+
+.clr-tab:hover {
+  color: var(--accent-deep);
+}
+
+/* ---------- Tables ---------- */
+table thead,
+.minimal-table thead,
+.minimal-employee-table thead,
+.employee-table thead,
+.customer-full-table thead,
+.clr-table-wrap .minimal-table thead th {
+  background: #eef3fb;
+  color: #33455f;
+}
+
+.minimal-table tbody tr:hover,
+.minimal-employee-table tbody tr:hover,
+.employee-table tbody tr:hover,
+.customer-full-table tbody tr:hover {
+  background: #f5f9fd;
+}
+
+.icon-btn.view-icon,
+.view-icon {
+  color: var(--accent);
+}
+
+.icon-btn.view-icon:hover,
+.view-icon:hover {
+  background: var(--accent-soft);
+}
+
+/* ---------- Modals ---------- */
+.modal,
+.customer-view-modal {
+  border-top: 4px solid var(--accent);
+  border-radius: var(--radius-lg);
+}
+
+.modal-header h2,
+.remark-popup-header h3,
+.excel-modal-header h2 {
+  font-family: 'Sora', 'Inter', sans-serif;
+  color: var(--ink);
+}
+
+.close-icon:hover {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+/* ---------- Pagination ---------- */
+.pagination button:hover {
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+  border-color: var(--accent);
+}
+
+.active-page {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+}
+
+/* ---------- Inputs ---------- */
+input:focus,
+select:focus,
+textarea:focus,
+.search-input:focus {
+  outline: none;
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 4px var(--accent-soft);
 }
