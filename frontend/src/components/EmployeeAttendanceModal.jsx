@@ -156,7 +156,7 @@ const EmployeeAttendanceModal = ({ employee, onClose }) => {
         <div className="adm-att-modal-header">
           <div className="adm-att-emp-info">
             <img
-              src={employee.profileImage}
+              src={(employee.profileImage && employee.profileImage.trim() !== "") ? employee.profileImage : "https://ui-avatars.com/api/?name=" + encodeURIComponent(employee.name || "User") + "&background=2563eb&color=fff&size=128"}
               alt={employee.name}
               className="adm-att-avatar"
             />

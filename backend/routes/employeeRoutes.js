@@ -42,6 +42,12 @@ const {
   updateEmployeeDocument,
   getMyPayslipsAsUser,
 
+  requestResignation,
+  getMyResignationStatus,
+  getPendingResignations,
+  approveResignation,
+  rejectResignation,
+
 } = require(
   "../controllers/employeeController"
 );
@@ -165,7 +171,7 @@ router.get(
 
   "/all",
 
-  employeeAuth,
+  authMiddleware,
 
   getEmployees
 );
@@ -271,6 +277,62 @@ router.get(
   "/me/payslips",
   authMiddleware,
   getMyPayslipsAsUser
+);
+
+// ================= RESIGNATION: EMPLOYEE PROFILE (direct employee login) =================
+
+router.post(
+  "/resign",
+  employeeAuth,
+  requestResignation
+);
+
+router.get(
+  "/resignation/status",
+  employeeAuth,
+  getMyResignationStatus
+);
+
+// ================= RESIGNATION: USER PANEL (Attendance section) =================
+// userEmployeeAuth resolves the logged-in User's linked Employee record
+// and injects req.employee.id, same as the /attendance/me/* routes.
+
+const userEmployeeAuth =
+require("../middlewares/userEmployeeAuth");
+
+router.post(
+  "/me/resign",
+  userEmployeeAuth,
+  requestResignation
+);
+
+router.get(
+  "/me/resignation/status",
+  userEmployeeAuth,
+  getMyResignationStatus
+);
+
+// ================= RESIGNATION: SUPER ADMIN =================
+
+router.get(
+  "/resignations/pending",
+  authMiddleware,
+  superAdmin,
+  getPendingResignations
+);
+
+router.put(
+  "/resignations/:id/approve",
+  authMiddleware,
+  superAdmin,
+  approveResignation
+);
+
+router.put(
+  "/resignations/:id/reject",
+  authMiddleware,
+  superAdmin,
+  rejectResignation
 );
 
 module.exports =

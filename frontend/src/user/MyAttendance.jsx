@@ -115,6 +115,10 @@ const MyAttendance = ({ setSidebarOpen }) => {
   const [leaveForm, setLeaveForm] = useState({ date:"", reason:"" });
   const [showWorkModeModal, setShowWorkModeModal] = useState(false);
   const [selectedWorkMode, setSelectedWorkMode] = useState("");
+  const [showResignModal, setShowResignModal] = useState(false);
+  const [resignForm, setResignForm] = useState({ name:"", date:"", reason:"" });
+  const [resignation, setResignation] = useState({ status:"none" });
+  const [resignLoading, setResignLoading] = useState(false);
 
   const myIsCheckedIn = myToday && myToday.status === "present" && myToday.sessions?.length > 0 && !myToday.sessions[myToday.sessions.length - 1]?.checkOut;
   const myIsOnLeave = myToday && myToday.status === "leave";
@@ -139,7 +143,14 @@ const MyAttendance = ({ setSidebarOpen }) => {
     try { const { data } = await API.get("/employees/me/payslips"); setMyPayslips(data.payslips || []); } catch {}
   }, []);
 
-  useEffect(() => { fetchTodayStatus(); fetchHistory(); fetchPayslips(); }, [fetchTodayStatus, fetchHistory, fetchPayslips]);
+  const fetchResignationStatus = useCallback(async () => {
+    try {
+      const { data } = await API.get("/employees/me/resignation/status");
+      setResignation(data.resignation || { status: "none" });
+    } catch {}
+  }, []);
+
+  useEffect(() => { fetchTodayStatus(); fetchHistory(); fetchPayslips(); fetchResignationStatus(); }, [fetchTodayStatus, fetchHistory, fetchPayslips, fetchResignationStatus]);
 
   const handleCheckIn = async (workMode) => {
     setMyAttLoading(true);
@@ -185,6 +196,33 @@ const MyAttendance = ({ setSidebarOpen }) => {
     catch { setSelectedRecord(null); }
   };
 
+  const openResignModal = () => {
+    let defaultName = "";
+    try {
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) defaultName = JSON.parse(storedUser)?.name || "";
+    } catch {}
+    setResignForm({ name: defaultName, date: "", reason: "" });
+    setShowResignModal(true);
+  };
+
+  const handleResignSubmit = async () => {
+    if (!resignForm.name.trim() || !resignForm.date || !resignForm.reason.trim()) {
+      alert("Please fill in your name, last working date, and reason.");
+      return;
+    }
+    setResignLoading(true);
+    try {
+      await API.post("/employees/me/resign", resignForm);
+      alert("Resignation request submitted. Waiting for admin approval.");
+      setShowResignModal(false);
+      await fetchResignationStatus();
+    } catch (error) {
+      alert(error.response?.data?.message || "Failed to submit resignation");
+    }
+    setResignLoading(false);
+  };
+
   return (
     <div className="employee-page">
       <div className="employee-page-header">
@@ -217,8 +255,21 @@ const MyAttendance = ({ setSidebarOpen }) => {
               <button className="add-btn" disabled={myAttLoading || myIsCheckedIn || myIsOnLeave || myIsLeavePending} onClick={openWorkModeModal}>Check In</button>
               <button className="add-btn" disabled={myAttLoading || !myIsCheckedIn} onClick={handleCheckOut}>Check Out</button>
               <button className="add-btn" disabled={myIsOnLeave || myIsLeavePending} onClick={() => setShowLeaveModal(true)}>Apply Leave</button>
+              {resignation.status === "pending" ? (
+                <button className="add-btn" disabled style={{ opacity: 0.7 }}>Resignation Pending...</button>
+              ) : resignation.status === "approved" ? (
+                <button className="add-btn" disabled style={{ opacity: 0.7 }}>Resignation Approved</button>
+              ) : (
+                <button className="add-btn" style={{ background: "#cf1322" }} onClick={openResignModal}>Resign</button>
+              )}
             </div>
           </div>
+
+          {resignation.status === "rejected" && (
+            <div style={{ background:"#fff3f3", border:"1px solid #ffccc7", color:"#cf1322", padding:"12px 16px", borderRadius:"8px", marginBottom:"20px" }}>
+              Your previous resignation request was rejected. You can submit a new one using the Resign button above.
+            </div>
+          )}
 
           <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(150px,1fr))", gap:"16px", marginBottom:"20px" }}>
             {[{ label:"Worked Days", value:stats.totalWorkedDays, cls:"green" },{ label:"Leave Days", value:stats.totalLeaveDays, cls:"orange" },{ label:"Absent Days", value:stats.totalAbsentDays, cls:"red" },{ label:"Total Hours", value:formatHours(stats.totalWorkedHours), cls:"blue" }].map(s => (
@@ -301,6 +352,20 @@ const MyAttendance = ({ setSidebarOpen }) => {
               <div className="input-group" style={{ gridColumn:"1 / -1" }}><label>Reason</label><textarea rows={3} value={leaveForm.reason} onChange={e => setLeaveForm({...leaveForm, reason:e.target.value})} placeholder="Reason for leave" required /></div>
             </div>
             <button type="button" className="submit-btn" onClick={handleLeaveSubmit}>Submit Leave Request</button>
+          </div>
+        </div>
+      )}
+
+      {showResignModal && (
+        <div className="modal-overlay" onClick={() => setShowResignModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header"><h2>🚪 Submit Resignation</h2><span className="close-icon" onClick={() => setShowResignModal(false)}>✕</span></div>
+            <div className="form-grid">
+              <div className="input-group"><label>Your Name</label><input type="text" value={resignForm.name} onChange={e => setResignForm({...resignForm, name:e.target.value})} required /></div>
+              <div className="input-group"><label>Last Working Date</label><input type="date" value={resignForm.date} onChange={e => setResignForm({...resignForm, date:e.target.value})} required /></div>
+              <div className="input-group" style={{ gridColumn:"1 / -1" }}><label>Reason</label><textarea rows={3} value={resignForm.reason} onChange={e => setResignForm({...resignForm, reason:e.target.value})} placeholder="Reason for resignation" required /></div>
+            </div>
+            <button type="button" className="submit-btn" disabled={resignLoading} onClick={handleResignSubmit}>Submit Resignation Request</button>
           </div>
         </div>
       )}

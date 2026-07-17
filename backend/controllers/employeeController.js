@@ -739,6 +739,210 @@ const getMyPayslipsAsUser = async (req, res) => {
   }
 };
 
+// ================= RESIGNATION: REQUEST (employee / linked user) =================
+// Used by both the standalone Employee Profile ("Resign" button) and the
+// User panel's Attendance section ("Resign" button) — both routes inject
+// req.employee.id (via employeeAuth or userEmployeeAuth) so this single
+// handler works for either caller.
+const requestResignation = async (req, res) => {
+  try {
+    const { name, date, reason } = req.body;
+
+    if (!name || !date || !reason) {
+      return res.status(400).json({
+        success: false,
+        message: "Name, date and reason are all required.",
+      });
+    }
+
+    const employee = await Employee.findById(req.employee.id);
+
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        message: "Employee not found",
+      });
+    }
+
+    if (employee.resignation?.status === "pending") {
+      return res.status(400).json({
+        success: false,
+        message: "You already have a resignation request pending approval.",
+      });
+    }
+
+    if (employee.resignation?.status === "approved" || !employee.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: "Your resignation has already been approved.",
+      });
+    }
+
+    employee.resignation = {
+      name,
+      date,
+      reason,
+      status: "pending",
+      requestedAt: new Date(),
+      decisionBy: null,
+      decisionAt: null,
+    };
+
+    await employee.save();
+
+    res.json({
+      success: true,
+      message: "Resignation request submitted. Waiting for admin approval.",
+      resignation: employee.resignation,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ================= RESIGNATION: MY STATUS (employee / linked user) =================
+const getMyResignationStatus = async (req, res) => {
+  try {
+    const employee = await Employee.findById(req.employee.id).select(
+      "resignation isActive name"
+    );
+
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        message: "Employee not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      resignation: employee.resignation || { status: "none" },
+      isActive: employee.isActive,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ================= RESIGNATION: PENDING LIST (SUPER ADMIN) =================
+const getPendingResignations = async (req, res) => {
+  try {
+    const employees = await Employee.find({
+      "resignation.status": "pending",
+    })
+      .select("-password")
+      .sort({ "resignation.requestedAt": -1 });
+
+    res.json({
+      success: true,
+      records: employees,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ================= RESIGNATION: APPROVE (SUPER ADMIN) =================
+// Approving deactivates the employee's access immediately (isActive=false),
+// which blocks both direct Employee login and the linked User's login/API
+// access (see authController.login and the auth middlewares).
+const approveResignation = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const adminId = req.user?._id;
+
+    const employee = await Employee.findById(id);
+
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        message: "Employee not found",
+      });
+    }
+
+    if (employee.resignation?.status !== "pending") {
+      return res.status(400).json({
+        success: false,
+        message: "Only pending resignation requests can be approved.",
+      });
+    }
+
+    employee.resignation.status = "approved";
+    employee.resignation.decisionBy = adminId || null;
+    employee.resignation.decisionAt = new Date();
+
+    // Deactivate access
+    employee.isActive = false;
+
+    await employee.save();
+
+    res.json({
+      success: true,
+      message:
+        "Resignation approved. The employee's access has been deactivated.",
+      employee,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ================= RESIGNATION: REJECT (SUPER ADMIN) =================
+const rejectResignation = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const adminId = req.user?._id;
+
+    const employee = await Employee.findById(id);
+
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        message: "Employee not found",
+      });
+    }
+
+    if (employee.resignation?.status !== "pending") {
+      return res.status(400).json({
+        success: false,
+        message: "Only pending resignation requests can be rejected.",
+      });
+    }
+
+    employee.resignation.status = "rejected";
+    employee.resignation.decisionBy = adminId || null;
+    employee.resignation.decisionAt = new Date();
+
+    await employee.save();
+
+    res.json({
+      success: true,
+      message: "Resignation request rejected.",
+      employee,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 module.exports = {
 
   registerEmployee,
@@ -760,4 +964,10 @@ module.exports = {
 
   updateEmployeeDocument,
   getMyPayslipsAsUser,
+
+  requestResignation,
+  getMyResignationStatus,
+  getPendingResignations,
+  approveResignation,
+  rejectResignation,
 };

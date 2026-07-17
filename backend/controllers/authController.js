@@ -130,6 +130,26 @@ const login = async (req, res) => {
       }
 
 
+      // ================= DEACTIVATION CHECK =================
+      // If this User's linked Employee record has been deactivated
+      // (resignation approved), block login here as well.
+      if (user.linkedEmployeeId) {
+
+        const linkedEmployee =
+          await Employee.findById(
+            user.linkedEmployeeId
+          ).select("isActive");
+
+        if (linkedEmployee && linkedEmployee.isActive === false) {
+
+          return res.status(403).json({
+            message:
+            "Your access has been deactivated as your resignation was approved.",
+          });
+        }
+      }
+
+
       const token =
         generateToken(user);
 
@@ -173,6 +193,16 @@ const login = async (req, res) => {
 
       return res.status(400).json({
         message: "Invalid password",
+      });
+    }
+
+
+    // ================= DEACTIVATION CHECK =================
+    if (employee.isActive === false) {
+
+      return res.status(403).json({
+        message:
+        "Your access has been deactivated as your resignation was approved.",
       });
     }
 

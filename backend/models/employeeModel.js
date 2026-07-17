@@ -38,6 +38,56 @@ new mongoose.Schema(
     default: false,
   },
 
+  // ================= ACCOUNT STATUS =================
+  // Flips to false once a resignation request has been approved by the
+  // super admin. Login (Employee + linked User) and all employee/user
+  // authenticated routes are blocked once this is false.
+  isActive: {
+    type: Boolean,
+    default: true,
+  },
+
+  // ================= RESIGNATION REQUEST =================
+  resignation: {
+    name: {
+      type: String,
+      default: "",
+    },
+
+    // Requested last working date, "YYYY-MM-DD"
+    date: {
+      type: String,
+      default: "",
+    },
+
+    reason: {
+      type: String,
+      default: "",
+    },
+
+    status: {
+      type: String,
+      enum: ["none", "pending", "approved", "rejected"],
+      default: "none",
+    },
+
+    requestedAt: {
+      type: Date,
+      default: null,
+    },
+
+    decisionBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "UserDetails",
+      default: null,
+    },
+
+    decisionAt: {
+      type: Date,
+      default: null,
+    },
+  },
+
 profileImage: {
   type: String,
 },

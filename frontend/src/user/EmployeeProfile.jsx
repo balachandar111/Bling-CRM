@@ -389,7 +389,7 @@ const EmployeeProfile = () => {
           <div className="profile-sidebar">
             <div className="profile-image-box">
               <img
-                src={employee.profileImage}
+                src={(employee.profileImage && employee.profileImage.trim() !== "") ? employee.profileImage : "https://ui-avatars.com/api/?name=" + encodeURIComponent(employee.name || "User") + "&background=2563eb&color=fff&size=128"}
                 alt="profile"
                 className="profile-image"
               />

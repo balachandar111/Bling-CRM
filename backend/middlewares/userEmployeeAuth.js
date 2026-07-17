@@ -6,6 +6,7 @@
 
 const jwt = require("jsonwebtoken");
 const User = require("../models/userModel");
+const Employee = require("../models/employeeModel");
 
 const userEmployeeAuth = async (req, res, next) => {
   let token;
@@ -33,6 +34,21 @@ const userEmployeeAuth = async (req, res, next) => {
           success: false,
           message:
             "No employee record linked to this user account. Please contact admin.",
+        });
+      }
+
+      // ================= DEACTIVATION CHECK =================
+      // Blocks access immediately once the linked employee's resignation
+      // has been approved, even if the user's token is still valid.
+      const linkedEmployee = await Employee.findById(
+        user.linkedEmployeeId
+      ).select("isActive");
+
+      if (linkedEmployee && linkedEmployee.isActive === false) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "Your access has been deactivated as your resignation was approved.",
         });
       }
 

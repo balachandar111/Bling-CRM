@@ -1,11 +1,14 @@
 const jwt =
 require("jsonwebtoken");
 
+const Employee =
+require("../models/employeeModel");
+
 
 // ================= EMPLOYEE AUTH =================
 
 const employeeAuth =
-(req, res, next) => {
+async (req, res, next) => {
 
   try {
 
@@ -34,6 +37,37 @@ const employeeAuth =
 
         process.env.JWT_SECRET
       );
+
+
+    // ================= DEACTIVATION CHECK =================
+    // Blocks access immediately once a resignation has been approved,
+    // even if the employee still has a valid (unexpired) token.
+    const employee =
+      await Employee.findById(
+        decoded.id
+      ).select("isActive");
+
+    if (!employee) {
+
+      return res.status(401).json({
+
+        success: false,
+
+        message:
+        "Employee not found",
+      });
+    }
+
+    if (employee.isActive === false) {
+
+      return res.status(403).json({
+
+        success: false,
+
+        message:
+        "Your access has been deactivated as your resignation was approved.",
+      });
+    }
 
 
     req.employee = {

@@ -1523,6 +1523,58 @@ async () => {
     setLeaveActionLoading(false);
   };
 
+  // ================= RESIGNATION REQUESTS (SUPER ADMIN) =================
+  // Shown inside the same "Leave Requests" admin section, as a second
+  // tab/table alongside pending leave applications.
+
+  const [pendingResignations, setPendingResignations] = useState([]);
+  const [pendingResignationCount, setPendingResignationCount] = useState(0);
+  const [resignationActionLoading, setResignationActionLoading] = useState(false);
+
+  const fetchPendingResignations = async () => {
+    try {
+      const { data } = await API.get("/employees/resignations/pending");
+      setPendingResignations(data.records || []);
+      setPendingResignationCount((data.records || []).length);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const approveResignationRequest = async (id) => {
+    if (
+      !window.confirm(
+        "Approve this resignation? The employee's access will be deactivated immediately."
+      )
+    )
+      return;
+    setResignationActionLoading(true);
+    try {
+      await API.put(`/employees/resignations/${id}/approve`);
+      alert("Resignation approved. Employee access deactivated.");
+      fetchPendingResignations();
+      fetchEmployees();
+    } catch (error) {
+      console.log(error);
+      alert(error.response?.data?.message || "Failed to approve resignation");
+    }
+    setResignationActionLoading(false);
+  };
+
+  const rejectResignationRequest = async (id) => {
+    if (!window.confirm("Reject this resignation request?")) return;
+    setResignationActionLoading(true);
+    try {
+      await API.put(`/employees/resignations/${id}/reject`);
+      alert("Resignation request rejected.");
+      fetchPendingResignations();
+    } catch (error) {
+      console.log(error);
+      alert(error.response?.data?.message || "Failed to reject resignation");
+    }
+    setResignationActionLoading(false);
+  };
+
   // ================= ALL REIMBURSEMENTS (SUPER ADMIN) =================
   // Powers the "Closed Leads & Reimbursements" admin section, which
   // shows every employee's reimbursement claims alongside closed leads.
@@ -1550,6 +1602,7 @@ fetchEmployees();
 if (role === "super_admin") {
   fetchUsers();
   fetchPendingLeaves();
+  fetchPendingResignations();
   fetchAllReimbursements();
   // Auto-migrate existing users → linked employee records (idempotent)
   API.post("/users/migrate-employees").catch(() => {});
@@ -2672,7 +2725,7 @@ const closedLeadData = (() => {
         <FaCalendarAlt />
 
         Leave Requests
-        {pendingLeaveCount > 0 && (
+        {(pendingLeaveCount + pendingResignationCount) > 0 && (
           <span
             style={{
               marginLeft: "8px",
@@ -2683,7 +2736,7 @@ const closedLeadData = (() => {
               fontSize: "12px",
             }}
           >
-            {pendingLeaveCount}
+            {pendingLeaveCount + pendingResignationCount}
           </span>
         )}
 
@@ -4686,6 +4739,9 @@ clear-filter-btn
             pendingLeaves={pendingLeaves} leaveActionLoading={leaveActionLoading}
             fetchPendingLeaves={fetchPendingLeaves} approveLeaveRequest={approveLeaveRequest}
             rejectLeaveRequest={rejectLeaveRequest} setSidebarOpen={setSidebarOpen}
+            pendingResignations={pendingResignations} resignationActionLoading={resignationActionLoading}
+            fetchPendingResignations={fetchPendingResignations} approveResignationRequest={approveResignationRequest}
+            rejectResignationRequest={rejectResignationRequest}
           />
   )
 }

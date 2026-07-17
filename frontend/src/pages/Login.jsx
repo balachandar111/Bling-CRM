@@ -126,6 +126,7 @@ const Login = () => {
               type="email"
               name="email"
               placeholder="Email Address"
+              autoComplete="username"
               value={
                 formData.email
               }
@@ -147,6 +148,7 @@ const Login = () => {
               type="password"
               name="password"
               placeholder="Password"
+              autoComplete="current-password"
               value={
                 formData.password
               }

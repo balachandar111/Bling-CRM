@@ -20,6 +20,7 @@ import {
   FaTimesCircle,
   FaClock,
   FaClipboardList,
+  FaDoorOpen,
 } from "react-icons/fa";
 
 import "./EmployeeProfile.css";
@@ -46,6 +47,14 @@ const getTodayString = () => {
   const istOffset = 5.5 * 60 * 60 * 1000;
   const istDate = new Date(now.getTime() + istOffset);
   return istDate.toISOString().slice(0, 10);
+};
+
+// Small icon for each work mode, used on the calendar and in tables.
+const workModeIcon = (mode) => {
+  if (mode === "Work From Office") return "🏢";
+  if (mode === "Work From Home") return "🏠";
+  if (mode === "Site Visit") return "📍";
+  return "";
 };
 
 // ===================== CALENDAR COMPONENT =====================
@@ -104,7 +113,7 @@ const AttendanceCalendar = ({ records, onDateClick }) => {
         key={dateStr}
         className={`att-cal-cell ${statusClass} ${dateStr === today ? "att-today" : ""}`}
         onClick={() => onDateClick(dateStr)}
-        title={dateStr}
+        title={rec && rec.workMode ? `${dateStr} — ${rec.workMode}` : dateStr}
       >
         <span className="att-day-num">{d}</span>
         {rec && rec.status === "present" && (
@@ -118,6 +127,9 @@ const AttendanceCalendar = ({ records, onDateClick }) => {
         )}
         {((!rec && dateStr < today) || (rec && (rec.status === "absent" || rec.status === "leave-rejected"))) && (
           <span className="att-dot absent-dot" />
+        )}
+        {rec && rec.workMode && (
+          <span className="att-workmode-icon">{workModeIcon(rec.workMode)}</span>
         )}
       </div>
     );
@@ -134,6 +146,9 @@ const AttendanceCalendar = ({ records, onDateClick }) => {
         <span><span className="att-dot present-dot" /> Present</span>
         <span><span className="att-dot absent-dot" /> Absent</span>
         <span><span className="att-dot leave-dot" /> Leave</span>
+        <span>🏢 Office</span>
+        <span>🏠 Home</span>
+        <span>📍 Site Visit</span>
       </div>
       <div className="att-cal-days-header">
         {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((d) => (
@@ -175,6 +190,14 @@ const EmployeeProfile = () => {
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [leaveForm, setLeaveForm] = useState({ date: "", reason: "" });
   const [attLoading, setAttLoading] = useState(false);
+  const [showWorkModeModal, setShowWorkModeModal] = useState(false);
+  const [selectedWorkMode, setSelectedWorkMode] = useState("");
+
+  // -------- Resignation States --------
+  const [showResignModal, setShowResignModal] = useState(false);
+  const [resignForm, setResignForm] = useState({ name: "", date: "", reason: "" });
+  const [resignation, setResignation] = useState({ status: "none" });
+  const [resignLoading, setResignLoading] = useState(false);
 
   // -------- Fetch Profile --------
   const fetchProfile = useCallback(async () => {
@@ -223,24 +246,83 @@ const EmployeeProfile = () => {
     }
   }, []);
 
+  // -------- Fetch Resignation Status --------
+  const fetchResignationStatus = useCallback(async () => {
+    try {
+      const { data } = await API.get("/employees/resignation/status");
+      setResignation(data.resignation || { status: "none" });
+    } catch (error) {
+      console.log(error);
+    }
+  }, []);
+
   useEffect(() => {
     fetchProfile();
     fetchPayslips();
     fetchTodayStatus();
     fetchMyAttendance();
-  }, [fetchProfile, fetchPayslips, fetchTodayStatus, fetchMyAttendance]);
+    fetchResignationStatus();
+  }, [
+    fetchProfile,
+    fetchPayslips,
+    fetchTodayStatus,
+    fetchMyAttendance,
+    fetchResignationStatus,
+  ]);
+
+  // -------- Resignation Actions --------
+  const openResignModal = () => {
+    setResignForm({
+      name: employee?.name || "",
+      date: "",
+      reason: "",
+    });
+    setShowResignModal(true);
+  };
+
+  const handleResignSubmit = async () => {
+    if (!resignForm.name.trim() || !resignForm.date || !resignForm.reason.trim()) {
+      alert("Please fill in your name, last working date, and reason.");
+      return;
+    }
+    setResignLoading(true);
+    try {
+      await API.post("/employees/resign", resignForm);
+      alert("Resignation request submitted. Waiting for admin approval.");
+      setShowResignModal(false);
+      await fetchResignationStatus();
+    } catch (error) {
+      alert(error.response?.data?.message || "Failed to submit resignation");
+    }
+    setResignLoading(false);
+  };
 
   // -------- Attendance Actions --------
-  const handleCheckIn = async () => {
+  const handleCheckIn = async (workMode) => {
     setAttLoading(true);
     try {
-      await API.post("/attendance/checkin");
+      await API.post("/attendance/checkin", { workMode });
       await fetchTodayStatus();
       await fetchMyAttendance();
     } catch (error) {
       alert(error.response?.data?.message || "Check-in failed");
     }
     setAttLoading(false);
+  };
+
+  // Opens the work-mode selection popup instead of checking in directly.
+  const openWorkModeModal = () => {
+    setSelectedWorkMode("");
+    setShowWorkModeModal(true);
+  };
+
+  const confirmWorkModeCheckIn = async () => {
+    if (!selectedWorkMode) {
+      alert("Please select a work mode.");
+      return;
+    }
+    await handleCheckIn(selectedWorkMode);
+    setShowWorkModeModal(false);
   };
 
   const handleCheckOut = async () => {
@@ -358,7 +440,7 @@ const EmployeeProfile = () => {
           <div className="profile-sidebar">
             <div className="profile-image-box">
               <img
-                src={employee.profileImage}
+                src={(employee.profileImage && employee.profileImage.trim() !== "") ? employee.profileImage : "https://ui-avatars.com/api/?name=" + encodeURIComponent(employee.name || "User") + "&background=2563eb&color=fff&size=128"}
                 alt="profile"
                 className="profile-image"
               />
@@ -399,10 +481,32 @@ const EmployeeProfile = () => {
               >
                 <FaEdit /> Update Profile
               </button>
+
+              {/* RESIGN */}
+              {resignation.status === "pending" ? (
+                <button className="edit-profile-btn" disabled style={{ opacity: 0.7 }}>
+                  <FaDoorOpen /> Resignation Pending...
+                </button>
+              ) : resignation.status === "approved" ? (
+                <button className="edit-profile-btn" disabled style={{ opacity: 0.7 }}>
+                  <FaDoorOpen /> Resignation Approved
+                </button>
+              ) : (
+                <button className="edit-profile-btn" onClick={openResignModal}>
+                  <FaDoorOpen /> Resign
+                </button>
+              )}
+
               <button className="logout-profile-btn" onClick={handleLogout}>
                 <FaSignOutAlt /> Logout
               </button>
             </div>
+
+            {resignation.status === "rejected" && (
+              <p style={{ color: "#cf1322", fontSize: 12, marginTop: 8, textAlign: "center" }}>
+                Your previous resignation request was rejected. You can submit a new one.
+              </p>
+            )}
           </div>
 
           {/* ================= CONTENT ================= */}
@@ -523,6 +627,13 @@ const EmployeeProfile = () => {
                       ✅ Present — Total time today:{" "}
                       <strong>{formatHours(todayRecord.totalHours)}</strong>
                       {isCheckedIn && " (Currently logged in)"}
+                      {todayRecord?.workMode && (
+                        <>
+                          {" · "}
+                          {workModeIcon(todayRecord.workMode)}{" "}
+                          {todayRecord.workMode}
+                        </>
+                      )}
                     </div>
                   ) : (
                     <div className="att-status-banner notcheckin-banner">
@@ -534,7 +645,7 @@ const EmployeeProfile = () => {
                     {/* CHECK IN */}
                     <button
                       className="att-btn checkin-btn"
-                      onClick={handleCheckIn}
+                      onClick={openWorkModeModal}
                       disabled={
                         attLoading ||
                         isCheckedIn ||
@@ -651,6 +762,43 @@ const EmployeeProfile = () => {
         </div>
       )}
 
+      {/* ================= WORK MODE MODAL ================= */}
+      {showWorkModeModal && (
+        <div className="modal-overlay" onClick={() => setShowWorkModeModal(false)}>
+          <div className="update-modal workmode-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Select Work Mode</h2>
+              <span className="close-icon" onClick={() => setShowWorkModeModal(false)}>✕</span>
+            </div>
+            <p style={{ margin: "0 0 16px", color: "#666" }}>How are you working today?</p>
+            <div className="workmode-options">
+              {["Work From Office", "Work From Home", "Site Visit"].map((mode) => (
+                <button
+                  type="button"
+                  key={mode}
+                  className={
+                    "workmode-option" +
+                    (selectedWorkMode === mode ? " workmode-option-selected" : "")
+                  }
+                  onClick={() => setSelectedWorkMode(mode)}
+                >
+                  <span className="workmode-option-icon">{workModeIcon(mode)}</span>
+                  <span>{mode}</span>
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="submit-btn"
+              disabled={!selectedWorkMode || attLoading}
+              onClick={confirmWorkModeCheckIn}
+            >
+              Confirm Check In
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ================= LEAVE MODAL ================= */}
       {showLeaveModal && (
         <div className="modal-overlay">
@@ -691,6 +839,54 @@ const EmployeeProfile = () => {
         </div>
       )}
 
+      {/* ================= RESIGN MODAL ================= */}
+      {showResignModal && (
+        <div className="modal-overlay" onClick={() => setShowResignModal(false)}>
+          <div className="update-modal leave-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>🚪 Submit Resignation</h2>
+              <span className="close-icon" onClick={() => setShowResignModal(false)}>✕</span>
+            </div>
+            <div className="input-group">
+              <label>Your Name</label>
+              <input
+                type="text"
+                value={resignForm.name}
+                onChange={(e) => setResignForm({ ...resignForm, name: e.target.value })}
+              />
+            </div>
+            <div className="input-group">
+              <label>Last Working Date</label>
+              <input
+                type="date"
+                value={resignForm.date}
+                onChange={(e) => setResignForm({ ...resignForm, date: e.target.value })}
+              />
+            </div>
+            <div className="input-group">
+              <label>Reason for Resignation</label>
+              <textarea
+                rows={4}
+                placeholder="Enter your reason..."
+                value={resignForm.reason}
+                onChange={(e) => setResignForm({ ...resignForm, reason: e.target.value })}
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "10px",
+                  fontSize: "14px",
+                  resize: "vertical",
+                }}
+              />
+            </div>
+            <button className="submit-btn" disabled={resignLoading} onClick={handleResignSubmit}>
+              Submit Resignation Request
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ================= DATE DETAIL MODAL ================= */}
       {showDateModal && (
         <div className="modal-overlay">
@@ -714,6 +910,14 @@ const EmployeeProfile = () => {
                 </div>
                 {selectedDateRecord.status === "present" && (
                   <>
+                    <div className="date-detail-row">
+                      <span>Work Mode</span>
+                      <strong>
+                        {selectedDateRecord.workMode
+                          ? `${workModeIcon(selectedDateRecord.workMode)} ${selectedDateRecord.workMode}`
+                          : "—"}
+                      </strong>
+                    </div>
                     <div className="date-detail-row">
                       <span>First Check-In</span>
                       <strong>{formatTime(selectedDateRecord.checkIn)}</strong>
