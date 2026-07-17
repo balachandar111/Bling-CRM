@@ -20,6 +20,7 @@ import {
   FaTimesCircle,
   FaClock,
   FaClipboardList,
+  FaDoorOpen,
 } from "react-icons/fa";
 
 import "./EmployeeProfile.css";
@@ -192,6 +193,12 @@ const EmployeeProfile = () => {
   const [showWorkModeModal, setShowWorkModeModal] = useState(false);
   const [selectedWorkMode, setSelectedWorkMode] = useState("");
 
+  // -------- Resignation States --------
+  const [showResignModal, setShowResignModal] = useState(false);
+  const [resignForm, setResignForm] = useState({ name: "", date: "", reason: "" });
+  const [resignation, setResignation] = useState({ status: "none" });
+  const [resignLoading, setResignLoading] = useState(false);
+
   // -------- Fetch Profile --------
   const fetchProfile = useCallback(async () => {
     try {
@@ -239,12 +246,56 @@ const EmployeeProfile = () => {
     }
   }, []);
 
+  // -------- Fetch Resignation Status --------
+  const fetchResignationStatus = useCallback(async () => {
+    try {
+      const { data } = await API.get("/employees/resignation/status");
+      setResignation(data.resignation || { status: "none" });
+    } catch (error) {
+      console.log(error);
+    }
+  }, []);
+
   useEffect(() => {
     fetchProfile();
     fetchPayslips();
     fetchTodayStatus();
     fetchMyAttendance();
-  }, [fetchProfile, fetchPayslips, fetchTodayStatus, fetchMyAttendance]);
+    fetchResignationStatus();
+  }, [
+    fetchProfile,
+    fetchPayslips,
+    fetchTodayStatus,
+    fetchMyAttendance,
+    fetchResignationStatus,
+  ]);
+
+  // -------- Resignation Actions --------
+  const openResignModal = () => {
+    setResignForm({
+      name: employee?.name || "",
+      date: "",
+      reason: "",
+    });
+    setShowResignModal(true);
+  };
+
+  const handleResignSubmit = async () => {
+    if (!resignForm.name.trim() || !resignForm.date || !resignForm.reason.trim()) {
+      alert("Please fill in your name, last working date, and reason.");
+      return;
+    }
+    setResignLoading(true);
+    try {
+      await API.post("/employees/resign", resignForm);
+      alert("Resignation request submitted. Waiting for admin approval.");
+      setShowResignModal(false);
+      await fetchResignationStatus();
+    } catch (error) {
+      alert(error.response?.data?.message || "Failed to submit resignation");
+    }
+    setResignLoading(false);
+  };
 
   // -------- Attendance Actions --------
   const handleCheckIn = async (workMode) => {
@@ -430,10 +481,32 @@ const EmployeeProfile = () => {
               >
                 <FaEdit /> Update Profile
               </button>
+
+              {/* RESIGN */}
+              {resignation.status === "pending" ? (
+                <button className="edit-profile-btn" disabled style={{ opacity: 0.7 }}>
+                  <FaDoorOpen /> Resignation Pending...
+                </button>
+              ) : resignation.status === "approved" ? (
+                <button className="edit-profile-btn" disabled style={{ opacity: 0.7 }}>
+                  <FaDoorOpen /> Resignation Approved
+                </button>
+              ) : (
+                <button className="edit-profile-btn" onClick={openResignModal}>
+                  <FaDoorOpen /> Resign
+                </button>
+              )}
+
               <button className="logout-profile-btn" onClick={handleLogout}>
                 <FaSignOutAlt /> Logout
               </button>
             </div>
+
+            {resignation.status === "rejected" && (
+              <p style={{ color: "#cf1322", fontSize: 12, marginTop: 8, textAlign: "center" }}>
+                Your previous resignation request was rejected. You can submit a new one.
+              </p>
+            )}
           </div>
 
           {/* ================= CONTENT ================= */}
@@ -761,6 +834,54 @@ const EmployeeProfile = () => {
             </div>
             <button className="submit-btn" onClick={handleLeaveSubmit}>
               Submit Leave
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ================= RESIGN MODAL ================= */}
+      {showResignModal && (
+        <div className="modal-overlay" onClick={() => setShowResignModal(false)}>
+          <div className="update-modal leave-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>🚪 Submit Resignation</h2>
+              <span className="close-icon" onClick={() => setShowResignModal(false)}>✕</span>
+            </div>
+            <div className="input-group">
+              <label>Your Name</label>
+              <input
+                type="text"
+                value={resignForm.name}
+                onChange={(e) => setResignForm({ ...resignForm, name: e.target.value })}
+              />
+            </div>
+            <div className="input-group">
+              <label>Last Working Date</label>
+              <input
+                type="date"
+                value={resignForm.date}
+                onChange={(e) => setResignForm({ ...resignForm, date: e.target.value })}
+              />
+            </div>
+            <div className="input-group">
+              <label>Reason for Resignation</label>
+              <textarea
+                rows={4}
+                placeholder="Enter your reason..."
+                value={resignForm.reason}
+                onChange={(e) => setResignForm({ ...resignForm, reason: e.target.value })}
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "10px",
+                  fontSize: "14px",
+                  resize: "vertical",
+                }}
+              />
+            </div>
+            <button className="submit-btn" disabled={resignLoading} onClick={handleResignSubmit}>
+              Submit Resignation Request
             </button>
           </div>
         </div>
