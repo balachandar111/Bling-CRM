@@ -12,7 +12,7 @@ const { amountInWords } = require("./numberToWords");
 
 const COMPANY_NAME = "BLING TECH CONNECT (OPC) PRIVATE LIMITED";
 const COMPANY_ADDRESS =
-  "5th Floor, Olympia Teknos, Plot No. 28, South Phase, Sidco Industrial Estate, Guindy, Chennai, Tamil Nadu 600032";
+  "11-14, Thiru Vi Ka Industrial Estate, Saidapet, Chennai, Greater Chennai, Tamil Nadu 600032";
 
 const LOGO_URL =
   "https://res.cloudinary.com/ds4i8pujs/image/upload/v1779687977/bling_tech_logo_h7rc1m.png";
@@ -23,6 +23,12 @@ const MONTH_NAMES = [
 ];
 
 const money = (n) => (Number(n) || 0).toLocaleString("en-IN");
+
+// measures text width in a given font/size using the doc's own metrics
+function measureWidth(doc, text, font, size) {
+  doc.font(font).fontSize(size);
+  return doc.widthOfString(String(text ?? ""));
+}
 
 // ================= LOGO (fetched once, cached in memory) =================
 let cachedLogoBuffer = null;
@@ -69,6 +75,7 @@ function generatePayslipPdf(payslip) {
         location,
         bankName,
         bankAccountNo,
+        ifscCode,
         panNumber,
         pfNo,
         pfUan,
@@ -144,7 +151,6 @@ function generatePayslipPdf(payslip) {
       // ================= EMPLOYEE / BANK DETAILS =================
       const midX = left + boxWidth / 2;
       const rowH = 14;
-      const padRowH = 20; // extra breathing room for Name & Joining Date
       const leftRows = [
         ["Name:", employee.name || "-"],
         ["Joining Date:", formatDate(employee.joiningDate)],
@@ -158,15 +164,33 @@ function generatePayslipPdf(payslip) {
         ["Employee No:", employeeCode || defaultEmployeeCode(employee)],
         ["Bank Name:", bankName || "-"],
         ["Bank Account No:", bankAccountNo || "-"],
+        ["IFSC Code:", ifscCode || "-"],
         ["PAN Number:", panNumber || "-"],
         ["PF No:", pfNo || "-"],
         ["PF UAN:", pfUan || "-"],
       ];
 
-      // Name & Joining Date (indices 0 & 1) get extra padding below them;
-      // every other row keeps the compact default height.
-      const leftRowHeights = leftRows.map((_, i) => (i < 2 ? padRowH : rowH));
-      const rightRowHeights = rightRows.map(() => rowH);
+      // Label column width adapts to the longest label actually used
+      // (e.g. "Effective Work Days:" / "Bank Account No:"), with a small
+      // buffer so bold text never touches the value column.
+      const allLabels = [...leftRows, ...rightRows].map(([label]) => label);
+      const LABEL_W =
+        Math.max(...allLabels.map((label) => measureWidth(doc, label, "Helvetica-Bold", 9))) + 6;
+      const VALUE_GAP = 8; // gap between label and value, shared by both sides
+      const leftLabelX = left + 4;
+      const leftValueX = leftLabelX + LABEL_W + VALUE_GAP;
+      const rightLabelX = midX + 14;
+      const rightValueX = rightLabelX + LABEL_W + VALUE_GAP;
+
+      // Row height adapts to the value's actual wrapped height, so a long
+      // value (e.g. a long designation) pushes the rows below it down
+      // instead of overlapping them. rowH is the floor for single-line rows.
+      const leftValueWidth = midX - leftValueX - 10;
+      const rightValueWidth = right - rightValueX - 4;
+      const rowHeightFor = (text, valueWidth) =>
+        Math.max(rowH, doc.font("Helvetica").fontSize(9).heightOfString(String(text ?? ""), { width: valueWidth }) + 4);
+      const leftRowHeights = leftRows.map(([, value]) => rowHeightFor(value, leftValueWidth));
+      const rightRowHeights = rightRows.map(([, value]) => rowHeightFor(value, rightValueWidth));
       const cumulative = (heights) => {
         const offsets = [];
         let acc = 0;
@@ -184,13 +208,13 @@ function generatePayslipPdf(payslip) {
       for (let i = 0; i < maxRows; i++) {
         if (leftRows[i]) {
           const rowY = detailsTop + leftCum.offsets[i];
-          doc.fontSize(9).font("Helvetica-Bold").text(leftRows[i][0], left + 4, rowY, { width: 110 });
-          doc.font("Helvetica").text(leftRows[i][1], left + 119, rowY, { width: midX - left - 129 });
+          doc.fontSize(9).font("Helvetica-Bold").text(leftRows[i][0], leftLabelX, rowY, { width: LABEL_W });
+          doc.font("Helvetica").text(leftRows[i][1], leftValueX, rowY, { width: midX - leftValueX - 10 });
         }
         if (rightRows[i]) {
           const rowY = detailsTop + rightCum.offsets[i];
-          doc.font("Helvetica-Bold").text(rightRows[i][0], midX + 14, rowY, { width: 110 });
-          doc.font("Helvetica").text(rightRows[i][1], midX + 129, rowY, { width: right - (midX + 129) - 4 });
+          doc.font("Helvetica-Bold").text(rightRows[i][0], rightLabelX, rowY, { width: LABEL_W });
+          doc.font("Helvetica").text(rightRows[i][1], rightValueX, rowY, { width: right - rightValueX - 4 });
         }
       }
 
@@ -217,18 +241,30 @@ function generatePayslipPdf(payslip) {
       ].filter(([, v]) => v !== undefined && v !== null);
 
       const tableTop = y + 10;
-      const colEarnLabel = left + 4;
-      const colEarnAmt = midX - 70;
-      const colDeductLabel = midX + 14;
-      const colDeductAmt = right - 60 - 4;
+      // Amount column width adapts to the widest figure actually printed
+      // (header "Amount", every earning/deduction, and both totals), with
+      // a small buffer so digits never crowd the column edge.
+      const allAmounts = [
+        "Amount",
+        ...earningRows.map(([, v]) => money(v)),
+        ...deductionRows.map(([, v]) => money(v)),
+        money(totalEarnings),
+        money(totalDeductions),
+      ];
+      const AMT_W =
+        Math.max(...allAmounts.map((text) => measureWidth(doc, text, "Helvetica-Bold", 9))) + 6;
+      const colEarnLabel = leftLabelX;
+      const colEarnAmt = midX - 4 - AMT_W;
+      const colDeductLabel = rightLabelX;
+      const colDeductAmt = right - 4 - AMT_W;
 
       doc
         .fontSize(9)
         .font("Helvetica-Bold")
-        .text("Earnings", colEarnLabel, tableTop, { width: midX - left - 80 })
-        .text("Amount", colEarnAmt, tableTop, { width: 70, align: "right" })
-        .text("Deductions", colDeductLabel, tableTop, { width: right - colDeductLabel - 70 })
-        .text("Amount", colDeductAmt, tableTop, { width: 60, align: "right" });
+        .text("Earnings", colEarnLabel, tableTop, { width: colEarnAmt - colEarnLabel })
+        .text("Amount", colEarnAmt, tableTop, { width: AMT_W, align: "right" })
+        .text("Deductions", colDeductLabel, tableTop, { width: colDeductAmt - colDeductLabel })
+        .text("Amount", colDeductAmt, tableTop, { width: AMT_W, align: "right" });
 
       let tableY = tableTop + 20;
       doc.moveTo(left, tableY - 5).lineTo(right, tableY - 5).lineWidth(0.5).strokeColor("#999").stroke();
@@ -239,12 +275,12 @@ function generatePayslipPdf(payslip) {
       for (let i = 0; i < maxTableRows; i++) {
         const rowY = tableY + i * tableRowH;
         if (earningRows[i]) {
-          doc.text(earningRows[i][0], colEarnLabel, rowY, { width: midX - left - 80 });
-          doc.text(money(earningRows[i][1]), colEarnAmt, rowY, { width: 70, align: "right" });
+          doc.font("Helvetica-Bold").text(earningRows[i][0], colEarnLabel, rowY, { width: colEarnAmt - colEarnLabel });
+          doc.font("Helvetica").text(money(earningRows[i][1]), colEarnAmt, rowY, { width: AMT_W, align: "right" });
         }
         if (deductionRows[i]) {
-          doc.text(deductionRows[i][0], colDeductLabel, rowY, { width: right - colDeductLabel - 70 });
-          doc.text(money(deductionRows[i][1]), colDeductAmt, rowY, { width: 60, align: "right" });
+          doc.font("Helvetica-Bold").text(deductionRows[i][0], colDeductLabel, rowY, { width: colDeductAmt - colDeductLabel });
+          doc.font("Helvetica").text(money(deductionRows[i][1]), colDeductAmt, rowY, { width: AMT_W, align: "right" });
         }
       }
 
@@ -256,10 +292,10 @@ function generatePayslipPdf(payslip) {
       // ================= TOTALS =================
       y += 8;
       doc.font("Helvetica-Bold").fontSize(9);
-      doc.text("Total Earnings", colEarnLabel, y, { width: midX - left - 80 });
-      doc.text(money(totalEarnings), colEarnAmt, y, { width: 70, align: "right" });
-      doc.text("Total Deductions", colDeductLabel, y, { width: right - colDeductLabel - 70 });
-      doc.text(money(totalDeductions), colDeductAmt, y, { width: 60, align: "right" });
+      doc.text("Total Earnings", colEarnLabel, y, { width: colEarnAmt - colEarnLabel });
+      doc.text(money(totalEarnings), colEarnAmt, y, { width: AMT_W, align: "right" });
+      doc.text("Total Deductions", colDeductLabel, y, { width: colDeductAmt - colDeductLabel });
+      doc.text(money(totalDeductions), colDeductAmt, y, { width: AMT_W, align: "right" });
 
       y += 18;
       doc.moveTo(left, y).lineTo(right, y).lineWidth(1).strokeColor("#000").stroke();

@@ -32,6 +32,26 @@ new mongoose.Schema(
 
   joiningDate: Date,
 
+  // ================= PAYSLIP COMMON DETAILS =================
+  // Stored once on the employee so the admin doesn't have to re-type
+  // these on every "Generate Payslip" — they're picked up as the
+  // defaults there and printed on the payslip PDF.
+  employeeCode: String,
+
+  location: String,
+
+  bankName: String,
+
+  bankAccountNo: String,
+
+  ifscCode: String,
+
+  panNumber: String,
+
+  pfNo: String,
+
+  pfUan: String,
+
   // true when this employee record was auto-created from a User account
   isUserLinked: {
     type: Boolean,
@@ -139,6 +159,7 @@ generatedPayslips: [
 
   bankName: String,
   bankAccountNo: String,
+  ifscCode: String,
   panNumber: String,
   pfNo: String,
   pfUan: String,

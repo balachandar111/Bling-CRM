@@ -49,6 +49,7 @@ const Employees = ({
     location: "",
     bankName: "",
     bankAccountNo: "",
+    ifscCode: "",
     panNumber: "",
     pfNo: "",
     pfUan: "",
@@ -112,8 +113,13 @@ const Employees = ({
       ...emptyPayslipForm,
       designation: employee.designation || "",
       department: employee.department || "",
+      location: employee.location || "",
       bankName: employee.bankName || "",
       bankAccountNo: employee.bankAccountNo || "",
+      ifscCode: employee.ifscCode || "",
+      panNumber: employee.panNumber || "",
+      pfNo: employee.pfNo || "",
+      pfUan: employee.pfUan || "",
       earnings: defaults.earnings,
       deductions: defaults.deductions,
     });
@@ -764,6 +770,192 @@ role === "super_admin" && (
             </div>
 
 
+            {/* ================= PAYSLIP COMMON DETAILS ================= */}
+
+            {/* EMPLOYEE NO */}
+
+            <div className="input-group">
+
+              <label>
+                Employee No
+              </label>
+
+              <input
+
+                type="text"
+
+                name="employeeCode"
+
+                onChange={
+                  handleEmployeeChange
+                }
+
+              />
+
+            </div>
+
+
+            {/* LOCATION */}
+
+            <div className="input-group">
+
+              <label>
+                Location
+              </label>
+
+              <input
+
+                type="text"
+
+                name="location"
+
+                onChange={
+                  handleEmployeeChange
+                }
+
+              />
+
+            </div>
+
+
+            {/* BANK NAME */}
+
+            <div className="input-group">
+
+              <label>
+                Bank Name
+              </label>
+
+              <input
+
+                type="text"
+
+                name="bankName"
+
+                onChange={
+                  handleEmployeeChange
+                }
+
+              />
+
+            </div>
+
+
+            {/* BANK ACCOUNT NO */}
+
+            <div className="input-group">
+
+              <label>
+                Bank Account No
+              </label>
+
+              <input
+
+                type="text"
+
+                name="bankAccountNo"
+
+                onChange={
+                  handleEmployeeChange
+                }
+
+              />
+
+            </div>
+
+
+            {/* IFSC CODE */}
+
+            <div className="input-group">
+
+              <label>
+                IFSC Code
+              </label>
+
+              <input
+
+                type="text"
+
+                name="ifscCode"
+
+                onChange={
+                  handleEmployeeChange
+                }
+
+              />
+
+            </div>
+
+
+            {/* PAN NUMBER */}
+
+            <div className="input-group">
+
+              <label>
+                PAN Number
+              </label>
+
+              <input
+
+                type="text"
+
+                name="panNumber"
+
+                onChange={
+                  handleEmployeeChange
+                }
+
+              />
+
+            </div>
+
+
+            {/* PF NO */}
+
+            <div className="input-group">
+
+              <label>
+                PF No
+              </label>
+
+              <input
+
+                type="text"
+
+                name="pfNo"
+
+                onChange={
+                  handleEmployeeChange
+                }
+
+              />
+
+            </div>
+
+
+            {/* PF UAN */}
+
+            <div className="input-group">
+
+              <label>
+                PF UAN
+              </label>
+
+              <input
+
+                type="text"
+
+                name="pfUan"
+
+                onChange={
+                  handleEmployeeChange
+                }
+
+              />
+
+            </div>
+
+
             {/* PROFILE IMAGE */}
 
             <div className="input-group">
@@ -988,6 +1180,10 @@ role === "super_admin" && (
           <label>
             Bank Account No
             <input value={generateForm.bankAccountNo} onChange={(e) => setGenerateField("bankAccountNo", e.target.value)} />
+          </label>
+          <label>
+            IFSC Code
+            <input value={generateForm.ifscCode} onChange={(e) => setGenerateField("ifscCode", e.target.value)} />
           </label>
           <label>
             PAN Number
@@ -1384,6 +1580,256 @@ Leave empty if no change
                     ...employeeForm,
 
                     joiningDate:
+                    e.target.value,
+                  })
+                }
+              />
+
+            </div>
+
+
+            {/* ================= PAYSLIP COMMON DETAILS ================= */}
+
+            {/* EMPLOYEE NO */}
+
+            <div className="input-group">
+
+              <label>
+                Employee No
+              </label>
+
+              <input
+
+                type="text"
+
+                value={
+                  employeeForm.employeeCode
+                }
+
+                onChange={(e) =>
+
+                  setEmployeeForm({
+
+                    ...employeeForm,
+
+                    employeeCode:
+                    e.target.value,
+                  })
+                }
+              />
+
+            </div>
+
+
+            {/* LOCATION */}
+
+            <div className="input-group">
+
+              <label>
+                Location
+              </label>
+
+              <input
+
+                type="text"
+
+                value={
+                  employeeForm.location
+                }
+
+                onChange={(e) =>
+
+                  setEmployeeForm({
+
+                    ...employeeForm,
+
+                    location:
+                    e.target.value,
+                  })
+                }
+              />
+
+            </div>
+
+
+            {/* BANK NAME */}
+
+            <div className="input-group">
+
+              <label>
+                Bank Name
+              </label>
+
+              <input
+
+                type="text"
+
+                value={
+                  employeeForm.bankName
+                }
+
+                onChange={(e) =>
+
+                  setEmployeeForm({
+
+                    ...employeeForm,
+
+                    bankName:
+                    e.target.value,
+                  })
+                }
+              />
+
+            </div>
+
+
+            {/* BANK ACCOUNT NO */}
+
+            <div className="input-group">
+
+              <label>
+                Bank Account No
+              </label>
+
+              <input
+
+                type="text"
+
+                value={
+                  employeeForm.bankAccountNo
+                }
+
+                onChange={(e) =>
+
+                  setEmployeeForm({
+
+                    ...employeeForm,
+
+                    bankAccountNo:
+                    e.target.value,
+                  })
+                }
+              />
+
+            </div>
+
+
+            {/* IFSC CODE */}
+
+            <div className="input-group">
+
+              <label>
+                IFSC Code
+              </label>
+
+              <input
+
+                type="text"
+
+                value={
+                  employeeForm.ifscCode
+                }
+
+                onChange={(e) =>
+
+                  setEmployeeForm({
+
+                    ...employeeForm,
+
+                    ifscCode:
+                    e.target.value,
+                  })
+                }
+              />
+
+            </div>
+
+
+            {/* PAN NUMBER */}
+
+            <div className="input-group">
+
+              <label>
+                PAN Number
+              </label>
+
+              <input
+
+                type="text"
+
+                value={
+                  employeeForm.panNumber
+                }
+
+                onChange={(e) =>
+
+                  setEmployeeForm({
+
+                    ...employeeForm,
+
+                    panNumber:
+                    e.target.value,
+                  })
+                }
+              />
+
+            </div>
+
+
+            {/* PF NO */}
+
+            <div className="input-group">
+
+              <label>
+                PF No
+              </label>
+
+              <input
+
+                type="text"
+
+                value={
+                  employeeForm.pfNo
+                }
+
+                onChange={(e) =>
+
+                  setEmployeeForm({
+
+                    ...employeeForm,
+
+                    pfNo:
+                    e.target.value,
+                  })
+                }
+              />
+
+            </div>
+
+
+            {/* PF UAN */}
+
+            <div className="input-group">
+
+              <label>
+                PF UAN
+              </label>
+
+              <input
+
+                type="text"
+
+                value={
+                  employeeForm.pfUan
+                }
+
+                onChange={(e) =>
+
+                  setEmployeeForm({
+
+                    ...employeeForm,
+
+                    pfUan:
                     e.target.value,
                   })
                 }

@@ -50,6 +50,15 @@ async (req, res) => {
       salary,
       joiningDate,
 
+      employeeCode,
+      location,
+      bankName,
+      bankAccountNo,
+      ifscCode,
+      panNumber,
+      pfNo,
+      pfUan,
+
     } = req.body;
 
 
@@ -127,6 +136,15 @@ async (req, res) => {
         salary,
 
         joiningDate,
+
+        employeeCode,
+        location,
+        bankName,
+        bankAccountNo,
+        ifscCode,
+        panNumber,
+        pfNo,
+        pfUan,
 
         profileImage,
 
@@ -643,6 +661,41 @@ async (req, res) => {
     employee.joiningDate =
       req.body.joiningDate ||
       employee.joiningDate;
+
+
+    // ================= PAYSLIP COMMON DETAILS =================
+
+    employee.employeeCode =
+      req.body.employeeCode ||
+      employee.employeeCode;
+
+    employee.location =
+      req.body.location ||
+      employee.location;
+
+    employee.bankName =
+      req.body.bankName ||
+      employee.bankName;
+
+    employee.bankAccountNo =
+      req.body.bankAccountNo ||
+      employee.bankAccountNo;
+
+    employee.ifscCode =
+      req.body.ifscCode ||
+      employee.ifscCode;
+
+    employee.panNumber =
+      req.body.panNumber ||
+      employee.panNumber;
+
+    employee.pfNo =
+      req.body.pfNo ||
+      employee.pfNo;
+
+    employee.pfUan =
+      req.body.pfUan ||
+      employee.pfUan;
 
 
     // ================= PASSWORD =================

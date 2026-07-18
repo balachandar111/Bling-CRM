@@ -408,6 +408,22 @@ useState({
 
   joiningDate: "",
 
+  employeeCode: "",
+
+  location: "",
+
+  bankName: "",
+
+  bankAccountNo: "",
+
+  ifscCode: "",
+
+  panNumber: "",
+
+  pfNo: "",
+
+  pfUan: "",
+
   profileImage: null,
 
   documents: [],
@@ -502,6 +518,46 @@ async (e) => {
     formData.append(
       "joiningDate",
       employeeForm.joiningDate
+    );
+
+    formData.append(
+      "employeeCode",
+      employeeForm.employeeCode
+    );
+
+    formData.append(
+      "location",
+      employeeForm.location
+    );
+
+    formData.append(
+      "bankName",
+      employeeForm.bankName
+    );
+
+    formData.append(
+      "bankAccountNo",
+      employeeForm.bankAccountNo
+    );
+
+    formData.append(
+      "ifscCode",
+      employeeForm.ifscCode
+    );
+
+    formData.append(
+      "panNumber",
+      employeeForm.panNumber
+    );
+
+    formData.append(
+      "pfNo",
+      employeeForm.pfNo
+    );
+
+    formData.append(
+      "pfUan",
+      employeeForm.pfUan
     );
 
     formData.append(
@@ -1024,6 +1080,30 @@ const handleEmployeeUpdate =
     joiningDate:
       employee.joiningDate
       ?.slice(0, 10) || "",
+
+    employeeCode:
+      employee.employeeCode || "",
+
+    location:
+      employee.location || "",
+
+    bankName:
+      employee.bankName || "",
+
+    bankAccountNo:
+      employee.bankAccountNo || "",
+
+    ifscCode:
+      employee.ifscCode || "",
+
+    panNumber:
+      employee.panNumber || "",
+
+    pfNo:
+      employee.pfNo || "",
+
+    pfUan:
+      employee.pfUan || "",
 
     profileImage: null,
 
