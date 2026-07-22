@@ -21,6 +21,12 @@ const formatHours = (hours) => {
   return `${h}h ${m}m`;
 };
 
+const hasCoords = (loc) =>
+  loc && typeof loc.latitude === "number" && typeof loc.longitude === "number";
+
+const mapsLink = (loc) =>
+  `https://www.google.com/maps?q=${loc.latitude},${loc.longitude}`;
+
 // Small icon for each work mode, used on the calendar and in tables.
 const workModeIcon = (mode) => {
   if (mode === "Work From Office") return "🏢";
@@ -269,6 +275,25 @@ const EmployeeAttendanceModal = ({ employee, onClose }) => {
                             : "—"}
                         </strong>
                       </div>
+                      {selectedRecord.workMode === "Work From Office" && (
+                        <div className="adm-date-row">
+                          <span>Check-In Location</span>
+                          <strong>
+                            {hasCoords(selectedRecord.location) ? (
+                              <a
+                                href={mapsLink(selectedRecord.location)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="adm-location-link"
+                              >
+                                📍 View on Map
+                              </a>
+                            ) : (
+                              "Not captured"
+                            )}
+                          </strong>
+                        </div>
+                      )}
                       <div className="adm-date-row">
                         <span>First Check-In</span>
                         <strong>{formatTime(selectedRecord.checkIn)}</strong>
@@ -295,6 +320,16 @@ const EmployeeAttendanceModal = ({ employee, onClose }) => {
                               <span>In: {formatTime(s.checkIn)}</span>
                               <span>Out: {s.checkOut ? formatTime(s.checkOut) : "Active"}</span>
                               <span>{s.hours ? formatHours(s.hours) : "—"}</span>
+                              {s.workMode === "Work From Office" && hasCoords(s.location) && (
+                                <a
+                                  href={mapsLink(s.location)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="adm-location-link"
+                                >
+                                  📍 Map
+                                </a>
+                              )}
                             </div>
                           ))}
                         </div>

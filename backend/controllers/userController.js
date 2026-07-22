@@ -1,5 +1,3 @@
-const bcrypt = require("bcrypt");
-
 const User = require("../models/userModel");
 const Employee = require("../models/employeeModel");
 
@@ -80,8 +78,11 @@ const updateUser = async (req, res) => {
     user.role = req.body.role || user.role;
 
     if (req.body.password) {
-      const salt = await bcrypt.genSalt(10);
-      user.password = await bcrypt.hash(req.body.password, salt);
+      // Assign the plain password and let the pre-save hook in
+      // userModel.js hash it. Hashing it here too (and then calling
+      // save()) hashed it TWICE, which is why logins afterwards
+      // failed with "invalid password".
+      user.password = req.body.password;
     }
 
     await user.save();

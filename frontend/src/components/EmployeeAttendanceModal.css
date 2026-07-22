@@ -510,3 +510,14 @@
 .workmode-option-icon {
   font-size: 20px;
 }
+/* ---- CHECK-IN LOCATION (Work From Office verification) ---- */
+.adm-location-link {
+  color: #2563eb;
+  font-weight: 600;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.adm-location-link:hover {
+  text-decoration: underline;
+}

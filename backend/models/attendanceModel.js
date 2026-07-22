@@ -38,6 +38,16 @@ const attendanceSchema = new mongoose.Schema(
       default: null,
     },
 
+    // Live geolocation captured at check-in — mainly used for "Work From
+    // Office" so an admin can verify the employee was actually on-site.
+    // Reflects the MOST RECENT check-in of the day (mirrors checkIn/workMode).
+    location: {
+      latitude: { type: Number, default: null },
+      longitude: { type: Number, default: null },
+      accuracy: { type: Number, default: null }, // meters, from the browser API
+      capturedAt: { type: Date, default: null },
+    },
+
     totalHours: {
       type: Number,
       default: 0,
@@ -82,6 +92,12 @@ const attendanceSchema = new mongoose.Schema(
         checkIn: Date,
         checkOut: Date,
         hours: Number,
+        workMode: String,
+        location: {
+          latitude: { type: Number, default: null },
+          longitude: { type: Number, default: null },
+          accuracy: { type: Number, default: null },
+        },
       },
     ],
   },

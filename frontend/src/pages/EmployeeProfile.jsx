@@ -5,6 +5,28 @@ import React, { useEffect, useState, useCallback } from "react";
 import API from "../services/api";
 import { useNavigate } from "react-router-dom";
 
+// Wraps the browser Geolocation API in a Promise. Resolves null if the
+// browser doesn't support it, or the user denies/it times out — callers
+// decide how to handle a null result.
+const getCurrentLocation = () =>
+  new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      resolve(null);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        resolve({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+        });
+      },
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  });
+
 import {
   FaEnvelope,
   FaPhone,
@@ -301,7 +323,16 @@ const EmployeeProfile = () => {
   const handleCheckIn = async (workMode) => {
     setAttLoading(true);
     try {
-      await API.post("/attendance/checkin", { workMode });
+      let location = null;
+      if (workMode === "Work From Office") {
+        location = await getCurrentLocation();
+        if (!location) {
+          alert("Location access is required to check in as Work From Office. Please allow location access in your browser and try again.");
+          setAttLoading(false);
+          return;
+        }
+      }
+      await API.post("/attendance/checkin", { workMode, location });
       await fetchTodayStatus();
       await fetchMyAttendance();
     } catch (error) {

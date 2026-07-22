@@ -40,7 +40,7 @@ const checkIn = async (req, res) => {
     // ================= WORK MODE =================
     // The check-in popup requires the employee/user to pick how
     // they're working today before the check-in is recorded.
-    const { workMode } = req.body;
+    const { workMode, location } = req.body;
 
     if (!workMode || !VALID_WORK_MODES.includes(workMode)) {
       return res.status(400).json({
@@ -49,6 +49,32 @@ const checkIn = async (req, res) => {
           "Please select a work mode (Work From Office, Work From Home, or Site Visit) to check in.",
       });
     }
+
+    // ================= LIVE LOCATION =================
+    // Required for "Work From Office" so an admin can verify the employee
+    // was actually on-site. Optional (but still stored if sent) for the
+    // other work modes.
+    const lat = location?.latitude;
+    const lng = location?.longitude;
+    const hasValidLocation =
+      typeof lat === "number" && typeof lng === "number" && !isNaN(lat) && !isNaN(lng);
+
+    if (workMode === "Work From Office" && !hasValidLocation) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Location access is required to check in as Work From Office. Please allow location access and try again.",
+      });
+    }
+
+    const locationData = hasValidLocation
+      ? {
+          latitude: lat,
+          longitude: lng,
+          accuracy: typeof location?.accuracy === "number" ? location.accuracy : null,
+          capturedAt: now,
+        }
+      : { latitude: null, longitude: null, accuracy: null, capturedAt: null };
 
     let record = await Attendance.findOne({
       employee: employeeId,
@@ -63,7 +89,20 @@ const checkIn = async (req, res) => {
         status: "present",
         checkIn: now,
         workMode,
-        sessions: [{ checkIn: now, checkOut: null, hours: 0 }],
+        location: locationData,
+        sessions: [
+          {
+            checkIn: now,
+            checkOut: null,
+            hours: 0,
+            workMode,
+            location: {
+              latitude: locationData.latitude,
+              longitude: locationData.longitude,
+              accuracy: locationData.accuracy,
+            },
+          },
+        ],
       });
     } else if (record.status === "leave") {
       return res.status(400).json({
@@ -84,11 +123,22 @@ const checkIn = async (req, res) => {
           message: "Already checked in. Please check out first.",
         });
       }
-      // Allow extra login after checkout — refresh the work mode in
+      // Allow extra login after checkout — refresh the work mode/location in
       // case it changed (e.g. moved from Work From Home to Site Visit).
-      record.sessions.push({ checkIn: now, checkOut: null, hours: 0 });
+      record.sessions.push({
+        checkIn: now,
+        checkOut: null,
+        hours: 0,
+        workMode,
+        location: {
+          latitude: locationData.latitude,
+          longitude: locationData.longitude,
+          accuracy: locationData.accuracy,
+        },
+      });
       record.status = "present";
       record.workMode = workMode;
+      record.location = locationData;
       await record.save();
     }
 

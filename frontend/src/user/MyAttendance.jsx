@@ -4,6 +4,28 @@
 import React, { useState, useEffect, useCallback } from "react";
 import API from "../services/api";
 
+// Wraps the browser Geolocation API in a Promise. Resolves null if the
+// browser doesn't support it, or the user denies/it times out — callers
+// decide how to handle a null result.
+const getCurrentLocation = () =>
+  new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      resolve(null);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        resolve({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+        });
+      },
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  });
+
 
 const formatTime = (dateStr) => {
   if (!dateStr) return "--";
@@ -154,7 +176,19 @@ const MyAttendance = ({ setSidebarOpen }) => {
 
   const handleCheckIn = async (workMode) => {
     setMyAttLoading(true);
-    try { await API.post("/attendance/me/checkin", { workMode }); await fetchTodayStatus(); await fetchHistory(); }
+    try {
+      let location = null;
+      if (workMode === "Work From Office") {
+        location = await getCurrentLocation();
+        if (!location) {
+          alert("Location access is required to check in as Work From Office. Please allow location access in your browser and try again.");
+          setMyAttLoading(false);
+          return;
+        }
+      }
+      await API.post("/attendance/me/checkin", { workMode, location });
+      await fetchTodayStatus(); await fetchHistory();
+    }
     catch (err) { alert(err.response?.data?.message || "Check-in failed"); }
     setMyAttLoading(false);
   };
