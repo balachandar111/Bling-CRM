@@ -686,17 +686,22 @@ role === "super_admin" && (
                 Department
               </label>
 
-              <input
-
-                type="text"
+              <select
 
                 name="department"
+
+                defaultValue=""
 
                 onChange={
                   handleEmployeeChange
                 }
 
-              />
+              >
+                <option value="" disabled>Select department</option>
+                <option value="Sales">Sales</option>
+                <option value="Operation">Operation</option>
+                <option value="IT">IT</option>
+              </select>
 
             </div>
 
@@ -1472,9 +1477,7 @@ Leave empty if no change
                 Department
               </label>
 
-              <input
-
-                type="text"
+              <select
 
                 value={
                   employeeForm.department
@@ -1490,7 +1493,12 @@ Leave empty if no change
                     e.target.value,
                   })
                 }
-              />
+              >
+                <option value="">Select department</option>
+                <option value="Sales">Sales</option>
+                <option value="Operation">Operation</option>
+                <option value="IT">IT</option>
+              </select>
 
             </div>
 

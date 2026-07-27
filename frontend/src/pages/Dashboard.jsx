@@ -18,6 +18,7 @@ import "react-calendar/dist/Calendar.css";
 
 import EmployeeAttendanceModal from "../components/EmployeeAttendanceModal";
 import "../components/EmployeeAttendanceModal.css";
+import WorkModeSummaryCards from "../components/WorkModeSummaryCards";
 
 // Admin-only sections
 import Employees from "../admin/Employees";
@@ -3457,6 +3458,10 @@ clear-filter-btn
                 </div>
 
               </div>
+
+
+              {/* TODAY'S WORK MODE (WFO / WFH / Site Visit) — super admin only */}
+              {user?.role === "super_admin" && <WorkModeSummaryCards />}
 
 
               {/* CHARTS */}

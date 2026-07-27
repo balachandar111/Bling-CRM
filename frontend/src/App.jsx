@@ -43,7 +43,11 @@ const App = () => {
         />
         <Route
   path="/employee-profile"
-  element={<EmployeeProfile />}
+  element={
+    <ProtectedRoute>
+      <EmployeeProfile />
+    </ProtectedRoute>
+  }
 />
 
       </Routes>

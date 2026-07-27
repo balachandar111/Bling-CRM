@@ -507,6 +507,68 @@ const getEmployeeDateAttendance = async (req, res) => {
   }
 };
 
+// ============================================================
+// SUPER ADMIN: TODAY'S WORK MODE SUMMARY (WFO / WFH / Site Visit)
+// Counts + employee names for each work mode, for today only.
+// Powers the admin dashboard's clickable work-mode cards.
+// ============================================================
+const getTodayWorkModeSummary = async (req, res) => {
+  try {
+    const today = getTodayIST();
+
+    const records = await Attendance.find({
+      date: today,
+      status: "present",
+    }).populate("employee", "name email department designation profileImage");
+
+    const buckets = {
+      "Work From Office": [],
+      "Work From Home": [],
+      "Site Visit": [],
+    };
+
+    records.forEach((r) => {
+      if (!r.employee) return; // employee may have been deleted
+      if (buckets[r.workMode]) {
+        buckets[r.workMode].push({
+          _id: r.employee._id,
+          name: r.employee.name,
+          department: r.employee.department,
+          designation: r.employee.designation,
+          profileImage: r.employee.profileImage,
+          checkIn: r.checkIn,
+          checkOut: r.checkOut,
+          // Only relevant for "Work From Office", but harmless to include
+          // for other modes too (frontend decides whether to render it).
+          location:
+            r.workMode === "Work From Office" && r.location && r.location.latitude != null
+              ? {
+                  latitude: r.location.latitude,
+                  longitude: r.location.longitude,
+                  accuracy: r.location.accuracy,
+                }
+              : null,
+        });
+      }
+    });
+
+    return res.json({
+      success: true,
+      date: today,
+      summary: {
+        officeCount: buckets["Work From Office"].length,
+        homeCount: buckets["Work From Home"].length,
+        siteVisitCount: buckets["Site Visit"].length,
+        office: buckets["Work From Office"],
+        home: buckets["Work From Home"],
+        siteVisit: buckets["Site Visit"],
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   checkIn,
   checkOut,
@@ -519,4 +581,5 @@ module.exports = {
   getPendingLeaves,
   approveLeave,
   rejectLeave,
+  getTodayWorkModeSummary,
 };

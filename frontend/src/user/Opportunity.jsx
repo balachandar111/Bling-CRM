@@ -8,7 +8,7 @@
 
 import React, { useEffect, useState } from "react";
 import API from "../services/api";
-import { FaFileAlt, FaTimes, FaCheckCircle, FaEye } from "react-icons/fa";
+import { FaFileAlt, FaTimes, FaCheckCircle, FaEye, FaEdit } from "react-icons/fa";
 
 const DOC_FIELDS = [
   { key: "quotation", label: "Quotation" },
@@ -29,6 +29,21 @@ const Opportunity = ({ setSidebarOpen }) => {
   const [files, setFiles] = useState({});
   const [value, setValue] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  // Extra customer details editable only when updating an
+  // already-closed deal (name, company, contact info, etc.)
+  const [extraDetails, setExtraDetails] = useState({
+    name: "",
+    company: "",
+    email: "",
+    phone: "",
+    priority: "",
+    assignedTo: "",
+    solution: "",
+    product: "",
+    followUpDate: "",
+    remark: "",
+  });
 
   // Closed customer currently open in the "view details" popup
   const [viewCustomer, setViewCustomer] = useState(null);
@@ -65,12 +80,42 @@ const Opportunity = ({ setSidebarOpen }) => {
     setActiveCustomer(customer);
     setFiles({});
     setValue(customer.value ? String(customer.value) : "");
+    setExtraDetails({
+      name: customer.name || "",
+      company: customer.company || "",
+      email: customer.email || "",
+      phone: customer.phone || "",
+      priority: customer.priority || "Medium",
+      assignedTo: customer.assignedTo || "",
+      solution: customer.solution || "",
+      product: customer.product || "",
+      followUpDate: customer.followUpDate
+        ? String(customer.followUpDate).slice(0, 10)
+        : "",
+      remark: customer.remark || "",
+    });
   };
 
   const closeDocumentsPopup = () => {
     setActiveCustomer(null);
     setFiles({});
     setValue("");
+    setExtraDetails({
+      name: "",
+      company: "",
+      email: "",
+      phone: "",
+      priority: "",
+      assignedTo: "",
+      solution: "",
+      product: "",
+      followUpDate: "",
+      remark: "",
+    });
+  };
+
+  const handleExtraDetailChange = (field, val) => {
+    setExtraDetails((prev) => ({ ...prev, [field]: val }));
   };
 
   const handleFileChange = (fieldKey, fileList) => {
@@ -99,6 +144,8 @@ const Opportunity = ({ setSidebarOpen }) => {
 
       formData.append("value", value || 0);
 
+      const isUpdateMode = activeCustomer.leadStage === "Closure";
+
       await API.put(
         `/customers/${activeCustomer._id}/opportunity`,
         formData,
@@ -107,7 +154,18 @@ const Opportunity = ({ setSidebarOpen }) => {
         }
       );
 
-      alert("Deal Closed Successfully! Customer moved to Closure.");
+      // When updating an already-closed deal, also push the rest of
+      // the customer's details (name, contact info, priority, etc.)
+      // through the general customer update endpoint.
+      if (isUpdateMode) {
+        await API.put(`/customers/${activeCustomer._id}`, extraDetails);
+      }
+
+      alert(
+        isUpdateMode
+          ? "Deal details updated successfully!"
+          : "Deal Closed Successfully! Customer moved to Closure."
+      );
       closeDocumentsPopup();
       fetchCustomers();
     } catch (error) {
@@ -213,18 +271,19 @@ const Opportunity = ({ setSidebarOpen }) => {
               <th>Stage</th>
               <th>Value</th>
               <th>View</th>
+              <th>Update</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="7" style={{ textAlign: "center", padding: "20px" }}>
+                <td colSpan="8" style={{ textAlign: "center", padding: "20px" }}>
                   Loading...
                 </td>
               </tr>
             ) : closedCustomers.length === 0 ? (
               <tr>
-                <td colSpan="7" style={{ textAlign: "center", padding: "20px" }}>
+                <td colSpan="8" style={{ textAlign: "center", padding: "20px" }}>
                   No closed customers yet.
                 </td>
               </tr>
@@ -260,6 +319,25 @@ const Opportunity = ({ setSidebarOpen }) => {
                       }}
                     >
                       <FaEye />
+                    </button>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      title="Update deal details"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openDocumentsPopup(customer);
+                      }}
+                      style={{
+                        border: "none",
+                        background: "transparent",
+                        cursor: "pointer",
+                        fontSize: "16px",
+                        color: "#059669",
+                      }}
+                    >
+                      <FaEdit />
                     </button>
                   </td>
                 </tr>
@@ -399,7 +477,10 @@ const Opportunity = ({ setSidebarOpen }) => {
           <div className="modal">
             <div className="modal-header">
               <h2>
-                Close Opportunity — {activeCustomer.name}
+                {activeCustomer.leadStage === "Closure"
+                  ? "Update Opportunity — "
+                  : "Close Opportunity — "}
+                {activeCustomer.name}
                 {activeCustomer.company ? ` (${activeCustomer.company})` : ""}
               </h2>
               <span className="close-icon" onClick={closeDocumentsPopup}>
@@ -442,6 +523,117 @@ const Opportunity = ({ setSidebarOpen }) => {
                     required
                   />
                 </div>
+
+                {activeCustomer.leadStage === "Closure" && (
+                  <>
+                    <div className="input-group">
+                      <label>Name</label>
+                      <input
+                        type="text"
+                        value={extraDetails.name}
+                        onChange={(e) =>
+                          handleExtraDetailChange("name", e.target.value)
+                        }
+                      />
+                    </div>
+                    <div className="input-group">
+                      <label>Company</label>
+                      <input
+                        type="text"
+                        value={extraDetails.company}
+                        onChange={(e) =>
+                          handleExtraDetailChange("company", e.target.value)
+                        }
+                      />
+                    </div>
+                    <div className="input-group">
+                      <label>Email</label>
+                      <input
+                        type="email"
+                        value={extraDetails.email}
+                        onChange={(e) =>
+                          handleExtraDetailChange("email", e.target.value)
+                        }
+                      />
+                    </div>
+                    <div className="input-group">
+                      <label>Contact Number</label>
+                      <input
+                        type="text"
+                        value={extraDetails.phone}
+                        onChange={(e) =>
+                          handleExtraDetailChange("phone", e.target.value)
+                        }
+                      />
+                    </div>
+                    <div className="input-group">
+                      <label>Priority</label>
+                      <select
+                        value={extraDetails.priority}
+                        onChange={(e) =>
+                          handleExtraDetailChange("priority", e.target.value)
+                        }
+                      >
+                        <option value="Low">Low</option>
+                        <option value="Medium">Medium</option>
+                        <option value="High">High</option>
+                      </select>
+                    </div>
+                    <div className="input-group">
+                      <label>Assigned To</label>
+                      <input
+                        type="text"
+                        value={extraDetails.assignedTo}
+                        onChange={(e) =>
+                          handleExtraDetailChange("assignedTo", e.target.value)
+                        }
+                      />
+                    </div>
+                    <div className="input-group">
+                      <label>Solution</label>
+                      <input
+                        type="text"
+                        value={extraDetails.solution}
+                        onChange={(e) =>
+                          handleExtraDetailChange("solution", e.target.value)
+                        }
+                      />
+                    </div>
+                    <div className="input-group">
+                      <label>Product</label>
+                      <input
+                        type="text"
+                        value={extraDetails.product}
+                        onChange={(e) =>
+                          handleExtraDetailChange("product", e.target.value)
+                        }
+                      />
+                    </div>
+                    <div className="input-group">
+                      <label>Follow Up Date</label>
+                      <input
+                        type="date"
+                        value={extraDetails.followUpDate}
+                        onChange={(e) =>
+                          handleExtraDetailChange(
+                            "followUpDate",
+                            e.target.value
+                          )
+                        }
+                      />
+                    </div>
+                    <div className="input-group full-row">
+                      <label>Remark</label>
+                      <textarea
+                        rows={3}
+                        value={extraDetails.remark}
+                        onChange={(e) =>
+                          handleExtraDetailChange("remark", e.target.value)
+                        }
+                      />
+                    </div>
+                  </>
+                )}
               </div>
 
               <button
@@ -450,7 +642,11 @@ const Opportunity = ({ setSidebarOpen }) => {
                 disabled={submitting}
               >
                 <FaCheckCircle style={{ marginRight: "6px" }} />
-                {submitting ? "Submitting..." : "Deal Closed"}
+                {submitting
+                  ? "Submitting..."
+                  : activeCustomer.leadStage === "Closure"
+                  ? "Update Details"
+                  : "Deal Closed"}
               </button>
             </form>
           </div>

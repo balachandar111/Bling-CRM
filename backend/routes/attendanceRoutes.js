@@ -17,6 +17,7 @@ const {
   getPendingLeaves,
   approveLeave,
   rejectLeave,
+  getTodayWorkModeSummary,
 } = require("../controllers/attendanceController");
 
 // =============== USER /me/* ROUTES (user JWT → linked employee) ===============
@@ -51,6 +52,9 @@ router.get("/my", employeeAuth, getMyAttendance);
 router.get("/my/:date", employeeAuth, getDateAttendance);
 
 // =============== SUPER ADMIN ROUTES ===============
+
+// Today's Work From Office / Work From Home / Site Visit counts + names
+router.get("/today-workmode-summary", authMiddleware, getTodayWorkModeSummary);
 
 // Get employee attendance summary
 router.get(

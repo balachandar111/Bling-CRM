@@ -43,6 +43,7 @@ import {
   FaClock,
   FaClipboardList,
   FaDoorOpen,
+  FaTasks,
 } from "react-icons/fa";
 
 import "./EmployeeProfile.css";
@@ -70,6 +71,49 @@ const getTodayString = () => {
   const istDate = new Date(now.getTime() + istOffset);
   return istDate.toISOString().slice(0, 10);
 };
+
+// Department-based to-do list presets, plus a final "Other" option
+// where the employee types their own task text dynamically. "general"
+// is the fallback used when the employee has no department set yet.
+// Kept in sync with backend/controllers/taskController.js and with
+// Dashboard's user/Tasks.jsx so both places show the same checklist.
+const DEPARTMENT_TASK_PRESETS = {
+  sales: ["Daily Followup", "New Leads", "Payment Followup", "Requirement"],
+  // Operation and Business Development Executive are the same role —
+  // both share this one checklist (kept in sync with the backend key).
+  business_development: [
+    "Application testing",
+    "New module testing",
+    "Quick commerce",
+    "Warehouse inventory checking",
+    "Calling",
+    "Follow up",
+  ],
+  it: ["Website", "CRM", "Rewards", "Modules", "Testing","Deployment","Custom Application"],
+  general: [
+    "Follow-up with leads",
+    "Client / Site visit",
+    "Documentation & Reports",
+    "Team meeting / Coordination",
+  ],
+};
+const CUSTOM_TASK_OPTION = "__custom__";
+
+/* Display labels for the department badge on the Tasks tab. */
+const DEPARTMENT_LABELS = {
+  sales: "Sales",
+  business_development: "Operation / Business Development",
+  it: "IT",
+  general: "General",
+};
+
+/* "Payment" is not a default preset — it's appended to the dropdown
+   only for employees whose department qualifies (Sales / Business
+   Development Executive), per the backend's `showPayment` flag.
+   Selecting it reveals a payment-status sub-checklist. */
+const PAYMENT_OPTION = "Payment";
+const PAYMENT_PREFIX = "Payment: ";
+const DEFAULT_PAYMENT_STATUSES = ["Advance Payment", "Payment Pending", "Collected"];
 
 // Small icon for each work mode, used on the calendar and in tables.
 const workModeIcon = (mode) => {
@@ -197,7 +241,7 @@ const EmployeeProfile = () => {
   const [payslips, setPayslips] = useState([]);
 
   // -------- Attendance States --------
-  const [activeTab, setActiveTab] = useState("profile"); // "profile" | "attendance"
+  const [activeTab, setActiveTab] = useState("profile"); // "profile" | "attendance" | "tasks"
   const [todayRecord, setTodayRecord] = useState(null);
   const [todayDate, setTodayDate] = useState("");
   const [attendanceRecords, setAttendanceRecords] = useState([]);
@@ -220,6 +264,25 @@ const EmployeeProfile = () => {
   const [resignForm, setResignForm] = useState({ name: "", date: "", reason: "" });
   const [resignation, setResignation] = useState({ status: "none" });
   const [resignLoading, setResignLoading] = useState(false);
+
+  // -------- Tasks (to-do list) States --------
+  const [taskItems, setTaskItems] = useState([]); // [{ text, completed }]
+  // Department-based checklist — resolved from the employee's own linked
+  // department (same source of truth the backend and admin summary use),
+  // so an IT employee logging in here sees the IT checklist, a Sales
+  // employee sees the Sales checklist, etc.
+  const [taskDepartmentKey, setTaskDepartmentKey] = useState("general");
+  const [taskShowPayment, setTaskShowPayment] = useState(false);
+  const [taskPaymentStatuses, setTaskPaymentStatuses] = useState(DEFAULT_PAYMENT_STATUSES);
+  const taskBasePresets = DEPARTMENT_TASK_PRESETS[taskDepartmentKey] || DEPARTMENT_TASK_PRESETS.general;
+  const taskPresets = taskShowPayment ? [...taskBasePresets, PAYMENT_OPTION] : taskBasePresets;
+  const [selectedTaskPreset, setSelectedTaskPreset] = useState(taskBasePresets[0]);
+  const [selectedTaskPaymentStatus, setSelectedTaskPaymentStatus] = useState("");
+  const [customTaskText, setCustomTaskText] = useState("");
+  const [todayTaskDoc, setTodayTaskDoc] = useState(null);
+  const [taskSubmitting, setTaskSubmitting] = useState(false);
+  const [taskUpdating, setTaskUpdating] = useState(false);
+  const [taskSavedMsg, setTaskSavedMsg] = useState(""); // "submitted" | "updated" | ""
 
   // -------- Fetch Profile --------
   const fetchProfile = useCallback(async () => {
@@ -278,18 +341,52 @@ const EmployeeProfile = () => {
     }
   }, []);
 
+  // -------- Fetch Today's Task List --------
+  const fetchTodayTask = useCallback(async () => {
+    try {
+      const { data } = await API.get("/tasks/report/today");
+
+      // The backend already resolves the logged-in employee's department
+      // into a checklist bucket — use it here the same way Dashboard's
+      // Tasks.jsx does, instead of a hardcoded generic list.
+      const deptKey = data.departmentKey || "general";
+      const paymentAllowed = !!data.showPayment;
+      setTaskDepartmentKey(deptKey);
+      setTaskShowPayment(paymentAllowed);
+      if (Array.isArray(data.paymentStatuses) && data.paymentStatuses.length) {
+        setTaskPaymentStatuses(data.paymentStatuses);
+      }
+      const deptPresets = DEPARTMENT_TASK_PRESETS[deptKey] || DEPARTMENT_TASK_PRESETS.general;
+      const fullPresets = paymentAllowed ? [...deptPresets, PAYMENT_OPTION] : deptPresets;
+      setSelectedTaskPreset(fullPresets[0]);
+      setSelectedTaskPaymentStatus("");
+
+      if (data.task) {
+        setTodayTaskDoc(data.task);
+        setTaskItems(data.task.items && data.task.items.length ? data.task.items : []);
+      } else {
+        setTodayTaskDoc(null);
+        setTaskItems([]);
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  }, []);
+
   useEffect(() => {
     fetchProfile();
     fetchPayslips();
     fetchTodayStatus();
     fetchMyAttendance();
     fetchResignationStatus();
+    fetchTodayTask();
   }, [
     fetchProfile,
     fetchPayslips,
     fetchTodayStatus,
     fetchMyAttendance,
     fetchResignationStatus,
+    fetchTodayTask,
   ]);
 
   // -------- Resignation Actions --------
@@ -399,6 +496,79 @@ const EmployeeProfile = () => {
     setShowDateModal(true);
   };
 
+  // -------- Task List Actions --------
+  // Adds an item using whichever of the 4 presets is selected, or the
+  // typed custom text when "Other" (5th option) is selected.
+  const handleAddTaskItem = () => {
+    let text = "";
+    if (selectedTaskPreset === CUSTOM_TASK_OPTION) {
+      text = customTaskText.trim();
+      if (!text) {
+        alert("Please type your task for the custom option.");
+        return;
+      }
+    } else if (selectedTaskPreset === PAYMENT_OPTION) {
+      if (!selectedTaskPaymentStatus) {
+        alert("Please select a payment status.");
+        return;
+      }
+      text = `${PAYMENT_PREFIX}${selectedTaskPaymentStatus}`;
+    } else {
+      text = selectedTaskPreset;
+    }
+    setTaskItems((prev) => [...prev, { text, completed: false }]);
+    setCustomTaskText("");
+    setSelectedTaskPaymentStatus("");
+  };
+
+  // Ticks an item as "completed" — meant to be done at the end of the day.
+  const toggleTaskItemCompleted = (index) => {
+    setTaskItems((prev) =>
+      prev.map((it, i) => (i === index ? { ...it, completed: !it.completed } : it))
+    );
+  };
+
+  const removeTaskItem = (index) => {
+    setTaskItems((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // First-time submit — creates today's task list.
+  const handleTaskSubmit = async () => {
+    if (taskItems.length === 0) {
+      alert("Please add at least one task to your list before submitting.");
+      return;
+    }
+    setTaskSubmitting(true);
+    try {
+      await API.post("/tasks/report", { items: taskItems });
+      setTaskSavedMsg("submitted");
+      await fetchTodayTask();
+    } catch (error) {
+      alert(error.response?.data?.message || "Failed to submit task list.");
+    }
+    setTaskSubmitting(false);
+    setTimeout(() => setTaskSavedMsg(""), 3000);
+  };
+
+  // Re-saves the list — used to check items off as "completed" through
+  // the day and persist the final state before end of day.
+  const handleTaskUpdate = async () => {
+    if (taskItems.length === 0) {
+      alert("Your task list can't be empty.");
+      return;
+    }
+    setTaskUpdating(true);
+    try {
+      await API.post("/tasks/report", { items: taskItems });
+      setTaskSavedMsg("updated");
+      await fetchTodayTask();
+    } catch (error) {
+      alert(error.response?.data?.message || "Failed to update task list.");
+    }
+    setTaskUpdating(false);
+    setTimeout(() => setTaskSavedMsg(""), 3000);
+  };
+
   // -------- Determine button states --------
   const isCheckedIn =
     todayRecord &&
@@ -495,6 +665,12 @@ const EmployeeProfile = () => {
                 onClick={() => setActiveTab("attendance")}
               >
                 <FaClipboardList /> Attendance
+              </button>
+              <button
+                className={`tab-btn ${activeTab === "tasks" ? "tab-active" : ""}`}
+                onClick={() => setActiveTab("tasks")}
+              >
+                <FaTasks /> Tasks
               </button>
             </div>
 
@@ -755,6 +931,142 @@ const EmployeeProfile = () => {
                   />
                 </div>
 
+              </div>
+            )}
+
+            {/* ===== TASKS TAB ===== */}
+            {activeTab === "tasks" && (
+              <div className="attendance-section">
+                <div className="task-report-card">
+                  {/* Header row */}
+                  <div className="task-report-header">
+                    <div>
+                      <h3 style={{ margin: 0 }}>📅 Today's Task List</h3>
+                      <p style={{ marginTop: 4 }}>{getTodayString()}</p>
+                      <span
+                        style={{
+                          display: "inline-block",
+                          marginTop: 6,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          color: "#4f46e5",
+                          background: "#eef2ff",
+                          borderRadius: 999,
+                          padding: "3px 10px",
+                        }}
+                      >
+                        🏷️ {DEPARTMENT_LABELS[taskDepartmentKey] || "General"} checklist
+                      </span>
+                    </div>
+                    {todayTaskDoc && (
+                      <span className="task-submitted-badge">✅ Submitted</span>
+                    )}
+                  </div>
+
+                  {/* To-do list builder */}
+                  <div className="task-add-row">
+                    <select
+                      className="task-preset-select"
+                      value={selectedTaskPreset}
+                      onChange={(e) => {
+                        setSelectedTaskPreset(e.target.value);
+                        setSelectedTaskPaymentStatus("");
+                      }}
+                    >
+                      {taskPresets.map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                      <option value={CUSTOM_TASK_OPTION}>Other (type your own)…</option>
+                    </select>
+
+                    {selectedTaskPreset === CUSTOM_TASK_OPTION && (
+                      <input
+                        type="text"
+                        className="task-custom-input"
+                        placeholder="Type your task…"
+                        value={customTaskText}
+                        onChange={(e) => setCustomTaskText(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleAddTaskItem()}
+                      />
+                    )}
+
+                    {selectedTaskPreset === PAYMENT_OPTION && (
+                      <select
+                        className="task-preset-select"
+                        value={selectedTaskPaymentStatus}
+                        onChange={(e) => setSelectedTaskPaymentStatus(e.target.value)}
+                      >
+                        <option value="">Select payment status…</option>
+                        {taskPaymentStatuses.map((status) => (
+                          <option key={status} value={status}>{status}</option>
+                        ))}
+                      </select>
+                    )}
+
+                    <button type="button" className="task-add-btn" onClick={handleAddTaskItem}>
+                      ➕ Add Task
+                    </button>
+                  </div>
+
+                  {/* Today's checklist */}
+                  {taskItems.length === 0 ? (
+                    <p className="task-empty-hint">
+                      No tasks added yet — pick an option above and click "Add Task" to build today's list.
+                    </p>
+                  ) : (
+                    <ul className="task-item-checklist">
+                      {taskItems.map((it, idx) => (
+                        <li key={idx} className={`task-item-row ${it.completed ? "is-done" : ""}`}>
+                          <label className="task-item-checkbox-label">
+                            <input
+                              type="checkbox"
+                              checked={it.completed}
+                              onChange={() => toggleTaskItemCompleted(idx)}
+                            />
+                            <span>{it.text}</span>
+                          </label>
+                          <button
+                            type="button"
+                            className="task-item-remove"
+                            onClick={() => removeTaskItem(idx)}
+                            title="Remove task"
+                          >
+                            ✕
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {/* Button row */}
+                  <div className="task-btn-row">
+                    {taskSavedMsg && (
+                      <span className="task-saved-msg">
+                        {taskSavedMsg === "updated" ? "✅ Task list updated!" : "✅ Task list submitted!"}
+                      </span>
+                    )}
+
+                    {!todayTaskDoc && (
+                      <button
+                        className="task-submit-btn"
+                        onClick={handleTaskSubmit}
+                        disabled={taskSubmitting}
+                      >
+                        {taskSubmitting ? "Saving…" : "Submit Task List"}
+                      </button>
+                    )}
+
+                    {todayTaskDoc && (
+                      <button
+                        className="task-update-btn"
+                        onClick={handleTaskUpdate}
+                        disabled={taskUpdating}
+                      >
+                        {taskUpdating ? "Updating…" : "✏️ Update Task List"}
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>
