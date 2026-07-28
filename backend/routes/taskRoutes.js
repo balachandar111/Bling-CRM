@@ -11,6 +11,7 @@ const {
   getMyReports,
   getAllReports,
   getAdminTaskSummary,
+  getTodayCategorySummary,
 } = require("../controllers/taskController");
 
 // ── User routes (requires any logged-in user) ──────────────────
@@ -32,5 +33,8 @@ router.get("/report/all", authMiddleware, superAdmin, getAllReports);
 
 // Get task summary table grouped by date x department (optional ?from=&to=)
 router.get("/report/summary", authMiddleware, superAdmin, getAdminTaskSummary);
+
+// Get today's tasks structured by category (Today filter → popup)
+router.get("/report/today-summary", authMiddleware, superAdmin, getTodayCategorySummary);
 
 module.exports = router;

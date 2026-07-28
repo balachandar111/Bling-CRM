@@ -1,14 +1,21 @@
 const mongoose = require("mongoose");
 
-// A single to-do item on an employee's daily task list. `text` is either
-// one of the 4 preset options or whatever the employee typed via the
-// 5th "Other" option. `completed` is ticked by the employee at the end
-// of the day, before submitting.
+// A single to-do item on an employee's daily task list. `text` is
+// whichever checklist option the employee picked (department preset,
+// "Payment: <status>", or their own typed "Other" text). `note` is an
+// optional free-text note the employee can attach to explain/expand
+// on that specific item. `completed` is ticked by the employee at the
+// end of the day, before submitting.
 const taskItemSchema = new mongoose.Schema(
   {
     text: {
       type: String,
       required: true,
+      trim: true,
+    },
+    note: {
+      type: String,
+      default: "",
       trim: true,
     },
     completed: {

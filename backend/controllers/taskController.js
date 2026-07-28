@@ -97,10 +97,11 @@ const submitReport = async (req, res) => {
       });
     }
 
-    // Sanitize: trim text, force completed to boolean, drop empty rows.
+    // Sanitize: trim text/note, force completed to boolean, drop empty rows.
     const cleanItems = items
       .map((it) => ({
         text: String(it?.text || "").trim(),
+        note: String(it?.note || "").trim(),
         completed: !!it?.completed,
       }))
       .filter((it) => it.text !== "");
@@ -115,7 +116,7 @@ const submitReport = async (req, res) => {
     // Keep a plain-text mirror of the checklist so any existing
     // reporting/search that relies on `report` keeps working.
     const report = cleanItems
-      .map((it) => `${it.completed ? "[x]" : "[ ]"} ${it.text}`)
+      .map((it) => `${it.completed ? "[x]" : "[ ]"} ${it.text}${it.note ? ` — ${it.note}` : ""}`)
       .join("\n");
 
     const task = await Task.findOneAndUpdate(
@@ -254,6 +255,50 @@ const getAllReports = async (req, res) => {
   }
 };
 
+// Resolve a bucket of Task.user ids into { name, department } info,
+// covering BOTH login paths:
+//  - normal Users (linked to an Employee via linkedEmployeeId)
+//  - direct "Employee Profile" logins, where Task.user IS the
+//    Employee _id (no linked User record involved at all)
+// Populating against UserDetails alone silently misses the second
+// case and leaves `department` empty, so we resolve against both
+// collections and merge the results.
+const resolveEmployeeInfoByUserIds = async (userIds) => {
+  const users = await User.find({ _id: { $in: userIds } })
+    .select("name email linkedEmployeeId")
+    .populate("linkedEmployeeId", "department")
+    .lean();
+  const infoById = {};
+  users.forEach((u) => {
+    infoById[String(u._id)] = {
+      name: u.name,
+      department: u.linkedEmployeeId?.department || "",
+    };
+  });
+
+  const remainingIds = userIds.filter((id) => !infoById[id]);
+  if (remainingIds.length) {
+    const employees = await Employee.find({ _id: { $in: remainingIds } })
+      .select("name department")
+      .lean();
+    employees.forEach((e) => {
+      infoById[String(e._id)] = {
+        name: e.name,
+        department: e.department || "",
+      };
+    });
+  }
+
+  return infoById;
+};
+
+// Table only has fixed Operation/Sales/IT columns. Operation and
+// Business Development Executive are the same role, so the
+// "business_development" key is displayed under the Operation
+// column; any other department (unset/general) falls into Others.
+const bucketForDepartmentKey = (key) =>
+  key === "business_development" ? "operation" : ["operation", "sales", "it"].includes(key) ? key : "others";
+
 // ============================================================
 // SUPER ADMIN: GET TASK SUMMARY TABLE (grouped by date x department)
 // Columns: S.No, Date, Operation Task, Sales Task, IT Task, Others, Payment
@@ -288,36 +333,7 @@ const getAdminTaskSummary = async (req, res) => {
     const tasks = await Task.find(filter).sort({ date: -1 }).lean();
 
     const userIds = [...new Set(tasks.map((t) => String(t.user)))];
-
-    // Accounts that ARE real Users — pull department off their linked
-    // Employee record.
-    const users = await User.find({ _id: { $in: userIds } })
-      .select("name email linkedEmployeeId")
-      .populate("linkedEmployeeId", "department")
-      .lean();
-    const infoById = {};
-    users.forEach((u) => {
-      infoById[String(u._id)] = {
-        name: u.name,
-        department: u.linkedEmployeeId?.department || "",
-      };
-    });
-
-    // Any id NOT found above belongs to an employee-only account (direct
-    // Employee Profile login) — look those up straight from the Employee
-    // collection instead, where `department` lives directly on the doc.
-    const remainingIds = userIds.filter((id) => !infoById[id]);
-    if (remainingIds.length) {
-      const employees = await Employee.find({ _id: { $in: remainingIds } })
-        .select("name department")
-        .lean();
-      employees.forEach((e) => {
-        infoById[String(e._id)] = {
-          name: e.name,
-          department: e.department || "",
-        };
-      });
-    }
+    const infoById = await resolveEmployeeInfoByUserIds(userIds);
 
     // Group by date, then bucket each employee's task list under
     // operation / sales / it / others based on their department, with
@@ -337,19 +353,24 @@ const getAdminTaskSummary = async (req, res) => {
       const employeeName = info.name || task.userName || "Unknown";
       const department = info.department || "";
       const key = resolveDepartmentKey(department);
-      // Table only has fixed Operation/Sales/IT columns. Operation and
-      // Business Development Executive are the same role, so the
-      // "business_development" key is displayed under the Operation
-      // column; any other department (unset/general) falls into Others.
-      const bucket = key === "business_development" ? "operation" : ["operation", "sales", "it"].includes(key) ? key : "others";
+      // Table only has fixed Operation/Sales/IT columns; Operation and
+      // Business Development share the Operation column (see helper above).
+      const bucket = bucketForDepartmentKey(key);
 
       if (regularItems.length) {
-        const itemTexts = regularItems.map((it) => it.text).join(", ");
+        const itemTexts = regularItems
+          .map((it) => (it.note ? `${it.text} (${it.note})` : it.text))
+          .join(", ");
         byDate[date][bucket].push(`${employeeName}: ${itemTexts}`);
       }
 
       if (paymentItems.length) {
-        const paymentTexts = paymentItems.map((it) => it.text.replace(PAYMENT_PREFIX, "")).join(", ");
+        const paymentTexts = paymentItems
+          .map((it) => {
+            const status = it.text.replace(PAYMENT_PREFIX, "");
+            return it.note ? `${status} (${it.note})` : status;
+          })
+          .join(", ");
         byDate[date].payment.push(`${employeeName}: ${paymentTexts}`);
       }
     }
@@ -373,6 +394,64 @@ const getAdminTaskSummary = async (req, res) => {
   }
 };
 
+// ============================================================
+// SUPER ADMIN: GET TODAY'S TASKS, STRUCTURED BY CATEGORY
+// Powers the "Today" quick filter — Operation / Sales / IT / Others /
+// Payment — where picking a category opens a popup with every
+// employee's task updates for today in that category, item by item
+// (including completed status and notes), rather than the flattened
+// joined-text cells used by the date-range summary table above.
+// ============================================================
+const getTodayCategorySummary = async (req, res) => {
+  try {
+    const today = getTodayIST();
+
+    const tasks = await Task.find({ date: today }).lean();
+    const userIds = [...new Set(tasks.map((t) => String(t.user)))];
+    const infoById = await resolveEmployeeInfoByUserIds(userIds);
+
+    const buckets = { operation: [], sales: [], it: [], others: [], payment: [] };
+
+    for (const task of tasks) {
+      const items = (task.items || []).filter((it) => it.text);
+      const paymentItems = items.filter((it) => it.text.startsWith(PAYMENT_PREFIX));
+      const regularItems = items.filter((it) => !it.text.startsWith(PAYMENT_PREFIX));
+
+      const info = infoById[String(task.user)] || {};
+      const employeeName = info.name || task.userName || "Unknown";
+      const department = info.department || "";
+      const bucket = bucketForDepartmentKey(resolveDepartmentKey(department));
+
+      if (regularItems.length) {
+        buckets[bucket].push({
+          employeeName,
+          items: regularItems.map((it) => ({
+            text: it.text,
+            note: it.note || "",
+            completed: !!it.completed,
+          })),
+        });
+      }
+
+      if (paymentItems.length) {
+        buckets.payment.push({
+          employeeName,
+          items: paymentItems.map((it) => ({
+            text: it.text.replace(PAYMENT_PREFIX, ""),
+            note: it.note || "",
+            completed: !!it.completed,
+          })),
+        });
+      }
+    }
+
+    return res.json({ success: true, date: today, buckets });
+  } catch (error) {
+    console.error("getTodayCategorySummary error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   submitReport,
   getTodayReport,
@@ -380,4 +459,5 @@ module.exports = {
   getMyReports,
   getAllReports,
   getAdminTaskSummary,
+  getTodayCategorySummary,
 };

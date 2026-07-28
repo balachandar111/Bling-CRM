@@ -69,6 +69,16 @@ const PAYMENT_OPTION = "Payment";
 const PAYMENT_PREFIX = "Payment: ";
 const DEFAULT_PAYMENT_STATUSES = ["Advance Payment", "Payment Pending", "Collected"];
 
+/* Buttons for the admin's "Today" quick filter — clicking one opens a
+   popup with every employee's task updates for today in that category. */
+const TODAY_CATEGORIES = [
+  { key: "operation", label: "Operation" },
+  { key: "sales", label: "Sales" },
+  { key: "it", label: "IT" },
+  { key: "others", label: "Others" },
+  { key: "payment", label: "Payment" },
+];
+
 const Tasks = ({ role, setSidebarOpen }) => {
   const isAdmin = role === "super_admin";
 
@@ -82,6 +92,7 @@ const Tasks = ({ role, setSidebarOpen }) => {
   const [selectedPreset, setSelectedPreset] = useState(presets[0]);
   const [customText, setCustomText]   = useState("");
   const [selectedPaymentStatus, setSelectedPaymentStatus] = useState("");
+  const [noteText, setNoteText]       = useState(""); // optional note for whichever item is about to be added
   const [todayTask, setTodayTask]     = useState(null);
   const [submitting, setSubmitting]   = useState(false);
   const [updating, setUpdating]       = useState(false);
@@ -98,6 +109,11 @@ const Tasks = ({ role, setSidebarOpen }) => {
   const [loadingSummary, setLoadingSummary]   = useState(false);
   const [summaryFrom, setSummaryFrom]         = useState(""); // "" = no filter
   const [summaryTo, setSummaryTo]             = useState(""); // "" = no filter
+
+  /* ── admin: "Today" quick filter → category popup ── */
+  const [todayCategoryOpen, setTodayCategoryOpen] = useState(null); // "operation" | "sales" | "it" | "others" | "payment" | null
+  const [todayCategoryData, setTodayCategoryData] = useState([]);   // [{ employeeName, items: [{text, note, completed}] }]
+  const [loadingTodayCategory, setLoadingTodayCategory] = useState(false);
 
   /* ── fetch today's saved task list ── */
   const fetchToday = useCallback(async () => {
@@ -193,6 +209,27 @@ const Tasks = ({ role, setSidebarOpen }) => {
     fetchSummary();
   };
 
+  /* ── admin: "Today" quick filter — click a category (Operation /
+     Sales / IT / Others / Payment) to open a popup with every
+     employee's task updates for today in that category. Fetched
+     fresh on each click so the popup always reflects the latest
+     submissions. ── */
+  const handleOpenTodayCategory = async (categoryKey) => {
+    setTodayCategoryOpen(categoryKey);
+    setLoadingTodayCategory(true);
+    try {
+      const { data } = await API.get("/tasks/report/today-summary");
+      setTodayCategoryData((data.buckets && data.buckets[categoryKey]) || []);
+    } catch {
+      setTodayCategoryData([]);
+    }
+    setLoadingTodayCategory(false);
+  };
+  const handleCloseTodayCategory = () => {
+    setTodayCategoryOpen(null);
+    setTodayCategoryData([]);
+  };
+
   /* ── admin: download the summary table as an Excel file ── */
   const handleDownloadSummaryExcel = () => {
     const excelData = summaryRows.map((r) => ({
@@ -228,7 +265,9 @@ const Tasks = ({ role, setSidebarOpen }) => {
   /* ─── ADD an item to today's to-do list ───
      Uses whichever preset is selected, the typed custom text for
      "Other", or — for "Payment" (Sales / Business Development only)
-     — the chosen payment status (Advance / Payment Pending / Collected). */
+     — the chosen payment status (Advance / Payment Pending / Collected).
+     An optional note (attached via the note box shown once a checklist
+     option is picked) is saved alongside every item type. */
   const handleAddItem = () => {
     let text = "";
     if (selectedPreset === PAYMENT_OPTION) {
@@ -246,9 +285,10 @@ const Tasks = ({ role, setSidebarOpen }) => {
     } else {
       text = selectedPreset;
     }
-    setItems((prev) => [...prev, { text, completed: false }]);
+    setItems((prev) => [...prev, { text, note: noteText.trim(), completed: false }]);
     setCustomText("");
     setSelectedPaymentStatus("");
+    setNoteText("");
   };
 
   /* ─── TOGGLE an item's completed state (end of day) ─── */
@@ -392,6 +432,23 @@ const Tasks = ({ role, setSidebarOpen }) => {
             </button>
           </div>
 
+          {/* Note box — shown once a checklist option is selected, so the
+              employee can attach a short note to whichever item (preset,
+              custom, or payment status) they're about to add. */}
+          {selectedPreset && (
+            <div className="task-add-row" style={{ marginTop: 8 }}>
+              <input
+                type="text"
+                className="task-custom-input"
+                placeholder={`Add a note about "${selectedPreset === PAYMENT_OPTION ? (selectedPaymentStatus || "Payment") : selectedPreset === CUSTOM_OPTION ? "this task" : selectedPreset}" (optional)…`}
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAddItem()}
+                style={{ flex: 1 }}
+              />
+            </div>
+          )}
+
           {/* Today's checklist */}
           {items.length === 0 ? (
             <p className="task-empty-hint">
@@ -407,7 +464,14 @@ const Tasks = ({ role, setSidebarOpen }) => {
                       checked={it.completed}
                       onChange={() => toggleItemCompleted(idx)}
                     />
-                    <span>{it.text}</span>
+                    <span>
+                      {it.text}
+                      {it.note && (
+                        <span style={{ display: "block", fontSize: 12, color: "#64748b", fontWeight: 400 }}>
+                          📝 {it.note}
+                        </span>
+                      )}
+                    </span>
                   </label>
                   <button
                     type="button"
@@ -524,6 +588,31 @@ const Tasks = ({ role, setSidebarOpen }) => {
                 ⬇️ Download Excel
               </button>
             </div>
+          </div>
+
+          {/* ── "Today" quick filter — click a category to pop up
+              today's task updates for that department ── */}
+          <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}>📌 Today's Filter:</span>
+            {TODAY_CATEGORIES.map((cat) => (
+              <button
+                key={cat.key}
+                type="button"
+                onClick={() => handleOpenTodayCategory(cat.key)}
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: 999,
+                  border: "1px solid #c7d2fe",
+                  background: "#eef2ff",
+                  color: "#4f46e5",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                {cat.label}
+              </button>
+            ))}
           </div>
 
           {(summaryFrom || summaryTo) && (
@@ -700,7 +789,14 @@ const Tasks = ({ role, setSidebarOpen }) => {
                                 <span className="task-item-check-icon">
                                   {it.completed ? "✅" : "⬜"}
                                 </span>
-                                <span>{it.text}</span>
+                                <span>
+                                  {it.text}
+                                  {it.note && (
+                                    <span style={{ display: "block", fontSize: 12, color: "#64748b" }}>
+                                      📝 {it.note}
+                                    </span>
+                                  )}
+                                </span>
                               </li>
                             ))}
                           </ul>
@@ -716,6 +812,95 @@ const Tasks = ({ role, setSidebarOpen }) => {
           </div>
         </div>
       </div>
+
+      {/* ── "TODAY" CATEGORY POPUP — ADMIN ONLY ── */}
+      {isAdmin && todayCategoryOpen && (
+        <div className="modal-overlay" onClick={handleCloseTodayCategory}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "#fff",
+              borderRadius: 12,
+              width: "min(560px, 92vw)",
+              maxHeight: "80vh",
+              overflowY: "auto",
+              padding: 20,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 12,
+              }}
+            >
+              <h3 style={{ margin: 0 }}>
+                {TODAY_CATEGORIES.find((c) => c.key === todayCategoryOpen)?.label} — Today's Task Updates
+              </h3>
+              <button
+                type="button"
+                onClick={handleCloseTodayCategory}
+                style={{
+                  border: "none",
+                  background: "#f1f5f9",
+                  borderRadius: 8,
+                  width: 28,
+                  height: 28,
+                  cursor: "pointer",
+                  fontSize: 14,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <p style={{ margin: "0 0 14px", fontSize: 12, color: "#64748b" }}>
+              📅 {formatDate(todayStr)}
+            </p>
+
+            {loadingTodayCategory ? (
+              <p style={{ color: "#94a3b8", textAlign: "center", padding: "24px 0" }}>Loading…</p>
+            ) : todayCategoryData.length === 0 ? (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: "28px",
+                  color: "#94a3b8",
+                  background: "#f8fafc",
+                  borderRadius: 10,
+                }}
+              >
+                <p style={{ margin: 0, fontSize: 14 }}>No task updates in this category yet today.</p>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {todayCategoryData.map((entry, i) => (
+                  <div key={i} style={{ borderTop: i === 0 ? "none" : "1px solid #e2e8f0", paddingTop: i === 0 ? 0 : 12 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: "#1e293b", marginBottom: 6 }}>
+                      👤 {entry.employeeName}
+                    </div>
+                    <ul className="task-item-checklist task-item-checklist-readonly">
+                      {entry.items.map((it, idx) => (
+                        <li key={idx} className={`task-item-row ${it.completed ? "is-done" : ""}`}>
+                          <span className="task-item-check-icon">{it.completed ? "✅" : "⬜"}</span>
+                          <span>
+                            {it.text}
+                            {it.note && (
+                              <span style={{ display: "block", fontSize: 12, color: "#64748b" }}>
+                                📝 {it.note}
+                              </span>
+                            )}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
