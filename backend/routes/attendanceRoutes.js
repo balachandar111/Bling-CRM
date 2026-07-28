@@ -1,9 +1,17 @@
+
+
+
+
+
+
+
 const express = require("express");
 const router = express.Router();
 
 const employeeAuth = require("../middlewares/employeeAuth");
 const authMiddleware = require("../middlewares/authMiddleware");
 const userEmployeeAuth = require("../middlewares/userEmployeeAuth");
+const superAdmin = require("../middlewares/superAdmin");
 
 const {
   checkIn,
@@ -18,6 +26,7 @@ const {
   approveLeave,
   rejectLeave,
   getTodayWorkModeSummary,
+  adminUpsertAttendance,
 } = require("../controllers/attendanceController");
 
 // =============== USER /me/* ROUTES (user JWT → linked employee) ===============
@@ -70,6 +79,15 @@ router.get(
   getEmployeeDateAttendance
 );
 
+// Manually add or edit an employee's attendance record for a date
+// (e.g. forgot to check in, wrong times, mark a missed day present/leave).
+router.put(
+  "/employee/:employeeId/:date",
+  authMiddleware,
+  superAdmin,
+  adminUpsertAttendance
+);
+
 // Get all pending leave requests (for approval inbox)
 router.get("/leave/pending", authMiddleware, getPendingLeaves);
 
@@ -80,3 +98,20 @@ router.put("/leave/:id/approve", authMiddleware, approveLeave);
 router.put("/leave/:id/reject", authMiddleware, rejectLeave);
 
 module.exports = router;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
