@@ -266,7 +266,7 @@ const EmployeeProfile = () => {
   const [resignLoading, setResignLoading] = useState(false);
 
   // -------- Tasks (to-do list) States --------
-  const [taskItems, setTaskItems] = useState([]); // [{ text, completed }]
+  const [taskItems, setTaskItems] = useState([]); // [{ text, note, completed }]
   // Department-based checklist — resolved from the employee's own linked
   // department (same source of truth the backend and admin summary use),
   // so an IT employee logging in here sees the IT checklist, a Sales
@@ -279,6 +279,7 @@ const EmployeeProfile = () => {
   const [selectedTaskPreset, setSelectedTaskPreset] = useState(taskBasePresets[0]);
   const [selectedTaskPaymentStatus, setSelectedTaskPaymentStatus] = useState("");
   const [customTaskText, setCustomTaskText] = useState("");
+  const [taskNoteText, setTaskNoteText] = useState(""); // optional note for whichever item is about to be added
   const [todayTaskDoc, setTodayTaskDoc] = useState(null);
   const [taskSubmitting, setTaskSubmitting] = useState(false);
   const [taskUpdating, setTaskUpdating] = useState(false);
@@ -497,8 +498,11 @@ const EmployeeProfile = () => {
   };
 
   // -------- Task List Actions --------
-  // Adds an item using whichever of the 4 presets is selected, or the
-  // typed custom text when "Other" (5th option) is selected.
+  // Adds an item using whichever of the department presets is selected,
+  // the typed custom text when "Other" is selected, or the chosen
+  // payment status when "Payment" is selected. An optional note
+  // (from the note box shown once an option is picked) is saved
+  // alongside every item type, same as the Dashboard's Tasks.jsx.
   const handleAddTaskItem = () => {
     let text = "";
     if (selectedTaskPreset === CUSTOM_TASK_OPTION) {
@@ -516,9 +520,10 @@ const EmployeeProfile = () => {
     } else {
       text = selectedTaskPreset;
     }
-    setTaskItems((prev) => [...prev, { text, completed: false }]);
+    setTaskItems((prev) => [...prev, { text, note: taskNoteText.trim(), completed: false }]);
     setCustomTaskText("");
     setSelectedTaskPaymentStatus("");
+    setTaskNoteText("");
   };
 
   // Ticks an item as "completed" — meant to be done at the end of the day.
@@ -1008,6 +1013,23 @@ const EmployeeProfile = () => {
                     </button>
                   </div>
 
+                  {/* Note box — shown once a checklist option is selected, so
+                      the employee can attach a short note to whichever item
+                      (preset, custom, or payment status) they're about to add. */}
+                  {selectedTaskPreset && (
+                    <div className="task-add-row" style={{ marginTop: 8 }}>
+                      <input
+                        type="text"
+                        className="task-custom-input"
+                        placeholder={`Add a note about "${selectedTaskPreset === PAYMENT_OPTION ? (selectedTaskPaymentStatus || "Payment") : selectedTaskPreset === CUSTOM_TASK_OPTION ? "this task" : selectedTaskPreset}" (optional)…`}
+                        value={taskNoteText}
+                        onChange={(e) => setTaskNoteText(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleAddTaskItem()}
+                        style={{ flex: 1 }}
+                      />
+                    </div>
+                  )}
+
                   {/* Today's checklist */}
                   {taskItems.length === 0 ? (
                     <p className="task-empty-hint">
@@ -1023,7 +1045,14 @@ const EmployeeProfile = () => {
                               checked={it.completed}
                               onChange={() => toggleTaskItemCompleted(idx)}
                             />
-                            <span>{it.text}</span>
+                            <span>
+                              {it.text}
+                              {it.note && (
+                                <span style={{ display: "block", fontSize: 12, color: "#64748b", fontWeight: 400 }}>
+                                  📝 {it.note}
+                                </span>
+                              )}
+                            </span>
                           </label>
                           <button
                             type="button"
