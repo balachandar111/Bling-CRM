@@ -115,6 +115,16 @@ const Tasks = ({ role, setSidebarOpen }) => {
   const [todayCategoryData, setTodayCategoryData] = useState([]);   // [{ employeeName, items: [{text, note, completed}] }]
   const [loadingTodayCategory, setLoadingTodayCategory] = useState(false);
 
+  /* ── user: edit a PREVIOUS day's task list from the calendar viewer
+     below (not just today's, which has its own editor above). ── */
+  const [isEditingDateReport, setIsEditingDateReport] = useState(false);
+  const [editDateItems, setEditDateItems] = useState([]); // [{ text, note, completed }]
+  const [editDatePreset, setEditDatePreset] = useState("");
+  const [editDateCustomText, setEditDateCustomText] = useState("");
+  const [editDatePaymentStatus, setEditDatePaymentStatus] = useState("");
+  const [editDateNote, setEditDateNote] = useState("");
+  const [savingDateEdit, setSavingDateEdit] = useState(false);
+
   /* ── fetch today's saved task list ── */
   const fetchToday = useCallback(async () => {
     try {
@@ -344,6 +354,80 @@ const Tasks = ({ role, setSidebarOpen }) => {
   };
 
   const selectedDateStr = toDateStr(selectedDate);
+
+  /* ─── EDIT a previous day's task list (calendar viewer, user only) ───
+     Opens an inline editor pre-filled with whatever the employee already
+     submitted for the selected date (or empty, if nothing was submitted
+     that day) so they can add/remove/tick items for any past date, not
+     just today. ─── */
+  const startEditingDateReport = () => {
+    const existing = dateReports[0];
+    setEditDateItems(existing?.items ? existing.items.map((it) => ({ ...it })) : []);
+    setEditDatePreset(presets[0]);
+    setEditDateCustomText("");
+    setEditDatePaymentStatus("");
+    setEditDateNote("");
+    setIsEditingDateReport(true);
+  };
+
+  const cancelEditingDateReport = () => {
+    setIsEditingDateReport(false);
+    setEditDateItems([]);
+  };
+
+  const addEditDateItem = () => {
+    let text = "";
+    if (editDatePreset === PAYMENT_OPTION) {
+      if (!editDatePaymentStatus) {
+        alert("Please select a payment status.");
+        return;
+      }
+      text = `${PAYMENT_PREFIX}${editDatePaymentStatus}`;
+    } else if (editDatePreset === CUSTOM_OPTION) {
+      text = editDateCustomText.trim();
+      if (!text) {
+        alert("Please type your task for the custom option.");
+        return;
+      }
+    } else {
+      text = editDatePreset;
+    }
+    setEditDateItems((prev) => [...prev, { text, note: editDateNote.trim(), completed: false }]);
+    setEditDateCustomText("");
+    setEditDatePaymentStatus("");
+    setEditDateNote("");
+  };
+
+  const toggleEditDateItemCompleted = (index) => {
+    setEditDateItems((prev) =>
+      prev.map((it, i) => (i === index ? { ...it, completed: !it.completed } : it))
+    );
+  };
+
+  const removeEditDateItem = (index) => {
+    setEditDateItems((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const saveEditedDateReport = async () => {
+    if (editDateItems.length === 0) {
+      alert("Please add at least one task before saving.");
+      return;
+    }
+    setSavingDateEdit(true);
+    try {
+      await API.post("/tasks/report", { items: editDateItems, date: selectedDateStr });
+      setIsEditingDateReport(false);
+      await fetchForDate(selectedDateStr);
+      fetchMonthMarks(selectedDate);
+      if (selectedDateStr === todayStr) await fetchToday();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to save the task list for this date.");
+    }
+    setSavingDateEdit(false);
+  };
+
+  // Reset any open date-editor whenever the selected date changes.
+  useEffect(() => { setIsEditingDateReport(false); }, [selectedDateStr]);
 
   return (
     <div className="employee-page">
@@ -679,7 +763,7 @@ const Tasks = ({ role, setSidebarOpen }) => {
         <p style={{ margin: "0 0 0" }}>
           {isAdmin
             ? "Pick a date to view every employee's task list for that day."
-            : "Pick a date to view your task list for that day."}
+            : "Pick a date to view your task list for that day — use Edit to add or change any day's tasks, including previous days."}
         </p>
 
         <div className="task-calendar-inner">
@@ -725,15 +809,145 @@ const Tasks = ({ role, setSidebarOpen }) => {
               <span style={{ fontSize: 13, fontWeight: 700, color: "#4f46e5" }}>
                 📅 {formatDate(selectedDateStr)}
               </span>
-              {selectedDateStr === todayStr && (
-                <span style={{ color: "#94a3b8", fontSize: 11 }}>Today</span>
-              )}
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {selectedDateStr === todayStr && (
+                  <span style={{ color: "#94a3b8", fontSize: 11 }}>Today</span>
+                )}
+                {/* EDIT — user only. Lets an employee correct/build out their
+                    own task list for the selected day, whether that's today
+                    or a previous day, not just the "Today's Task List" card
+                    above. Admins keep the read-only view. */}
+                {!isAdmin && !loadingDateReports && !isEditingDateReport && (
+                  <button
+                    type="button"
+                    className="task-update-btn"
+                    style={{ padding: "4px 12px", fontSize: 12 }}
+                    onClick={startEditingDateReport}
+                  >
+                    ✏️ Edit
+                  </button>
+                )}
+              </div>
             </div>
 
             {loadingDateReports ? (
               <p style={{ color: "#94a3b8", textAlign: "center", padding: "24px 0" }}>
                 Loading…
               </p>
+            ) : !isAdmin && isEditingDateReport ? (
+              <div className="task-report-card" style={{ padding: 0, border: "none", boxShadow: "none" }}>
+                {/* To-do list builder for the selected date */}
+                <div className="task-add-row">
+                  <select
+                    className="task-preset-select"
+                    value={editDatePreset}
+                    onChange={(e) => setEditDatePreset(e.target.value)}
+                  >
+                    {presets.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                    <option value={CUSTOM_OPTION}>Other (type your own)…</option>
+                  </select>
+
+                  {editDatePreset === CUSTOM_OPTION && (
+                    <input
+                      type="text"
+                      className="task-custom-input"
+                      placeholder="Type your task…"
+                      value={editDateCustomText}
+                      onChange={(e) => setEditDateCustomText(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && addEditDateItem()}
+                    />
+                  )}
+
+                  {editDatePreset === PAYMENT_OPTION && (
+                    <select
+                      className="task-preset-select"
+                      value={editDatePaymentStatus}
+                      onChange={(e) => setEditDatePaymentStatus(e.target.value)}
+                    >
+                      <option value="" disabled>Select payment status…</option>
+                      {paymentStatuses.map((status) => (
+                        <option key={status} value={status}>{status}</option>
+                      ))}
+                    </select>
+                  )}
+
+                  <button type="button" className="task-add-btn" onClick={addEditDateItem}>
+                    ➕ Add Task
+                  </button>
+                </div>
+
+                {editDatePreset && (
+                  <div className="task-add-row" style={{ marginTop: 8 }}>
+                    <input
+                      type="text"
+                      className="task-custom-input"
+                      placeholder={`Add a note about "${editDatePreset === PAYMENT_OPTION ? (editDatePaymentStatus || "Payment") : editDatePreset === CUSTOM_OPTION ? "this task" : editDatePreset}" (optional)…`}
+                      value={editDateNote}
+                      onChange={(e) => setEditDateNote(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && addEditDateItem()}
+                      style={{ flex: 1 }}
+                    />
+                  </div>
+                )}
+
+                {editDateItems.length === 0 ? (
+                  <p className="task-empty-hint">
+                    No tasks yet for {formatDate(selectedDateStr)} — pick an option above and click "Add Task".
+                  </p>
+                ) : (
+                  <ul className="task-item-checklist">
+                    {editDateItems.map((it, idx) => (
+                      <li key={idx} className={`task-item-row ${it.completed ? "is-done" : ""}`}>
+                        <label className="task-item-checkbox-label">
+                          <input
+                            type="checkbox"
+                            checked={it.completed}
+                            onChange={() => toggleEditDateItemCompleted(idx)}
+                          />
+                          <span>
+                            {it.text}
+                            {it.note && (
+                              <span style={{ display: "block", fontSize: 12, color: "#64748b", fontWeight: 400 }}>
+                                📝 {it.note}
+                              </span>
+                            )}
+                          </span>
+                        </label>
+                        <button
+                          type="button"
+                          className="task-item-remove"
+                          onClick={() => removeEditDateItem(idx)}
+                          title="Remove task"
+                        >
+                          ✕
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                <div className="task-btn-row">
+                  <button
+                    type="button"
+                    className="task-update-btn"
+                    onClick={saveEditedDateReport}
+                    disabled={savingDateEdit}
+                  >
+                    {savingDateEdit ? "Saving…" : "💾 Save Changes"}
+                  </button>
+                  <button
+                    type="button"
+                    className="task-submit-btn"
+                    style={{ background: "#e2e8f0", color: "#334155" }}
+                    onClick={cancelEditingDateReport}
+                    disabled={savingDateEdit}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
             ) : dateReports.length === 0 ? (
               <div
                 style={{

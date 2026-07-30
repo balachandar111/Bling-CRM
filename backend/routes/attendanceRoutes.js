@@ -4,7 +4,6 @@
 
 
 
-
 const express = require("express");
 const router = express.Router();
 
@@ -98,20 +97,4 @@ router.put("/leave/:id/approve", authMiddleware, approveLeave);
 router.put("/leave/:id/reject", authMiddleware, rejectLeave);
 
 module.exports = router;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

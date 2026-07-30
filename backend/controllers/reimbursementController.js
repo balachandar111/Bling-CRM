@@ -17,6 +17,7 @@ async (req, res) => {
       from,
       to,
       description,
+      amount,
     } = req.body;
 
     if (
@@ -41,6 +42,10 @@ async (req, res) => {
       from,
       to,
       description: description || "",
+      amount: Number(amount) || 0,
+
+      // Every new claim starts pending, waiting on admin approval
+      status: "Pending",
 
       // multer-storage-cloudinary attaches these when a file
       // is uploaded via upload.single("billAttachment")
@@ -152,6 +157,136 @@ async (req, res) => {
 };
 
 
+// ================= APPROVE REIMBURSEMENT (ADMIN) =================
+// Marks a pending claim as "Approved" so it is added to the employee's
+// approved reimbursements (visible on payouts / payslip calculations).
+
+const approveReimbursement =
+async (req, res) => {
+
+  try {
+
+    const reimbursement =
+    await Reimbursement.findById(req.params.id);
+
+    if (!reimbursement) {
+
+      return res.status(404).json({
+
+        success: false,
+
+        message:
+        "Reimbursement not found",
+      });
+    }
+
+    if (reimbursement.status === "Approved") {
+
+      return res.status(400).json({
+
+        success: false,
+
+        message:
+        "This reimbursement is already approved",
+      });
+    }
+
+    reimbursement.status = "Approved";
+    reimbursement.reviewedBy = req.user._id;
+    reimbursement.reviewedAt = new Date();
+    reimbursement.adminRemark = req.body?.adminRemark || "";
+
+    await reimbursement.save();
+
+    res.json({
+
+      success: true,
+
+      message:
+      "Reimbursement approved and added successfully",
+
+      reimbursement,
+    });
+
+  } catch (error) {
+
+    console.log(error);
+
+    res.status(500).json({
+
+      success: false,
+
+      message:
+      "Server Error",
+    });
+  }
+};
+
+
+// ================= REJECT REIMBURSEMENT (ADMIN) =================
+
+const rejectReimbursement =
+async (req, res) => {
+
+  try {
+
+    const reimbursement =
+    await Reimbursement.findById(req.params.id);
+
+    if (!reimbursement) {
+
+      return res.status(404).json({
+
+        success: false,
+
+        message:
+        "Reimbursement not found",
+      });
+    }
+
+    if (reimbursement.status === "Approved") {
+
+      return res.status(400).json({
+
+        success: false,
+
+        message:
+        "An already approved reimbursement cannot be rejected",
+      });
+    }
+
+    reimbursement.status = "Rejected";
+    reimbursement.reviewedBy = req.user._id;
+    reimbursement.reviewedAt = new Date();
+    reimbursement.adminRemark = req.body?.adminRemark || "";
+
+    await reimbursement.save();
+
+    res.json({
+
+      success: true,
+
+      message:
+      "Reimbursement rejected",
+
+      reimbursement,
+    });
+
+  } catch (error) {
+
+    console.log(error);
+
+    res.status(500).json({
+
+      success: false,
+
+      message:
+      "Server Error",
+    });
+  }
+};
+
+
 // ================= DELETE REIMBURSEMENT =================
 
 const deleteReimbursement =
@@ -177,6 +312,17 @@ async (req, res) => {
 
         message:
         "Reimbursement not found",
+      });
+    }
+
+    if (reimbursement.status === "Approved") {
+
+      return res.status(400).json({
+
+        success: false,
+
+        message:
+        "Approved reimbursements cannot be deleted",
       });
     }
 
@@ -228,5 +374,7 @@ module.exports = {
   createReimbursement,
   getMyReimbursements,
   getAllReimbursements,
+  approveReimbursement,
+  rejectReimbursement,
   deleteReimbursement,
 };

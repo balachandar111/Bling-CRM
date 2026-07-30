@@ -18,6 +18,8 @@ const {
   createReimbursement,
   getMyReimbursements,
   getAllReimbursements,
+  approveReimbursement,
+  rejectReimbursement,
   deleteReimbursement,
 
 } = require(
@@ -51,6 +53,26 @@ router.get(
   protect,
   superAdmin,
   getAllReimbursements
+);
+
+
+// ================= APPROVE (ADMIN) =================
+
+router.put(
+  "/:id/approve",
+  protect,
+  superAdmin,
+  approveReimbursement
+);
+
+
+// ================= REJECT (ADMIN) =================
+
+router.put(
+  "/:id/reject",
+  protect,
+  superAdmin,
+  rejectReimbursement
 );
 
 

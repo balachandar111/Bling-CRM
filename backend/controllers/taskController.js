@@ -88,12 +88,33 @@ const submitReport = async (req, res) => {
     const userId = req.user._id;
     const userName = req.user.name;
     const today = getTodayIST();
-    const { items } = req.body;
+    const { items, date: requestedDate } = req.body;
+
+    // Optional `date` (YYYY-MM-DD) lets an employee edit a PREVIOUS day's
+    // task list (not just today's), e.g. from the task calendar's "Edit"
+    // button. Defaults to today when not provided, keeping old callers
+    // working unchanged. Future dates are rejected.
+    let date = today;
+    if (requestedDate) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid date format. Expected YYYY-MM-DD.",
+        });
+      }
+      if (requestedDate > today) {
+        return res.status(400).json({
+          success: false,
+          message: "Cannot submit a task list for a future date.",
+        });
+      }
+      date = requestedDate;
+    }
 
     if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({
         success: false,
-        message: "Please add at least one task to today's list before submitting.",
+        message: "Please add at least one task before submitting.",
       });
     }
 
@@ -120,11 +141,11 @@ const submitReport = async (req, res) => {
       .join("\n");
 
     const task = await Task.findOneAndUpdate(
-      { user: userId, date: today },
+      { user: userId, date },
       {
         user: userId,
         userName,
-        date: today,
+        date,
         items: cleanItems,
         report,
       },

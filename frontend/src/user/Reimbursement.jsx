@@ -17,6 +17,7 @@ const Reimbursement = ({ setSidebarOpen }) => {
     from: "",
     to: "",
     description: "",
+    amount: "",
   });
 
   const [billFile, setBillFile] = useState(null);
@@ -61,6 +62,7 @@ const Reimbursement = ({ setSidebarOpen }) => {
       from: "",
       to: "",
       description: "",
+      amount: "",
     });
     setBillFile(null);
   };
@@ -82,6 +84,7 @@ const Reimbursement = ({ setSidebarOpen }) => {
       data.append("from", formData.from);
       data.append("to", formData.to);
       data.append("description", formData.description);
+      data.append("amount", formData.amount || 0);
 
       if (billFile) {
         data.append("billAttachment", billFile);
@@ -89,7 +92,7 @@ const Reimbursement = ({ setSidebarOpen }) => {
 
       await API.post("/reimbursements", data);
 
-      alert("Reimbursement submitted successfully");
+      alert("Reimbursement submitted successfully. Sent to admin for approval.");
 
       resetForm();
       setShowAddModal(false);
@@ -207,7 +210,9 @@ const Reimbursement = ({ setSidebarOpen }) => {
               <th className="col-from-to">From</th>
               <th className="col-from-to">To</th>
               <th className="col-remark">Description</th>
+              <th className="col-amount">Amount</th>
               <th className="col-bill">Bill</th>
+              <th className="col-status">Status</th>
               <th className="col-actions">Actions</th>
             </tr>
           </thead>
@@ -216,18 +221,27 @@ const Reimbursement = ({ setSidebarOpen }) => {
 
             {loading ? (
               <tr>
-                <td colSpan={7} style={{ textAlign: "center", padding: 20 }}>
+                <td colSpan={9} style={{ textAlign: "center", padding: 20 }}>
                   Loading...
                 </td>
               </tr>
             ) : currentItems.length === 0 ? (
               <tr>
-                <td colSpan={7} style={{ textAlign: "center", padding: 20 }}>
+                <td colSpan={9} style={{ textAlign: "center", padding: 20 }}>
                   No reimbursements submitted yet.
                 </td>
               </tr>
             ) : (
-              currentItems.map((item, index) => (
+              currentItems.map((item, index) => {
+                const status = item.status || "Pending";
+                const statusColors = {
+                  Pending: { bg: "#fff7e6", color: "#d46b08" },
+                  Approved: { bg: "#f6ffed", color: "#389e0d" },
+                  Rejected: { bg: "#fff1f0", color: "#cf1322" },
+                };
+                const sc = statusColors[status] || statusColors.Pending;
+
+                return (
                 <tr key={item._id}>
 
                   <td className="col-sno">
@@ -256,6 +270,10 @@ const Reimbursement = ({ setSidebarOpen }) => {
                     </button>
                   </td>
 
+                  <td className="col-amount">
+                    ₹{(Number(item.amount) || 0).toLocaleString("en-IN")}
+                  </td>
+
                   <td className="col-bill">
                     {item.billUrl ? (
                       <a
@@ -272,20 +290,38 @@ const Reimbursement = ({ setSidebarOpen }) => {
                     )}
                   </td>
 
+                  <td className="col-status">
+                    <span
+                      style={{
+                        background: sc.bg,
+                        color: sc.color,
+                        padding: "3px 10px",
+                        borderRadius: 12,
+                        fontSize: 12,
+                        fontWeight: 600,
+                      }}
+                    >
+                      {status}
+                    </span>
+                  </td>
+
                   <td className="col-actions">
                     <div className="action-icons">
-                      <button
-                        className="icon-btn delete-icon"
-                        title="Delete"
-                        onClick={() => handleDelete(item)}
-                      >
-                        <FaTrash />
-                      </button>
+                      {status !== "Approved" && (
+                        <button
+                          className="icon-btn delete-icon"
+                          title="Delete"
+                          onClick={() => handleDelete(item)}
+                        >
+                          <FaTrash />
+                        </button>
+                      )}
                     </div>
                   </td>
 
                 </tr>
-              ))
+                );
+              })
             )}
 
           </tbody>
@@ -375,6 +411,19 @@ const Reimbursement = ({ setSidebarOpen }) => {
                   value={formData.to}
                   onChange={handleChange}
                   required
+                />
+              </div>
+
+              <div className="input-group">
+                <label>Amount (₹)</label>
+                <input
+                  type="number"
+                  name="amount"
+                  min="0"
+                  step="0.01"
+                  placeholder="Enter claim amount"
+                  value={formData.amount}
+                  onChange={handleChange}
                 />
               </div>
 

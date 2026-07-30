@@ -1662,6 +1662,7 @@ async () => {
 
   const [adminReimbursements, setAdminReimbursements] = useState([]);
   const [loadingReimbursements, setLoadingReimbursements] = useState(false);
+  const [reimbursementActionLoading, setReimbursementActionLoading] = useState(false);
 
   const fetchAllReimbursements = async () => {
     setLoadingReimbursements(true);
@@ -1672,6 +1673,43 @@ async () => {
       console.log(error);
     }
     setLoadingReimbursements(false);
+  };
+
+  const pendingReimbursementCount = adminReimbursements.filter(
+    (r) => r.status === "Pending" || !r.status
+  ).length;
+
+  const approveReimbursement = async (id) => {
+    if (
+      !window.confirm(
+        "Approve this reimbursement? It will be added to the employee's approved claims."
+      )
+    )
+      return;
+    setReimbursementActionLoading(true);
+    try {
+      await API.put(`/reimbursements/${id}/approve`);
+      alert("Reimbursement approved and added successfully.");
+      fetchAllReimbursements();
+    } catch (error) {
+      console.log(error);
+      alert(error.response?.data?.message || "Failed to approve reimbursement");
+    }
+    setReimbursementActionLoading(false);
+  };
+
+  const rejectReimbursement = async (id) => {
+    if (!window.confirm("Reject this reimbursement claim?")) return;
+    setReimbursementActionLoading(true);
+    try {
+      await API.put(`/reimbursements/${id}/reject`);
+      alert("Reimbursement rejected.");
+      fetchAllReimbursements();
+    } catch (error) {
+      console.log(error);
+      alert(error.response?.data?.message || "Failed to reject reimbursement");
+    }
+    setReimbursementActionLoading(false);
   };
 
   useEffect(() => {
@@ -2851,7 +2889,21 @@ const closedLeadData = (() => {
 
         <FaMoneyBillWave />
 
-        Closed Leads &amp; Reimbursements
+        CD &amp; Reimb
+        {pendingReimbursementCount > 0 && (
+          <span
+            style={{
+              marginLeft: "8px",
+              background: "#ff4d4f",
+              color: "#fff",
+              borderRadius: "10px",
+              padding: "1px 8px",
+              fontSize: "12px",
+            }}
+          >
+            {pendingReimbursementCount}
+          </span>
+        )}
 
       </li>
     )
@@ -4841,6 +4893,9 @@ clear-filter-btn
             reimbursements={adminReimbursements}
             loadingReimbursements={loadingReimbursements}
             fetchAllReimbursements={fetchAllReimbursements}
+            reimbursementActionLoading={reimbursementActionLoading}
+            approveReimbursement={approveReimbursement}
+            rejectReimbursement={rejectReimbursement}
             setSidebarOpen={setSidebarOpen}
             setSelectedCustomer={setSelectedCustomer}
             setShowCustomerDetails={setShowCustomerDetails}

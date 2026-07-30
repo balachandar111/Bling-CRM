@@ -4916,31 +4916,45 @@ table tr:hover, .minimal-table tr:hover, .minimal-employee-table tr:hover {
 
 .reimbursement-page .minimal-table th.col-company,
 .reimbursement-page .minimal-table td.col-company {
-  width: 31%;
+  width: 24%;
   text-align: center;
 }
 
 .reimbursement-page .minimal-table th.col-from-to,
 .reimbursement-page .minimal-table td.col-from-to {
-  width: 15%;
+  width: 12%;
   text-align: center;
 }
 
 .reimbursement-page .minimal-table th.col-remark,
 .reimbursement-page .minimal-table td.col-remark {
-  width: 12%;
+  width: 9%;
   text-align: center;
+}
+
+.reimbursement-page .minimal-table th.col-amount,
+.reimbursement-page .minimal-table td.col-amount {
+  width: 10%;
+  text-align: center;
+  font-weight: 600;
+  color: #0f172a;
 }
 
 .reimbursement-page .minimal-table th.col-bill,
 .reimbursement-page .minimal-table td.col-bill {
+  width: 8%;
+  text-align: center;
+}
+
+.reimbursement-page .minimal-table th.col-status,
+.reimbursement-page .minimal-table td.col-status {
   width: 10%;
   text-align: center;
 }
 
 .reimbursement-page .minimal-table th.col-actions,
 .reimbursement-page .minimal-table td.col-actions {
-  width: 10%;
+  width: 8%;
   text-align: center;
 }
 
@@ -5202,33 +5216,45 @@ table tr:hover, .minimal-table tr:hover, .minimal-employee-table tr:hover {
 /* --- Reimbursements columns --- */
 .clr-table-wrap .minimal-table th.col-employee,
 .clr-table-wrap .minimal-table td.col-employee {
-  width: 18%;
+  width: 14%;
 }
 
 .clr-table-wrap .minimal-table th.col-company,
 .clr-table-wrap .minimal-table td.col-company {
-  width: 21%;
+  width: 15%;
   white-space: normal;
 }
 
 .clr-table-wrap .minimal-table th.col-from-to,
 .clr-table-wrap .minimal-table td.col-from-to {
-  width: 11%;
+  width: 9%;
 }
 
 .clr-table-wrap .minimal-table th.col-remark,
 .clr-table-wrap .minimal-table td.col-remark {
+  width: 6%;
+}
+
+.clr-table-wrap .minimal-table th.col-amount,
+.clr-table-wrap .minimal-table td.col-amount {
   width: 9%;
+  font-weight: 600;
+  color: #0f172a;
 }
 
 .clr-table-wrap .minimal-table th.col-bill,
 .clr-table-wrap .minimal-table td.col-bill {
+  width: 6%;
+}
+
+.clr-table-wrap .minimal-table th.col-status,
+.clr-table-wrap .minimal-table td.col-status {
   width: 9%;
 }
 
 .clr-table-wrap .minimal-table th.col-date,
 .clr-table-wrap .minimal-table td.col-date {
-  width: 16%;
+  width: 11%;
 }
 
 /* Center icon buttons / interactive controls within their cells */

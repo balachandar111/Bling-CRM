@@ -8,6 +8,8 @@ import {
   FaCommentDots,
   FaEye,
   FaSearch,
+  FaCheck,
+  FaTimes,
 } from "react-icons/fa";
 
 // ================= CLOSED LEADS & REIMBURSEMENTS (ADMIN) =================
@@ -32,6 +34,9 @@ const ClosedLeadsReimbursements = ({
   reimbursements = [],
   loadingReimbursements = false,
   fetchAllReimbursements,
+  reimbursementActionLoading = false,
+  approveReimbursement = () => {},
+  rejectReimbursement = () => {},
   setSidebarOpen,
   setSelectedCustomer,
   setShowCustomerDetails,
@@ -41,6 +46,7 @@ const ClosedLeadsReimbursements = ({
   const [leadSearch, setLeadSearch] = useState("");
   const [reimbSearch, setReimbSearch] = useState("");
   const [descPopupItem, setDescPopupItem] = useState(null);
+  const [reimbStatusFilter, setReimbStatusFilter] = useState("All"); // All | Pending | Approved | Rejected
 
   const filteredLeads = closedLeadCustomers.filter((c) =>
     !leadSearch ||
@@ -48,13 +54,24 @@ const ClosedLeadsReimbursements = ({
     (c.company || "").toLowerCase().includes(leadSearch.toLowerCase())
   );
 
-  const filteredReimbursements = reimbursements.filter((r) =>
-    !reimbSearch ||
-    (r.companyName || "").toLowerCase().includes(reimbSearch.toLowerCase()) ||
-    (r.createdBy?.name || "").toLowerCase().includes(reimbSearch.toLowerCase())
-  );
+  const filteredReimbursements = reimbursements.filter((r) => {
+    const matchesSearch =
+      !reimbSearch ||
+      (r.companyName || "").toLowerCase().includes(reimbSearch.toLowerCase()) ||
+      (r.createdBy?.name || "").toLowerCase().includes(reimbSearch.toLowerCase());
+
+    const status = r.status || "Pending";
+    const matchesStatus =
+      reimbStatusFilter === "All" || status === reimbStatusFilter;
+
+    return matchesSearch && matchesStatus;
+  });
 
   const totalReimbursementCount = reimbursements.length;
+
+  const pendingReimbursementCount = reimbursements.filter(
+    (r) => (r.status || "Pending") === "Pending"
+  ).length;
 
   const handleViewLead = (customer) => {
     if (setSelectedCustomer) setSelectedCustomer(customer);
@@ -121,6 +138,14 @@ const ClosedLeadsReimbursements = ({
             <h2>{totalReimbursementCount}</h2>
           </div>
           <FaFileAlt className="icon orange" />
+        </div>
+
+        <div className="stat-card">
+          <div>
+            <h4>Pending Approval</h4>
+            <h2>{pendingReimbursementCount}</h2>
+          </div>
+          <FaMoneyBillWave className="icon red" />
         </div>
       </div>
 
@@ -236,6 +261,22 @@ const ClosedLeadsReimbursements = ({
               {filteredReimbursements.length === 1 ? "" : "s"}
             </div>
 
+            <div style={{ display: "flex", gap: 8 }}>
+              {["All", "Pending", "Approved", "Rejected"].map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  className={
+                    reimbStatusFilter === s ? "clr-tab active" : "clr-tab"
+                  }
+                  style={{ padding: "6px 14px", fontSize: 13 }}
+                  onClick={() => setReimbStatusFilter(s)}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+
             <div className="clr-search-wrap">
               <FaSearch className="clr-search-icon" />
               <input
@@ -257,76 +298,131 @@ const ClosedLeadsReimbursements = ({
                 <th className="col-from-to">From</th>
                 <th className="col-from-to">To</th>
                 <th className="col-remark">Description</th>
+                <th className="col-amount">Amount</th>
                 <th className="col-bill">Bill</th>
+                <th className="col-status">Status</th>
                 <th className="col-date">Submitted On</th>
+                <th className="col-actions">Actions</th>
               </tr>
             </thead>
 
             <tbody>
               {loadingReimbursements ? (
                 <tr>
-                  <td colSpan={8} className="clr-empty-cell">
+                  <td colSpan={11} className="clr-empty-cell">
                     Loading...
                   </td>
                 </tr>
               ) : filteredReimbursements.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="clr-empty-cell">
-                    No reimbursements submitted yet.
+                  <td colSpan={11} className="clr-empty-cell">
+                    No reimbursements found.
                   </td>
                 </tr>
               ) : (
-                filteredReimbursements.map((item, index) => (
-                  <tr key={item._id}>
-                    <td className="col-sno">{index + 1}</td>
-                    <td className="col-employee">
-                      <div className="clr-employee-cell">
-                        <span className="clr-avatar">
-                          {getInitials(item.createdBy?.name)}
-                        </span>
-                        {item.createdBy?.name || "-"}
-                      </div>
-                    </td>
-                    <td className="col-company" title={item.companyName}>
-                      {item.companyName}
-                    </td>
-                    <td className="col-from-to" title={item.from}>
-                      {item.from}
-                    </td>
-                    <td className="col-from-to" title={item.to}>
-                      {item.to}
-                    </td>
-                    <td className="col-remark">
-                      <button
-                        className="icon-btn remark-toggle-icon"
-                        title="View Description"
-                        onClick={() => setDescPopupItem(item)}
-                      >
-                        <FaCommentDots />
-                      </button>
-                    </td>
-                    <td className="col-bill">
-                      {item.billUrl ? (
-                        <a
-                          href={item.billUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="icon-btn bill-icon"
-                          title="View Bill"
+                filteredReimbursements.map((item, index) => {
+                  const status = item.status || "Pending";
+                  const statusColors = {
+                    Pending: { bg: "#fff7e6", color: "#d46b08" },
+                    Approved: { bg: "#f6ffed", color: "#389e0d" },
+                    Rejected: { bg: "#fff1f0", color: "#cf1322" },
+                  };
+                  const sc = statusColors[status] || statusColors.Pending;
+
+                  return (
+                    <tr key={item._id}>
+                      <td className="col-sno">{index + 1}</td>
+                      <td className="col-employee">
+                        <div className="clr-employee-cell">
+                          <span className="clr-avatar">
+                            {getInitials(item.createdBy?.name)}
+                          </span>
+                          {item.createdBy?.name || "-"}
+                        </div>
+                      </td>
+                      <td className="col-company" title={item.companyName}>
+                        {item.companyName}
+                      </td>
+                      <td className="col-from-to" title={item.from}>
+                        {item.from}
+                      </td>
+                      <td className="col-from-to" title={item.to}>
+                        {item.to}
+                      </td>
+                      <td className="col-remark">
+                        <button
+                          className="icon-btn remark-toggle-icon"
+                          title="View Description"
+                          onClick={() => setDescPopupItem(item)}
                         >
-                          <FaFileAlt />
-                        </a>
-                      ) : (
-                        "-"
-                      )}
-                    </td>
-                    <td className="col-date">
-                      {item.createdAt
-                        ? new Date(item.createdAt).toLocaleDateString("en-IN")
-                        : "-"}
-                    </td>
-                  </tr>
-                ))
+                          <FaCommentDots />
+                        </button>
+                      </td>
+                      <td className="col-amount">
+                        ₹{(Number(item.amount) || 0).toLocaleString("en-IN")}
+                      </td>
+                      <td className="col-bill">
+                        {item.billUrl ? (
+                          <a
+                            href={item.billUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="icon-btn bill-icon"
+                            title="View Bill"
+                          >
+                            <FaFileAlt />
+                          </a>
+                        ) : (
+                          "-"
+                        )}
+                      </td>
+                      <td className="col-status">
+                        <span
+                          style={{
+                            background: sc.bg,
+                            color: sc.color,
+                            padding: "3px 10px",
+                            borderRadius: 12,
+                            fontSize: 12,
+                            fontWeight: 600,
+                          }}
+                        >
+                          {status}
+                        </span>
+                      </td>
+                      <td className="col-date">
+                        {item.createdAt
+                          ? new Date(item.createdAt).toLocaleDateString("en-IN")
+                          : "-"}
+                      </td>
+                      <td className="col-actions">
+                        {status === "Pending" ? (
+                          <div className="action-icons">
+                            <button
+                              className="icon-btn"
+                              title="Approve & Add"
+                              disabled={reimbursementActionLoading}
+                              style={{ color: "#389e0d" }}
+                              onClick={() => approveReimbursement(item._id)}
+                            >
+                              <FaCheck />
+                            </button>
+                            <button
+                              className="icon-btn delete-icon"
+                              title="Reject"
+                              disabled={reimbursementActionLoading}
+                              onClick={() => rejectReimbursement(item._id)}
+                            >
+                              <FaTimes />
+                            </button>
+                          </div>
+                        ) : (
+                          "-"
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

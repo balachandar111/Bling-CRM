@@ -27,6 +27,39 @@ new mongoose.Schema(
       default: "",
     },
 
+    // Claim amount entered by the employee
+    amount: {
+      type: Number,
+      default: 0,
+    },
+
+    // Approval workflow — every claim starts "Pending" and waits for a
+    // super_admin to Approve/Reject it from the "Closed Leads &
+    // Reimbursements" admin section.
+    status: {
+      type: String,
+      enum: ["Pending", "Approved", "Rejected"],
+      default: "Pending",
+    },
+
+    // Who actioned it and when (set on approve/reject)
+    reviewedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "UserDetails",
+      default: null,
+    },
+
+    reviewedAt: {
+      type: Date,
+      default: null,
+    },
+
+    // Optional note from the admin (e.g. reason for rejection)
+    adminRemark: {
+      type: String,
+      default: "",
+    },
+
     // Cloudinary-hosted bill/receipt
     billUrl: {
       type: String,

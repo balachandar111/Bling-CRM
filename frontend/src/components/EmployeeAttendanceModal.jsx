@@ -24,6 +24,16 @@ const formatHours = (hours) => {
 const hasCoords = (loc) =>
   loc && typeof loc.latitude === "number" && typeof loc.longitude === "number";
 
+// Converts an ISO datetime string into the "YYYY-MM-DDTHH:mm" shape that
+// <input type="datetime-local"> needs, in the browser's local time.
+const toDatetimeLocalValue = (dateStr) => {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (isNaN(d)) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
 const mapsLink = (loc) =>
   `https://www.google.com/maps?q=${loc.latitude},${loc.longitude}`;
 
@@ -120,6 +130,21 @@ const EmployeeAttendanceModal = ({ employee, onClose }) => {
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [showDateDetail, setShowDateDetail] = useState(false);
 
+  // -------- Admin: manually add/edit this date's record --------
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [editForm, setEditForm] = useState({
+    status: "present",
+    workMode: "Work From Office",
+    checkIn: "",
+    checkOut: "",
+    leaveReason: "",
+    latitude: "",
+    longitude: "",
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState("");
+  const [locatingEdit, setLocatingEdit] = useState(false);
+
   const fetchAttendance = useCallback(async () => {
     setLoading(true);
     try {
@@ -150,6 +175,94 @@ const EmployeeAttendanceModal = ({ employee, onClose }) => {
       setSelectedRecord(null);
     }
     setShowDateDetail(true);
+  };
+
+  // Opens the edit form, pre-filled from the existing record if there is
+  // one, otherwise sensible defaults for a fresh manual entry.
+  const openEditForm = () => {
+    if (selectedRecord) {
+      setEditForm({
+        status: selectedRecord.status || "present",
+        workMode: selectedRecord.workMode || "Work From Office",
+        checkIn: toDatetimeLocalValue(selectedRecord.checkIn) || `${selectedDate}T09:30`,
+        checkOut: toDatetimeLocalValue(selectedRecord.checkOut) || `${selectedDate}T18:30`,
+        leaveReason: selectedRecord.leaveReason || "",
+        latitude: hasCoords(selectedRecord.location) ? String(selectedRecord.location.latitude) : "",
+        longitude: hasCoords(selectedRecord.location) ? String(selectedRecord.location.longitude) : "",
+      });
+    } else {
+      setEditForm({
+        status: "present",
+        workMode: "Work From Office",
+        checkIn: `${selectedDate}T09:30`,
+        checkOut: `${selectedDate}T18:30`,
+        leaveReason: "",
+        latitude: "",
+        longitude: "",
+      });
+    }
+    setEditError("");
+    setShowEditForm(true);
+  };
+
+  // Lets the admin drop in their own current browser location as a quick
+  // way to fill the lat/lng fields (e.g. verifying on-site presence).
+  const handleUseCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setEditError("Geolocation isn't available in this browser.");
+      return;
+    }
+    setLocatingEdit(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setEditForm((f) => ({
+          ...f,
+          latitude: String(pos.coords.latitude),
+          longitude: String(pos.coords.longitude),
+        }));
+        setLocatingEdit(false);
+      },
+      () => {
+        setEditError("Couldn't get your current location.");
+        setLocatingEdit(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
+  const handleSaveEdit = async () => {
+    setEditError("");
+
+    const payload = { status: editForm.status };
+    if (editForm.status === "present") {
+      if (!editForm.checkIn || !editForm.checkOut) {
+        setEditError("Please set both check-in and check-out times.");
+        return;
+      }
+      payload.workMode = editForm.workMode;
+      payload.checkIn = new Date(editForm.checkIn).toISOString();
+      payload.checkOut = new Date(editForm.checkOut).toISOString();
+
+      const lat = parseFloat(editForm.latitude);
+      const lng = parseFloat(editForm.longitude);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        payload.location = { latitude: lat, longitude: lng };
+      }
+    } else if (editForm.status === "leave") {
+      payload.leaveReason = editForm.leaveReason;
+    }
+
+    setSavingEdit(true);
+    try {
+      await API.put(`/attendance/employee/${employee._id}/${selectedDate}`, payload);
+      setShowEditForm(false);
+      // Refresh both the open date's detail and the calendar/table/stats.
+      await handleDateClick(selectedDate);
+      await fetchAttendance();
+    } catch (error) {
+      setEditError(error.response?.data?.message || "Failed to save attendance record.");
+    }
+    setSavingEdit(false);
   };
 
   return (
@@ -256,7 +369,17 @@ const EmployeeAttendanceModal = ({ employee, onClose }) => {
             <div className="adm-date-modal" onClick={(e) => e.stopPropagation()}>
               <div className="adm-date-header">
                 <h3>📋 {selectedDate}</h3>
-                <button className="adm-close-btn" onClick={() => setShowDateDetail(false)}>✕</button>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <button
+                    className="adm-close-btn"
+                    style={{ fontSize: 13, width: "auto", padding: "4px 10px", borderRadius: 8 }}
+                    onClick={openEditForm}
+                    title="Manually add or correct this day's attendance"
+                  >
+                    ✏️ {selectedRecord ? "Edit" : "Add"} Record
+                  </button>
+                  <button className="adm-close-btn" onClick={() => setShowDateDetail(false)}>✕</button>
+                </div>
               </div>
               {selectedRecord ? (
                 <div className="adm-date-body">
@@ -348,6 +471,135 @@ const EmployeeAttendanceModal = ({ employee, onClose }) => {
                   <div className="adm-status-badge-big absent">❌ No Record / Absent</div>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* ADMIN: ADD / EDIT ATTENDANCE FORM */}
+        {showEditForm && (
+          <div className="adm-date-overlay" onClick={() => setShowEditForm(false)}>
+            <div className="adm-date-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="adm-date-header">
+                <h3>✏️ {selectedRecord ? "Edit" : "Add"} Attendance — {selectedDate}</h3>
+                <button className="adm-close-btn" onClick={() => setShowEditForm(false)}>✕</button>
+              </div>
+
+              <div className="adm-date-body">
+                <div className="input-group" style={{ marginBottom: 12 }}>
+                  <label>Status</label>
+                  <select
+                    value={editForm.status}
+                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                    style={{ width: "100%", padding: "10px", borderRadius: 8, border: "1px solid #e2e8f0" }}
+                  >
+                    <option value="present">Present</option>
+                    <option value="absent">Absent</option>
+                    <option value="leave">Leave</option>
+                  </select>
+                </div>
+
+                {editForm.status === "present" && (
+                  <>
+                    <div className="input-group" style={{ marginBottom: 12 }}>
+                      <label>Work Mode</label>
+                      <select
+                        value={editForm.workMode}
+                        onChange={(e) => setEditForm({ ...editForm, workMode: e.target.value })}
+                        style={{ width: "100%", padding: "10px", borderRadius: 8, border: "1px solid #e2e8f0" }}
+                      >
+                        <option value="Work From Office">🏢 Work From Office</option>
+                        <option value="Work From Home">🏠 Work From Home</option>
+                        <option value="Site Visit">📍 Site Visit</option>
+                      </select>
+                    </div>
+                    <div className="input-group" style={{ marginBottom: 12 }}>
+                      <label>Check In</label>
+                      <input
+                        type="datetime-local"
+                        value={editForm.checkIn}
+                        onChange={(e) => setEditForm({ ...editForm, checkIn: e.target.value })}
+                        style={{ width: "100%", padding: "10px", borderRadius: 8, border: "1px solid #e2e8f0" }}
+                      />
+                    </div>
+                    <div className="input-group" style={{ marginBottom: 12 }}>
+                      <label>Check Out</label>
+                      <input
+                        type="datetime-local"
+                        value={editForm.checkOut}
+                        onChange={(e) => setEditForm({ ...editForm, checkOut: e.target.value })}
+                        style={{ width: "100%", padding: "10px", borderRadius: 8, border: "1px solid #e2e8f0" }}
+                      />
+                    </div>
+                    <div className="input-group" style={{ marginBottom: 12 }}>
+                      <label>Location (optional — mainly for Work From Office)</label>
+                      <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+                        <input
+                          type="number"
+                          step="any"
+                          placeholder="Latitude"
+                          value={editForm.latitude}
+                          onChange={(e) => setEditForm({ ...editForm, latitude: e.target.value })}
+                          style={{ flex: 1, padding: "10px", borderRadius: 8, border: "1px solid #e2e8f0" }}
+                        />
+                        <input
+                          type="number"
+                          step="any"
+                          placeholder="Longitude"
+                          value={editForm.longitude}
+                          onChange={(e) => setEditForm({ ...editForm, longitude: e.target.value })}
+                          style={{ flex: 1, padding: "10px", borderRadius: 8, border: "1px solid #e2e8f0" }}
+                        />
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <button
+                          type="button"
+                          className="adm-close-btn"
+                          style={{ fontSize: 12, width: "auto", padding: "5px 10px", borderRadius: 8 }}
+                          onClick={handleUseCurrentLocation}
+                          disabled={locatingEdit}
+                        >
+                          📍 {locatingEdit ? "Locating…" : "Use My Current Location"}
+                        </button>
+                        {(editForm.latitude || editForm.longitude) && (
+                          <button
+                            type="button"
+                            className="adm-close-btn"
+                            style={{ fontSize: 12, width: "auto", padding: "5px 10px", borderRadius: 8 }}
+                            onClick={() => setEditForm({ ...editForm, latitude: "", longitude: "" })}
+                          >
+                            ✕ Clear
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {editForm.status === "leave" && (
+                  <div className="input-group" style={{ marginBottom: 12 }}>
+                    <label>Leave Reason</label>
+                    <textarea
+                      rows={3}
+                      value={editForm.leaveReason}
+                      onChange={(e) => setEditForm({ ...editForm, leaveReason: e.target.value })}
+                      style={{ width: "100%", padding: "10px", borderRadius: 8, border: "1px solid #e2e8f0", resize: "vertical" }}
+                    />
+                  </div>
+                )}
+
+                {editError && (
+                  <p style={{ color: "#dc2626", fontSize: 13, marginBottom: 10 }}>{editError}</p>
+                )}
+
+                <button
+                  className="submit-btn"
+                  onClick={handleSaveEdit}
+                  disabled={savingEdit}
+                  style={{ width: "100%" }}
+                >
+                  {savingEdit ? "Saving…" : "💾 Save Record"}
+                </button>
+              </div>
             </div>
           </div>
         )}
