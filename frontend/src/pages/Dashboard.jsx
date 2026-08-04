@@ -3473,7 +3473,16 @@ clear-filter-btn
 
                 </div>
 
-                <div className="stat-card">
+                <div
+                  className={`stat-card${role === "super_admin" ? " clickable-card" : ""}`}
+                  onClick={() => {
+                    if (role === "super_admin") {
+                      setActiveMenu("closedLeadsReimbursements");
+                    }
+                  }}
+                  style={role === "super_admin" ? { cursor: "pointer" } : undefined}
+                  title={role === "super_admin" ? "View Closed Leads & Reimbursements" : undefined}
+                >
 
                   <div>
 

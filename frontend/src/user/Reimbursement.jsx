@@ -8,12 +8,14 @@ const Reimbursement = ({ setSidebarOpen }) => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // ================= ADD MODAL =================
+  // ================= ADD / EDIT MODAL =================
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
     companyName: "",
+    date: "",
     from: "",
     to: "",
     description: "",
@@ -59,6 +61,7 @@ const Reimbursement = ({ setSidebarOpen }) => {
   const resetForm = () => {
     setFormData({
       companyName: "",
+      date: "",
       from: "",
       to: "",
       description: "",
@@ -67,11 +70,40 @@ const Reimbursement = ({ setSidebarOpen }) => {
     setBillFile(null);
   };
 
+  // Formats an ISO date string into the yyyy-MM-dd shape the
+  // <input type="date"> element expects.
+  const toDateInputValue = (value) => {
+    if (!value) return "";
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return "";
+    return d.toISOString().slice(0, 10);
+  };
+
+  const handleEditClick = (item) => {
+    setEditingItem(item);
+    setFormData({
+      companyName: item.companyName || "",
+      date: toDateInputValue(item.date),
+      from: item.from || "",
+      to: item.to || "",
+      description: item.description || "",
+      amount: item.amount || "",
+    });
+    setBillFile(null);
+    setShowAddModal(true);
+  };
+
+  const closeModal = () => {
+    setShowAddModal(false);
+    setEditingItem(null);
+    resetForm();
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.companyName || !formData.from || !formData.to) {
-      alert("Company Name, From and To are required");
+    if (!formData.companyName || !formData.date || !formData.from || !formData.to) {
+      alert("Company Name, Date, From and To are required");
       return;
     }
 
@@ -81,6 +113,7 @@ const Reimbursement = ({ setSidebarOpen }) => {
 
       const data = new FormData();
       data.append("companyName", formData.companyName);
+      data.append("date", formData.date);
       data.append("from", formData.from);
       data.append("to", formData.to);
       data.append("description", formData.description);
@@ -90,11 +123,16 @@ const Reimbursement = ({ setSidebarOpen }) => {
         data.append("billAttachment", billFile);
       }
 
-      await API.post("/reimbursements", data);
-
-      alert("Reimbursement submitted successfully. Sent to admin for approval.");
+      if (editingItem) {
+        await API.put(`/reimbursements/${editingItem._id}`, data);
+        alert("Reimbursement updated successfully.");
+      } else {
+        await API.post("/reimbursements", data);
+        alert("Reimbursement submitted successfully. Sent to admin for approval.");
+      }
 
       resetForm();
+      setEditingItem(null);
       setShowAddModal(false);
       setCurrentPage(1);
       fetchReimbursements();
@@ -102,7 +140,8 @@ const Reimbursement = ({ setSidebarOpen }) => {
     } catch (error) {
       console.log(error);
       alert(
-        error.response?.data?.message || "Failed to submit reimbursement"
+        error.response?.data?.message ||
+        (editingItem ? "Failed to update reimbursement" : "Failed to submit reimbursement")
       );
     }
 
@@ -186,6 +225,7 @@ const Reimbursement = ({ setSidebarOpen }) => {
           <button
             className="add-btn"
             onClick={() => {
+              setEditingItem(null);
               resetForm();
               setShowAddModal(true);
             }}
@@ -207,6 +247,7 @@ const Reimbursement = ({ setSidebarOpen }) => {
             <tr>
               <th className="col-sno">S.No</th>
               <th className="col-company">Company Name</th>
+              <th className="col-date">Date</th>
               <th className="col-from-to">From</th>
               <th className="col-from-to">To</th>
               <th className="col-remark">Description</th>
@@ -221,13 +262,13 @@ const Reimbursement = ({ setSidebarOpen }) => {
 
             {loading ? (
               <tr>
-                <td colSpan={9} style={{ textAlign: "center", padding: 20 }}>
+                <td colSpan={10} style={{ textAlign: "center", padding: 20 }}>
                   Loading...
                 </td>
               </tr>
             ) : currentItems.length === 0 ? (
               <tr>
-                <td colSpan={9} style={{ textAlign: "center", padding: 20 }}>
+                <td colSpan={10} style={{ textAlign: "center", padding: 20 }}>
                   No reimbursements submitted yet.
                 </td>
               </tr>
@@ -250,6 +291,12 @@ const Reimbursement = ({ setSidebarOpen }) => {
 
                   <td className="col-company" title={item.companyName}>
                     {item.companyName}
+                  </td>
+
+                  <td className="col-date">
+                    {item.date
+                      ? new Date(item.date).toLocaleDateString("en-IN")
+                      : "-"}
                   </td>
 
                   <td className="col-from-to" title={item.from}>
@@ -308,13 +355,22 @@ const Reimbursement = ({ setSidebarOpen }) => {
                   <td className="col-actions">
                     <div className="action-icons">
                       {status !== "Approved" && (
-                        <button
-                          className="icon-btn delete-icon"
-                          title="Delete"
-                          onClick={() => handleDelete(item)}
-                        >
-                          <FaTrash />
-                        </button>
+                        <>
+                          <button
+                            className="icon-btn"
+                            title="Edit"
+                            onClick={() => handleEditClick(item)}
+                          >
+                            <FaEdit />
+                          </button>
+                          <button
+                            className="icon-btn delete-icon"
+                            title="Delete"
+                            onClick={() => handleDelete(item)}
+                          >
+                            <FaTrash />
+                          </button>
+                        </>
                       )}
                     </div>
                   </td>
@@ -359,7 +415,7 @@ const Reimbursement = ({ setSidebarOpen }) => {
       {showAddModal && (
         <div
           className="modal-overlay"
-          onClick={() => setShowAddModal(false)}
+          onClick={closeModal}
         >
           <div
             className="modal"
@@ -367,10 +423,10 @@ const Reimbursement = ({ setSidebarOpen }) => {
           >
 
             <div className="modal-header">
-              <h2>Add Reimbursement</h2>
+              <h2>{editingItem ? "Edit Reimbursement" : "Add Reimbursement"}</h2>
               <span
                 className="close-icon"
-                onClick={() => setShowAddModal(false)}
+                onClick={closeModal}
               >
                 ✕
               </span>
@@ -385,6 +441,17 @@ const Reimbursement = ({ setSidebarOpen }) => {
                   name="companyName"
                   placeholder="Enter company name"
                   value={formData.companyName}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              <div className="input-group">
+                <label>Date</label>
+                <input
+                  type="date"
+                  name="date"
+                  value={formData.date}
                   onChange={handleChange}
                   required
                 />
@@ -440,11 +507,28 @@ const Reimbursement = ({ setSidebarOpen }) => {
 
               <div className="input-group">
                 <label>Bill Attachment</label>
+                {editingItem && editingItem.billUrl && (
+                  <p style={{ margin: "0 0 6px", fontSize: 13 }}>
+                    Current bill:{" "}
+                    <a
+                      href={editingItem.billUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      View
+                    </a>
+                  </p>
+                )}
                 <input
                   type="file"
                   accept="image/*,.pdf"
                   onChange={handleFileChange}
                 />
+                {editingItem && (
+                  <p style={{ margin: "6px 0 0", fontSize: 12, color: "#888" }}>
+                    Leave empty to keep the current bill.
+                  </p>
+                )}
               </div>
 
               <button
@@ -452,7 +536,9 @@ const Reimbursement = ({ setSidebarOpen }) => {
                 className="submit-btn"
                 disabled={submitting}
               >
-                {submitting ? "Submitting..." : "Submit Reimbursement"}
+                {submitting
+                  ? (editingItem ? "Updating..." : "Submitting...")
+                  : (editingItem ? "Update Reimbursement" : "Submit Reimbursement")}
               </button>
 
             </form>

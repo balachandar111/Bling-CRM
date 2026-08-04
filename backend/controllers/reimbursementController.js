@@ -14,6 +14,7 @@ async (req, res) => {
 
     const {
       companyName,
+      date,
       from,
       to,
       description,
@@ -22,6 +23,7 @@ async (req, res) => {
 
     if (
       !companyName ||
+      !date ||
       !from ||
       !to
     ) {
@@ -31,7 +33,7 @@ async (req, res) => {
         success: false,
 
         message:
-        "Company Name, From and To are required",
+        "Company Name, Date, From and To are required",
       });
     }
 
@@ -39,6 +41,7 @@ async (req, res) => {
     await Reimbursement.create({
 
       companyName,
+      date,
       from,
       to,
       description: description || "",
@@ -287,6 +290,139 @@ async (req, res) => {
 };
 
 
+// ================= UPDATE REIMBURSEMENT =================
+// Lets an employee edit their own claim (only while it is not yet
+// Approved — an approved claim is locked, same rule as delete).
+// A new bill file is optional; if provided it replaces the old one
+// on Cloudinary, otherwise the existing bill stays untouched.
+
+const updateReimbursement =
+async (req, res) => {
+
+  try {
+
+    const reimbursement =
+    await Reimbursement.findOne({
+
+      _id: req.params.id,
+
+      // A user can only edit their own reimbursement claims
+      createdBy:
+      req.user._id,
+    });
+
+    if (!reimbursement) {
+
+      return res.status(404).json({
+
+        success: false,
+
+        message:
+        "Reimbursement not found",
+      });
+    }
+
+    if (reimbursement.status === "Approved") {
+
+      return res.status(400).json({
+
+        success: false,
+
+        message:
+        "Approved reimbursements cannot be edited",
+      });
+    }
+
+    const {
+      companyName,
+      date,
+      from,
+      to,
+      description,
+      amount,
+    } = req.body;
+
+    if (
+      !companyName ||
+      !date ||
+      !from ||
+      !to
+    ) {
+
+      return res.status(400).json({
+
+        success: false,
+
+        message:
+        "Company Name, Date, From and To are required",
+      });
+    }
+
+    reimbursement.companyName = companyName;
+    reimbursement.date = date;
+    reimbursement.from = from;
+    reimbursement.to = to;
+    reimbursement.description = description || "";
+    reimbursement.amount = Number(amount) || 0;
+
+    // A previously rejected claim goes back to Pending once the
+    // employee edits and resubmits it, so the admin sees it again.
+    if (reimbursement.status === "Rejected") {
+      reimbursement.status = "Pending";
+      reimbursement.reviewedBy = null;
+      reimbursement.reviewedAt = null;
+      reimbursement.adminRemark = "";
+    }
+
+    // Only touch the bill if a new file was uploaded
+    if (req.file) {
+
+      if (reimbursement.billPublicId) {
+
+        try {
+
+          await cloudinary.uploader.destroy(
+            reimbursement.billPublicId,
+            { resource_type: "auto" }
+          );
+
+        } catch (cloudErr) {
+
+          console.log(cloudErr);
+        }
+      }
+
+      reimbursement.billUrl = req.file.path || "";
+      reimbursement.billPublicId = req.file.filename || "";
+    }
+
+    await reimbursement.save();
+
+    res.json({
+
+      success: true,
+
+      message:
+      "Reimbursement updated successfully",
+
+      reimbursement,
+    });
+
+  } catch (error) {
+
+    console.log(error);
+
+    res.status(500).json({
+
+      success: false,
+
+      message:
+      "Server Error",
+    });
+  }
+};
+
+
 // ================= DELETE REIMBURSEMENT =================
 
 const deleteReimbursement =
@@ -376,5 +512,6 @@ module.exports = {
   getAllReimbursements,
   approveReimbursement,
   rejectReimbursement,
+  updateReimbursement,
   deleteReimbursement,
 };

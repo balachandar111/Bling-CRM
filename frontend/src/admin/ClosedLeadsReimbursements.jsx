@@ -295,6 +295,7 @@ const ClosedLeadsReimbursements = ({
                 <th className="col-sno">S.No</th>
                 <th className="col-employee">Employee</th>
                 <th className="col-company">Company Name</th>
+                <th className="col-date">Date</th>
                 <th className="col-from-to">From</th>
                 <th className="col-from-to">To</th>
                 <th className="col-remark">Description</th>
@@ -309,13 +310,13 @@ const ClosedLeadsReimbursements = ({
             <tbody>
               {loadingReimbursements ? (
                 <tr>
-                  <td colSpan={11} className="clr-empty-cell">
+                  <td colSpan={12} className="clr-empty-cell">
                     Loading...
                   </td>
                 </tr>
               ) : filteredReimbursements.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="clr-empty-cell">
+                  <td colSpan={12} className="clr-empty-cell">
                     No reimbursements found.
                   </td>
                 </tr>
@@ -342,6 +343,11 @@ const ClosedLeadsReimbursements = ({
                       </td>
                       <td className="col-company" title={item.companyName}>
                         {item.companyName}
+                      </td>
+                      <td className="col-date">
+                        {item.date
+                          ? new Date(item.date).toLocaleDateString("en-IN")
+                          : "-"}
                       </td>
                       <td className="col-from-to" title={item.from}>
                         {item.from}

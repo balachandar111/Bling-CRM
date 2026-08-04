@@ -20,6 +20,7 @@ const {
   getAllReimbursements,
   approveReimbursement,
   rejectReimbursement,
+  updateReimbursement,
   deleteReimbursement,
 
 } = require(
@@ -73,6 +74,16 @@ router.put(
   protect,
   superAdmin,
   rejectReimbursement
+);
+
+
+// ================= UPDATE (with optional new bill attachment) =================
+
+router.put(
+  "/:id",
+  protect,
+  upload.single("billAttachment"),
+  updateReimbursement
 );
 
 

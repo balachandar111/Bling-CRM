@@ -11,6 +11,13 @@ new mongoose.Schema(
       required: true,
     },
 
+    // Date of the expense/travel (entered by the employee) — separate
+    // from createdAt, which just tracks when the claim was submitted.
+    date: {
+      type: Date,
+      required: true,
+    },
+
     // Travel details for this reimbursement (e.g. From City -> To City)
     from: {
       type: String,
