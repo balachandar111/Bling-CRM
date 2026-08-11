@@ -26,6 +26,8 @@ const {
 
   closeOpportunity,
 
+  updateOpportunityInfo,
+
 } = require(
   "../controllers/customerController"
 );
@@ -137,6 +139,19 @@ router.put(
     { name: "invoice", maxCount: 1 },
   ]),
   closeOpportunity
+);
+
+
+// ================= OPPORTUNITY: INFO (DESIRE STAGE TRACKING) =================
+// Used by the "Opportunity" section of the user panel once a lead is in
+// the "Desire" stage. Saves Proposal Value, Bottom Line, Achievement
+// Level, Expected Deal Closure (month), Immediate Step to Action and
+// Status. These are shown to admins in the Admin "Opportunity" section.
+
+router.put(
+  "/:id/opportunity-info",
+  protect,
+  updateOpportunityInfo
 );
 
 

@@ -1,0 +1,270 @@
+/* 📁 src/admin/Opportunity.css
+   Styles for the Admin "Opportunity" section — the read-only table of
+   every lead currently in the Desire stage, along with the
+   opportunity-tracking details entered by the assigned user.
+
+   Reuses the app's shared classes where possible (.customer-page,
+   .customer-topbar, .customer-table-container, .minimal-table,
+   .search-input) and adds a small set of "opp-" scoped classes for the
+   pieces that are specific to this page (badges, empty state, etc).
+*/
+
+/* ================= TOOLBAR / SEARCH ================= */
+
+.opp-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.opp-toolbar-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.opp-toolbar-title svg {
+  color: #7c3aed;
+}
+
+.opp-search-wrap {
+  position: relative;
+  flex: 1 1 220px;
+  max-width: 320px;
+}
+
+.opp-search-wrap .search-input {
+  width: 100%;
+  max-width: none;
+  padding-left: 34px;
+}
+
+.opp-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12.5px;
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+/* ================= PAGE TITLE ICON ================= */
+
+.opp-title-icon {
+  color: #7c3aed;
+  margin-right: 8px;
+}
+
+/* ================= TABLE ================= */
+
+.opp-table-wrap .minimal-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.opp-table-wrap .minimal-table th,
+.opp-table-wrap .minimal-table td {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.opp-table-wrap .minimal-table thead th {
+  background: #f8fafc;
+  color: #475569;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.opp-table-wrap .minimal-table th.col-sno,
+.opp-table-wrap .minimal-table td.col-sno {
+  width: 5%;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.opp-table-wrap .minimal-table th.col-opp-name,
+.opp-table-wrap .minimal-table td.col-opp-name {
+  width: 13%;
+  white-space: normal;
+  font-weight: 600;
+  color: #111827;
+  text-align: left;
+  padding-left: 18px;
+}
+
+.opp-table-wrap .minimal-table th.col-owner,
+.opp-table-wrap .minimal-table td.col-owner {
+  width: 11%;
+  white-space: normal;
+}
+
+.opp-table-wrap .minimal-table th.col-value,
+.opp-table-wrap .minimal-table td.col-value {
+  width: 11%;
+  white-space: normal;
+  font-weight: 600;
+  color: #059669;
+}
+
+.opp-table-wrap .minimal-table th.col-level,
+.opp-table-wrap .minimal-table td.col-level {
+  width: 11%;
+}
+
+.opp-table-wrap .minimal-table th.col-closure,
+.opp-table-wrap .minimal-table td.col-closure {
+  width: 11%;
+  white-space: normal;
+}
+
+.opp-table-wrap .minimal-table th.col-step,
+.opp-table-wrap .minimal-table td.col-step {
+  width: 20%;
+  white-space: normal;
+  text-align: left;
+  color: #4b5563;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.opp-table-wrap .minimal-table th.col-status,
+.opp-table-wrap .minimal-table td.col-status {
+  width: 11%;
+}
+
+.opp-table-wrap .minimal-table th.col-actions,
+.opp-table-wrap .minimal-table td.col-actions {
+  width: 6%;
+}
+
+.opp-table-wrap .minimal-table tbody tr:hover {
+  background: #faf9ff;
+}
+
+/* ================= BADGES ================= */
+
+.opp-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* Achievement level */
+.opp-badge-level-high {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.opp-badge-level-medium {
+  background: #fef9c3;
+  color: #a16207;
+}
+
+.opp-badge-level-low {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+/* Opportunity status */
+.opp-badge-status-po {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.opp-badge-status-hold {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.opp-badge-status-quote {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.opp-badge-status-payment-followup {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.opp-badge-status-meeting {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+.opp-badge-status-negotiation {
+  background: #fef9c3;
+  color: #a16207;
+}
+
+.opp-badge-muted {
+  background: #f3f4f6;
+  color: #9ca3af;
+  font-weight: 600;
+}
+
+.opp-empty-value {
+  color: #9ca3af;
+}
+
+/* ================= ACTION BUTTON ================= */
+
+.opp-icon-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 16px;
+  color: #2563eb;
+  padding: 4px;
+  border-radius: 6px;
+  transition: background 0.15s ease;
+}
+
+.opp-icon-btn:hover {
+  background: #eff6ff;
+}
+
+/* ================= EMPTY STATE ================= */
+
+.opp-empty-row td {
+  text-align: center;
+  padding: 32px 20px;
+  color: #9ca3af;
+  font-size: 14px;
+}
+
+/* ================= RESPONSIVE ================= */
+
+@media (max-width: 900px) {
+  .opp-table-wrap {
+    overflow-x: auto;
+  }
+
+  .opp-table-wrap .minimal-table {
+    min-width: 960px;
+  }
+
+  .opp-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .opp-search-wrap {
+    max-width: none;
+  }
+}

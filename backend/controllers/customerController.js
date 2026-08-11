@@ -767,6 +767,106 @@ async (req, res) => {
   }
 };
 
+// ================= UPDATE OPPORTUNITY INFO (DESIRE STAGE) =================
+// Used by the "Opportunity" section of the user panel once a lead is in
+// the "Desire" stage. Lets the assigned user enter Proposal Value,
+// Bottom Line, Achievement Level, Expected Deal Closure (month),
+// Immediate Step to Action, and Status. Visible to admin in the
+// Admin "Opportunity" section.
+
+const updateOpportunityInfo =
+async (req, res) => {
+
+  try {
+
+    const customer =
+    await Customer.findById(
+      req.params.id
+    );
+
+    if (!customer) {
+
+      return res.status(404)
+      .json({
+
+        success: false,
+
+        message:
+        "Customer not found",
+      });
+    }
+
+    const {
+      proposalValue,
+      bottomLine,
+      achievementLevel,
+      expectedDealClosure,
+      immediateStepToAction,
+      status,
+    } = req.body;
+
+    const existing =
+    customer.opportunityInfo || {};
+
+    customer.opportunityInfo = {
+
+      proposalValue:
+      proposalValue !== undefined && proposalValue !== ""
+        ? Number(proposalValue)
+        : (existing.proposalValue || 0),
+
+      bottomLine:
+      bottomLine !== undefined && bottomLine !== ""
+        ? Number(bottomLine)
+        : (existing.bottomLine || 0),
+
+      achievementLevel:
+      achievementLevel !== undefined
+        ? achievementLevel
+        : (existing.achievementLevel || ""),
+
+      expectedDealClosure:
+      expectedDealClosure !== undefined
+        ? expectedDealClosure
+        : (existing.expectedDealClosure || ""),
+
+      immediateStepToAction:
+      immediateStepToAction !== undefined
+        ? immediateStepToAction
+        : (existing.immediateStepToAction || ""),
+
+      status:
+      status !== undefined
+        ? status
+        : (existing.status || ""),
+    };
+
+    customer.lastModified =
+    new Date();
+
+    await customer.save();
+
+    res.status(200).json({
+
+      success: true,
+
+      customer,
+    });
+
+  } catch (error) {
+
+    console.log(error);
+
+    res.status(500).json({
+
+      success: false,
+
+      message:
+      error.message,
+    });
+  }
+};
+
 module.exports = {
 
   createCustomer,
@@ -777,4 +877,5 @@ module.exports = {
   bulkDeleteCustomers,
   bulkUploadCustomers,
   closeOpportunity,
+  updateOpportunityInfo,
 };

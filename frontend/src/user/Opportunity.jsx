@@ -8,7 +8,14 @@
 
 import React, { useEffect, useState } from "react";
 import API from "../services/api";
-import { FaFileAlt, FaTimes, FaCheckCircle, FaEye, FaEdit } from "react-icons/fa";
+import {
+  FaFileAlt,
+  FaTimes,
+  FaCheckCircle,
+  FaEye,
+  FaEdit,
+  FaBullseye,
+} from "react-icons/fa";
 
 const DOC_FIELDS = [
   { key: "quotation", label: "Quotation" },
@@ -17,6 +24,28 @@ const DOC_FIELDS = [
   { key: "sow", label: "SOW" },
   { key: "invoice", label: "Invoice" },
 ];
+
+// Options for the Opportunity Info form (Desire stage tracking, shown
+// to admin in the Admin "Opportunity" section).
+const ACHIEVEMENT_LEVEL_OPTIONS = ["High", "Medium", "Low"];
+
+const OPPORTUNITY_STATUS_OPTIONS = [
+  "PO",
+  "Hold",
+  "Quote",
+  "Followup",
+  "Meeting",
+  "Negotiation",
+];
+
+const EMPTY_OPPORTUNITY_INFO = {
+  proposalValue: "",
+  bottomLine: "",
+  achievementLevel: "",
+  expectedDealClosure: "",
+  immediateStepToAction: "",
+  status: "",
+};
 
 const Opportunity = ({ setSidebarOpen }) => {
   const [customers, setCustomers] = useState([]);
@@ -47,6 +76,15 @@ const Opportunity = ({ setSidebarOpen }) => {
 
   // Closed customer currently open in the "view details" popup
   const [viewCustomer, setViewCustomer] = useState(null);
+
+  // Which customer's "Opportunity Info" popup is currently open
+  // (Desire stage tracking fields shown to admin)
+  const [opportunityInfoCustomer, setOpportunityInfoCustomer] =
+    useState(null);
+  const [opportunityInfoForm, setOpportunityInfoForm] = useState(
+    EMPTY_OPPORTUNITY_INFO
+  );
+  const [savingOpportunityInfo, setSavingOpportunityInfo] = useState(false);
 
   useEffect(() => {
     fetchCustomers();
@@ -112,6 +150,64 @@ const Opportunity = ({ setSidebarOpen }) => {
       followUpDate: "",
       remark: "",
     });
+  };
+
+  // ================= OPPORTUNITY INFO (DESIRE STAGE) =================
+
+  const openOpportunityInfoPopup = (customer) => {
+    setOpportunityInfoCustomer(customer);
+    setOpportunityInfoForm({
+      proposalValue:
+        customer.opportunityInfo?.proposalValue != null
+          ? String(customer.opportunityInfo.proposalValue)
+          : "",
+      bottomLine:
+        customer.opportunityInfo?.bottomLine != null
+          ? String(customer.opportunityInfo.bottomLine)
+          : "",
+      achievementLevel: customer.opportunityInfo?.achievementLevel || "",
+      expectedDealClosure:
+        customer.opportunityInfo?.expectedDealClosure || "",
+      immediateStepToAction:
+        customer.opportunityInfo?.immediateStepToAction || "",
+      status: customer.opportunityInfo?.status || "",
+    });
+  };
+
+  const closeOpportunityInfoPopup = () => {
+    setOpportunityInfoCustomer(null);
+    setOpportunityInfoForm(EMPTY_OPPORTUNITY_INFO);
+  };
+
+  const handleOpportunityInfoChange = (field, val) => {
+    setOpportunityInfoForm((prev) => ({ ...prev, [field]: val }));
+  };
+
+  const handleSaveOpportunityInfo = async (e) => {
+    e.preventDefault();
+
+    if (!opportunityInfoCustomer) return;
+
+    try {
+      setSavingOpportunityInfo(true);
+
+      await API.put(
+        `/customers/${opportunityInfoCustomer._id}/opportunity-info`,
+        opportunityInfoForm
+      );
+
+      alert("Opportunity info saved successfully!");
+      closeOpportunityInfoPopup();
+      fetchCustomers();
+    } catch (error) {
+      console.log(error);
+      alert(
+        error.response?.data?.message ||
+          "Something went wrong while saving opportunity info."
+      );
+    } finally {
+      setSavingOpportunityInfo(false);
+    }
   };
 
   const handleExtraDetailChange = (field, val) => {
@@ -209,19 +305,22 @@ const Opportunity = ({ setSidebarOpen }) => {
               <th>Name</th>
               <th>Contact Number</th>
               <th>Stage</th>
+              <th>Proposal Value</th>
+              <th>Opportunity Status</th>
+              <th>Opportunity Info</th>
               <th>Documents</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="6" style={{ textAlign: "center", padding: "20px" }}>
+                <td colSpan="9" style={{ textAlign: "center", padding: "20px" }}>
                   Loading...
                 </td>
               </tr>
             ) : desireCustomers.length === 0 ? (
               <tr>
-                <td colSpan="6" style={{ textAlign: "center", padding: "20px" }}>
+                <td colSpan="9" style={{ textAlign: "center", padding: "20px" }}>
                   No customers in the Desire stage right now.
                 </td>
               </tr>
@@ -234,6 +333,24 @@ const Opportunity = ({ setSidebarOpen }) => {
                   <td>{customer.phone || "-"}</td>
                   <td>
                     <span className="stage-badge">{customer.leadStage}</span>
+                  </td>
+                  <td>{customer.opportunityInfo?.proposalValue || 0}</td>
+                  <td>{customer.opportunityInfo?.status || "-"}</td>
+                  <td>
+                    <button
+                      type="button"
+                      title="Add / update opportunity info"
+                      onClick={() => openOpportunityInfoPopup(customer)}
+                      style={{
+                        border: "none",
+                        background: "transparent",
+                        cursor: "pointer",
+                        fontSize: "18px",
+                        color: "#7C3AED",
+                      }}
+                    >
+                      <FaBullseye />
+                    </button>
                   </td>
                   <td>
                     <button
@@ -647,6 +764,131 @@ const Opportunity = ({ setSidebarOpen }) => {
                   : activeCustomer.leadStage === "Closure"
                   ? "Update Details"
                   : "Deal Closed"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= OPPORTUNITY INFO POPUP (DESIRE STAGE) ================= */}
+      {opportunityInfoCustomer && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h2>
+                Opportunity Info — {opportunityInfoCustomer.name}
+                {opportunityInfoCustomer.company
+                  ? ` (${opportunityInfoCustomer.company})`
+                  : ""}
+              </h2>
+              <span className="close-icon" onClick={closeOpportunityInfoPopup}>
+                <FaTimes />
+              </span>
+            </div>
+
+            <form onSubmit={handleSaveOpportunityInfo}>
+              <div className="form-grid">
+                <div className="input-group">
+                  <label>Proposal Value</label>
+                  <input
+                    type="number"
+                    placeholder="Enter proposal value"
+                    value={opportunityInfoForm.proposalValue}
+                    onChange={(e) =>
+                      handleOpportunityInfoChange(
+                        "proposalValue",
+                        e.target.value
+                      )
+                    }
+                  />
+                </div>
+
+                <div className="input-group">
+                  <label>Bottom Line</label>
+                  <input
+                    type="number"
+                    placeholder="Enter bottom line value"
+                    value={opportunityInfoForm.bottomLine}
+                    onChange={(e) =>
+                      handleOpportunityInfoChange("bottomLine", e.target.value)
+                    }
+                  />
+                </div>
+
+                <div className="input-group">
+                  <label>Achievement Level</label>
+                  <select
+                    value={opportunityInfoForm.achievementLevel}
+                    onChange={(e) =>
+                      handleOpportunityInfoChange(
+                        "achievementLevel",
+                        e.target.value
+                      )
+                    }
+                  >
+                    <option value="">Select level</option>
+                    {ACHIEVEMENT_LEVEL_OPTIONS.map((level) => (
+                      <option key={level} value={level}>
+                        {level}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="input-group">
+                  <label>Expected Deal Closure</label>
+                  <input
+                    type="month"
+                    value={opportunityInfoForm.expectedDealClosure}
+                    onChange={(e) =>
+                      handleOpportunityInfoChange(
+                        "expectedDealClosure",
+                        e.target.value
+                      )
+                    }
+                  />
+                </div>
+
+                <div className="input-group">
+                  <label>Status</label>
+                  <select
+                    value={opportunityInfoForm.status}
+                    onChange={(e) =>
+                      handleOpportunityInfoChange("status", e.target.value)
+                    }
+                  >
+                    <option value="">Select status</option>
+                    {OPPORTUNITY_STATUS_OPTIONS.map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="input-group full-row">
+                  <label>Immediate Step to Action</label>
+                  <textarea
+                    rows={3}
+                    placeholder="What's the next step to move this deal forward?"
+                    value={opportunityInfoForm.immediateStepToAction}
+                    onChange={(e) =>
+                      handleOpportunityInfoChange(
+                        "immediateStepToAction",
+                        e.target.value
+                      )
+                    }
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="submit-btn"
+                disabled={savingOpportunityInfo}
+              >
+                <FaCheckCircle style={{ marginRight: "6px" }} />
+                {savingOpportunityInfo ? "Saving..." : "Save Opportunity Info"}
               </button>
             </form>
           </div>

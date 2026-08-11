@@ -209,6 +209,49 @@ sector: {
   type: String,
   default: ""
 },
+
+// ================= OPPORTUNITY INFO (DESIRE STAGE TRACKING) =================
+// Filled in by the assigned user once a lead reaches the "Desire" stage.
+// Shown to admins in the Admin "Opportunity" section.
+opportunityInfo: {
+  // Proposal value quoted to the customer
+  proposalValue: {
+    type: Number,
+    default: 0,
+  },
+
+  // Bottom line / minimum acceptable value for the deal
+  bottomLine: {
+    type: Number,
+    default: 0,
+  },
+
+  // How likely the deal is to be achieved
+  achievementLevel: {
+    type: String,
+    enum: ["", "High", "Medium", "Low"],
+    default: "",
+  },
+
+  // Month the deal is expected to close, stored as "YYYY-MM"
+  expectedDealClosure: {
+    type: String,
+    default: "",
+  },
+
+  // Free text entered by the user, visible to admin
+  immediateStepToAction: {
+    type: String,
+    default: "",
+  },
+
+  // Current pipeline status of the opportunity
+  status: {
+    type: String,
+    enum: ["", "PO", "Hold", "Quote", "Followup", "Meeting", "Negotiation"],
+    default: "",
+  },
+},
 lastModified: {
 
   type: Date,

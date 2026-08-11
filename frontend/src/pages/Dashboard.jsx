@@ -25,6 +25,7 @@ import Employees from "../admin/Employees";
 import UserManagement from "../admin/UserManagement";
 import LeaveRequests from "../admin/LeaveRequests";
 import ClosedLeadsReimbursements from "../admin/ClosedLeadsReimbursements";
+import AdminOpportunity from "../admin/Opportunity";
 
 // User-only sections
 import MyAttendance from "../user/MyAttendance";
@@ -1332,7 +1333,7 @@ customers.filter((customer) => {
 
     ||
 
-    customer.email
+    customer.company
     ?.toLowerCase()
     .includes(
       searchTerm.toLowerCase()
@@ -2396,6 +2397,20 @@ closedLeadCustomers.reduce(
 );
 
 
+// ================= ADMIN OPPORTUNITY (DESIRE STAGE) =================
+// Every lead currently sitting in the "Desire" stage, shown to admin
+// in the Admin "Opportunity" section along with the opportunity info
+// (Proposal Value, Bottom Line, Achievement Level, Expected Deal
+// Closure, Immediate Step to Action, Status) entered by the user.
+
+const desireOpportunityCustomers =
+analyticsCustomers.filter(
+  (c) =>
+    c.leadStage ===
+    "Desire"
+);
+
+
 // ================= PRODUCT DATA =================
 
 const productData = Object.values(
@@ -2755,6 +2770,36 @@ const closedLeadData = (() => {
   onClick={() =>
     setActiveMenu(
       "opportunity"
+    )
+  }
+>
+
+  <FaHandshake />
+
+  Opportunity
+
+</li>
+  )
+}
+
+  {/* OPPORTUNITY - SUPER ADMIN ONLY (leads in Desire stage, with
+      opportunity info entered by the assigned user) */}
+{
+  role === "super_admin" && (
+<li
+
+  className={
+    activeMenu ===
+    "adminOpportunity"
+
+      ? "active"
+
+      : ""
+  }
+
+  onClick={() =>
+    setActiveMenu(
+      "adminOpportunity"
     )
   }
 >
@@ -3770,7 +3815,7 @@ clear-filter-btn
 
           <input
             type="text"
-            placeholder="Search customer..."
+            placeholder="Search by name, company or phone..."
             value={searchTerm}
             onChange={(e) =>
               setSearchTerm(
@@ -4905,6 +4950,19 @@ clear-filter-btn
             reimbursementActionLoading={reimbursementActionLoading}
             approveReimbursement={approveReimbursement}
             rejectReimbursement={rejectReimbursement}
+            setSidebarOpen={setSidebarOpen}
+            setSelectedCustomer={setSelectedCustomer}
+            setShowCustomerDetails={setShowCustomerDetails}
+          />
+  )
+}
+
+{
+  activeMenu === "adminOpportunity" &&
+  role === "super_admin" && (
+
+    <AdminOpportunity
+            opportunityCustomers={desireOpportunityCustomers}
             setSidebarOpen={setSidebarOpen}
             setSelectedCustomer={setSelectedCustomer}
             setShowCustomerDetails={setShowCustomerDetails}
