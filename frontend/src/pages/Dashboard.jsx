@@ -4966,6 +4966,7 @@ clear-filter-btn
             setSidebarOpen={setSidebarOpen}
             setSelectedCustomer={setSelectedCustomer}
             setShowCustomerDetails={setShowCustomerDetails}
+            onCustomerUpdated={fetchCustomers}
           />
   )
 }

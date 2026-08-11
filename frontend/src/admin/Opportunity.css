@@ -106,13 +106,19 @@
 
 .opp-table-wrap .minimal-table th.col-owner,
 .opp-table-wrap .minimal-table td.col-owner {
-  width: 11%;
+  width: 10%;
+  white-space: normal;
+}
+
+.opp-table-wrap .minimal-table th.col-type,
+.opp-table-wrap .minimal-table td.col-type {
+  width: 9%;
   white-space: normal;
 }
 
 .opp-table-wrap .minimal-table th.col-value,
 .opp-table-wrap .minimal-table td.col-value {
-  width: 11%;
+  width: 10%;
   white-space: normal;
   font-weight: 600;
   color: #059669;
@@ -146,7 +152,7 @@
 
 .opp-table-wrap .minimal-table th.col-actions,
 .opp-table-wrap .minimal-table td.col-actions {
-  width: 6%;
+  width: 8%;
 }
 
 .opp-table-wrap .minimal-table tbody tr:hover {
@@ -218,6 +224,22 @@
   font-weight: 600;
 }
 
+/* Offering type (Product / Service) */
+.opp-badge-type-product {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.opp-badge-type-service {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+.opp-badge-type-product-service {
+  background: #cffafe;
+  color: #0e7490;
+}
+
 .opp-empty-value {
   color: #9ca3af;
 }
@@ -239,6 +261,59 @@
   background: #eff6ff;
 }
 
+.opp-icon-btn-edit {
+  color: #7c3aed;
+}
+
+.opp-icon-btn-edit:hover {
+  background: #f5f3ff;
+}
+
+.opp-action-icons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+/* ================= EDIT MODAL ================= */
+
+.opp-edit-modal {
+  max-width: 720px;
+  max-height: 88vh;
+  overflow-y: auto;
+}
+
+.opp-modal-section-title {
+  margin: 18px 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #7c3aed;
+  border-bottom: 1px solid #ede9fe;
+  padding-bottom: 6px;
+}
+
+.opp-edit-modal form > .opp-modal-section-title:first-child {
+  margin-top: 4px;
+}
+
+.opp-offering-checks {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-top: 6px;
+}
+
+.opp-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: normal;
+  cursor: pointer;
+}
+
 /* ================= EMPTY STATE ================= */
 
 .opp-empty-row td {
@@ -256,7 +331,7 @@
   }
 
   .opp-table-wrap .minimal-table {
-    min-width: 960px;
+    min-width: 1080px;
   }
 
   .opp-toolbar {
