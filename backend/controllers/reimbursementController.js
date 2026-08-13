@@ -5,6 +5,41 @@ const cloudinary =
 require("../config/cloudinary");
 
 
+// Helper — turns the array of files multer/cloudinary attaches
+// (req.files, from upload.array("billAttachments")) into the shape
+// stored on reimbursement.bills
+const filesToBills = (files = []) =>
+  files.map((file) => ({
+    url: file.path || "",
+    publicId: file.filename || "",
+    originalName: file.originalname || "",
+  }));
+
+
+// Helper — best-effort delete of a list of bills from Cloudinary.
+// Never throws, so a failed cleanup never blocks the DB operation.
+const destroyBillsFromCloudinary =
+async (bills = []) => {
+
+  for (const bill of bills) {
+
+    if (!bill?.publicId) continue;
+
+    try {
+
+      await cloudinary.uploader.destroy(
+        bill.publicId,
+        { resource_type: "auto" }
+      );
+
+    } catch (cloudErr) {
+
+      console.log(cloudErr);
+    }
+  }
+};
+
+
 // ================= CREATE REIMBURSEMENT =================
 
 const createReimbursement =
@@ -50,13 +85,11 @@ async (req, res) => {
       // Every new claim starts pending, waiting on admin approval
       status: "Pending",
 
-      // multer-storage-cloudinary attaches these when a file
-      // is uploaded via upload.single("billAttachment")
-      billUrl:
-      req.file?.path || "",
-
-      billPublicId:
-      req.file?.filename || "",
+      // multer-storage-cloudinary attaches these when files are
+      // uploaded via upload.array("billAttachments") — an employee
+      // can attach multiple bills/receipts to one claim.
+      bills:
+      filesToBills(req.files),
 
       createdBy:
       req.user._id,
@@ -126,7 +159,8 @@ async (req, res) => {
 
 // ================= GET ALL REIMBURSEMENTS (ADMIN) =================
 // Used by the "Closed Leads & Reimbursements" admin section so admins
-// can see every employee's reimbursement claims in one place.
+// can see every employee's reimbursement claims — and every bill
+// attached to each claim — in one place.
 
 const getAllReimbursements =
 async (req, res) => {
@@ -293,8 +327,12 @@ async (req, res) => {
 // ================= UPDATE REIMBURSEMENT =================
 // Lets an employee edit their own claim (only while it is not yet
 // Approved — an approved claim is locked, same rule as delete).
-// A new bill file is optional; if provided it replaces the old one
-// on Cloudinary, otherwise the existing bill stays untouched.
+//
+// Bills are additive: any newly uploaded files (req.files) are pushed
+// onto the existing bills array. To remove specific existing bills,
+// the frontend sends `removeBillIds` — a JSON-stringified array of the
+// bill sub-document _ids to delete (both from Cloudinary and the
+// array). Either, both, or neither may be present on a given request.
 
 const updateReimbursement =
 async (req, res) => {
@@ -340,6 +378,7 @@ async (req, res) => {
       to,
       description,
       amount,
+      removeBillIds,
     } = req.body;
 
     if (
@@ -374,26 +413,48 @@ async (req, res) => {
       reimbursement.adminRemark = "";
     }
 
-    // Only touch the bill if a new file was uploaded
-    if (req.file) {
+    // ---- Remove any bills the employee unchecked/deleted ----
 
-      if (reimbursement.billPublicId) {
+    let idsToRemove = [];
 
-        try {
+    if (removeBillIds) {
 
-          await cloudinary.uploader.destroy(
-            reimbursement.billPublicId,
-            { resource_type: "auto" }
-          );
+      try {
 
-        } catch (cloudErr) {
+        idsToRemove =
+        JSON.parse(removeBillIds);
 
-          console.log(cloudErr);
-        }
+      } catch (parseErr) {
+
+        idsToRemove =
+        Array.isArray(removeBillIds)
+          ? removeBillIds
+          : [removeBillIds];
       }
+    }
 
-      reimbursement.billUrl = req.file.path || "";
-      reimbursement.billPublicId = req.file.filename || "";
+    if (Array.isArray(idsToRemove) && idsToRemove.length > 0) {
+
+      const billsToDelete =
+      reimbursement.bills.filter((bill) =>
+        idsToRemove.includes(String(bill._id))
+      );
+
+      await destroyBillsFromCloudinary(billsToDelete);
+
+      reimbursement.bills =
+      reimbursement.bills.filter((bill) =>
+        !idsToRemove.includes(String(bill._id))
+      );
+    }
+
+    // ---- Append any newly uploaded bills ----
+
+    if (req.files && req.files.length > 0) {
+
+      reimbursement.bills.push(
+        ...filesToBills(req.files)
+      );
     }
 
     await reimbursement.save();
@@ -462,23 +523,10 @@ async (req, res) => {
       });
     }
 
-    // Best-effort cleanup of the uploaded bill on Cloudinary.
+    // Best-effort cleanup of every uploaded bill on Cloudinary.
     // If this fails (e.g. already removed), we still delete the
     // record so the user isn't stuck with a broken row.
-    if (reimbursement.billPublicId) {
-
-      try {
-
-        await cloudinary.uploader.destroy(
-          reimbursement.billPublicId,
-          { resource_type: "auto" }
-        );
-
-      } catch (cloudErr) {
-
-        console.log(cloudErr);
-      }
-    }
+    await destroyBillsFromCloudinary(reimbursement.bills);
 
     await reimbursement.deleteOne();
 

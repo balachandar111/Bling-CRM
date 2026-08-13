@@ -28,12 +28,16 @@ const {
 );
 
 
-// ================= CREATE (with bill attachment) =================
+// Max number of bills/receipts an employee can attach to one claim
+const MAX_BILL_ATTACHMENTS = 10;
+
+
+// ================= CREATE (with multiple bill attachments) =================
 
 router.post(
   "/",
   protect,
-  upload.single("billAttachment"),
+  upload.array("billAttachments", MAX_BILL_ATTACHMENTS),
   createReimbursement
 );
 
@@ -77,12 +81,12 @@ router.put(
 );
 
 
-// ================= UPDATE (with optional new bill attachment) =================
+// ================= UPDATE (with optional new bill attachments) =================
 
 router.put(
   "/:id",
   protect,
-  upload.single("billAttachment"),
+  upload.array("billAttachments", MAX_BILL_ATTACHMENTS),
   updateReimbursement
 );
 

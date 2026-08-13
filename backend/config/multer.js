@@ -50,9 +50,17 @@ new CloudinaryStorage({
       };
     }
 
-    // REIMBURSEMENT BILL / RECEIPT
+    // REIMBURSEMENT BILLS / RECEIPTS
+    // An employee can attach multiple bills to one claim via
+    // upload.array("billAttachments", ...) — every file in that
+    // array still arrives here with fieldname "billAttachments".
+    // "billAttachment" (singular) is also matched for backward
+    // compatibility with any older single-file callers.
 
     if (
+      file.fieldname ===
+      "billAttachments" ||
+
       file.fieldname ===
       "billAttachment"
     ) {

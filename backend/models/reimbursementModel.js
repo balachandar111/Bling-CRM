@@ -1,6 +1,40 @@
 const mongoose =
 require("mongoose");
 
+// ================= BILL ATTACHMENT SUB-SCHEMA =================
+// A reimbursement claim can now have MULTIPLE bills/receipts attached
+// (images and/or PDFs), each hosted on Cloudinary. This replaces the
+// old single billUrl/billPublicId pair.
+
+const billAttachmentSchema =
+new mongoose.Schema(
+  {
+    url: {
+      type: String,
+      required: true,
+    },
+
+    publicId: {
+      type: String,
+      required: true,
+    },
+
+    // Original file name, used for display purposes on the frontend
+    originalName: {
+      type: String,
+      default: "",
+    },
+
+    uploadedAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  {
+    _id: true,
+  }
+);
+
 const reimbursementSchema =
 new mongoose.Schema(
 
@@ -67,15 +101,12 @@ new mongoose.Schema(
       default: "",
     },
 
-    // Cloudinary-hosted bill/receipt
-    billUrl: {
-      type: String,
-      default: "",
-    },
-
-    billPublicId: {
-      type: String,
-      default: "",
+    // Cloudinary-hosted bills/receipts — an employee can attach
+    // multiple documents/images to a single reimbursement claim, and
+    // the admin can view every one of them.
+    bills: {
+      type: [billAttachmentSchema],
+      default: [],
     },
 
     createdBy: {

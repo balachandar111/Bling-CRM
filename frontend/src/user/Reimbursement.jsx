@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import API from "../services/api";
-import { FaEdit, FaTrash, FaCommentDots, FaFileAlt } from "react-icons/fa";
+import { FaEdit, FaTrash, FaCommentDots, FaFileAlt, FaTimes, FaPaperclip } from "react-icons/fa";
 
 const Reimbursement = ({ setSidebarOpen }) => {
 
@@ -22,11 +22,21 @@ const Reimbursement = ({ setSidebarOpen }) => {
     amount: "",
   });
 
-  const [billFile, setBillFile] = useState(null);
+  // Newly selected files (not yet uploaded) for this claim. Multiple
+  // documents/images can be attached — an employee is not limited to one.
+  const [billFiles, setBillFiles] = useState([]);
+
+  // Existing bill(s) (when editing) the employee has marked for removal.
+  // Holds the bill sub-document _ids; actual deletion happens on submit.
+  const [removeBillIds, setRemoveBillIds] = useState([]);
 
   // ================= DESCRIPTION POPUP =================
   // Reuses the same "remark popup" look used on the Customers page.
   const [descPopupItem, setDescPopupItem] = useState(null);
+
+  // ================= BILLS POPUP =================
+  // Shows every bill/receipt attached to a claim.
+  const [billsPopupItem, setBillsPopupItem] = useState(null);
 
   // ================= PAGINATION =================
   const [currentPage, setCurrentPage] = useState(1);
@@ -54,8 +64,28 @@ const Reimbursement = ({ setSidebarOpen }) => {
     });
   };
 
+  // Adds the newly picked files to whatever is already selected, so an
+  // employee can attach files across multiple picks instead of the
+  // selection being replaced each time.
   const handleFileChange = (e) => {
-    setBillFile(e.target.files[0] || null);
+    const picked = Array.from(e.target.files || []);
+    if (picked.length > 0) {
+      setBillFiles((prev) => [...prev, ...picked]);
+    }
+    // Reset so selecting the same file again still fires onChange
+    e.target.value = "";
+  };
+
+  const removeSelectedFile = (index) => {
+    setBillFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const toggleRemoveExistingBill = (billId) => {
+    setRemoveBillIds((prev) =>
+      prev.includes(billId)
+        ? prev.filter((id) => id !== billId)
+        : [...prev, billId]
+    );
   };
 
   const resetForm = () => {
@@ -67,7 +97,8 @@ const Reimbursement = ({ setSidebarOpen }) => {
       description: "",
       amount: "",
     });
-    setBillFile(null);
+    setBillFiles([]);
+    setRemoveBillIds([]);
   };
 
   // Formats an ISO date string into the yyyy-MM-dd shape the
@@ -89,7 +120,8 @@ const Reimbursement = ({ setSidebarOpen }) => {
       description: item.description || "",
       amount: item.amount || "",
     });
-    setBillFile(null);
+    setBillFiles([]);
+    setRemoveBillIds([]);
     setShowAddModal(true);
   };
 
@@ -119,8 +151,13 @@ const Reimbursement = ({ setSidebarOpen }) => {
       data.append("description", formData.description);
       data.append("amount", formData.amount || 0);
 
-      if (billFile) {
-        data.append("billAttachment", billFile);
+      // Multiple bills/receipts can be attached to a single claim
+      billFiles.forEach((file) => {
+        data.append("billAttachments", file);
+      });
+
+      if (editingItem && removeBillIds.length > 0) {
+        data.append("removeBillIds", JSON.stringify(removeBillIds));
       }
 
       if (editingItem) {
@@ -252,7 +289,7 @@ const Reimbursement = ({ setSidebarOpen }) => {
               <th className="col-from-to">To</th>
               <th className="col-remark">Description</th>
               <th className="col-amount">Amount</th>
-              <th className="col-bill">Bill</th>
+              <th className="col-bill">Bills</th>
               <th className="col-status">Status</th>
               <th className="col-actions">Actions</th>
             </tr>
@@ -281,6 +318,7 @@ const Reimbursement = ({ setSidebarOpen }) => {
                   Rejected: { bg: "#fff1f0", color: "#cf1322" },
                 };
                 const sc = statusColors[status] || statusColors.Pending;
+                const bills = item.bills || [];
 
                 return (
                 <tr key={item._id}>
@@ -322,16 +360,34 @@ const Reimbursement = ({ setSidebarOpen }) => {
                   </td>
 
                   <td className="col-bill">
-                    {item.billUrl ? (
-                      <a
-                        href={item.billUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                    {bills.length > 0 ? (
+                      <button
+                        type="button"
                         className="icon-btn bill-icon"
-                        title="View Bill"
+                        title={`View ${bills.length} bill${bills.length === 1 ? "" : "s"}`}
+                        onClick={() => setBillsPopupItem(item)}
+                        style={{ position: "relative" }}
                       >
                         <FaFileAlt />
-                      </a>
+                        <span
+                          style={{
+                            position: "absolute",
+                            top: -6,
+                            right: -8,
+                            background: "#2f54eb",
+                            color: "#fff",
+                            borderRadius: "50%",
+                            fontSize: 10,
+                            fontWeight: 700,
+                            lineHeight: "16px",
+                            width: 16,
+                            height: 16,
+                            textAlign: "center",
+                          }}
+                        >
+                          {bills.length}
+                        </span>
+                      </button>
                     ) : (
                       "-"
                     )}
@@ -506,29 +562,93 @@ const Reimbursement = ({ setSidebarOpen }) => {
               </div>
 
               <div className="input-group">
-                <label>Bill Attachment</label>
-                {editingItem && editingItem.billUrl && (
-                  <p style={{ margin: "0 0 6px", fontSize: 13 }}>
-                    Current bill:{" "}
-                    <a
-                      href={editingItem.billUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      View
-                    </a>
-                  </p>
+                <label>Bills / Receipts (documents or images)</label>
+
+                {/* Existing bills, only shown while editing */}
+                {editingItem && editingItem.bills && editingItem.bills.length > 0 && (
+                  <div style={{ marginBottom: 8 }}>
+                    <p style={{ margin: "0 0 6px", fontSize: 13, color: "#666" }}>
+                      Current attachments:
+                    </p>
+                    <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                      {editingItem.bills.map((bill, i) => {
+                        const marked = removeBillIds.includes(bill._id);
+                        return (
+                          <li
+                            key={bill._id || i}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                              padding: "4px 0",
+                              opacity: marked ? 0.5 : 1,
+                              textDecoration: marked ? "line-through" : "none",
+                            }}
+                          >
+                            <FaPaperclip size={12} />
+                            <a
+                              href={bill.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ fontSize: 13 }}
+                            >
+                              {bill.originalName || `Attachment ${i + 1}`}
+                            </a>
+                            <button
+                              type="button"
+                              className="icon-btn delete-icon"
+                              title={marked ? "Undo remove" : "Remove"}
+                              style={{ marginLeft: "auto", padding: "2px 6px" }}
+                              onClick={() => toggleRemoveExistingBill(bill._id)}
+                            >
+                              {marked ? "Undo" : <FaTimes size={12} />}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
                 )}
+
+                {/* Newly selected files, not yet uploaded */}
+                {billFiles.length > 0 && (
+                  <ul style={{ listStyle: "none", padding: 0, margin: "0 0 8px" }}>
+                    {billFiles.map((file, i) => (
+                      <li
+                        key={`${file.name}-${i}`}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          padding: "4px 0",
+                        }}
+                      >
+                        <FaPaperclip size={12} />
+                        <span style={{ fontSize: 13 }}>{file.name}</span>
+                        <button
+                          type="button"
+                          className="icon-btn delete-icon"
+                          title="Remove"
+                          style={{ marginLeft: "auto", padding: "2px 6px" }}
+                          onClick={() => removeSelectedFile(i)}
+                        >
+                          <FaTimes size={12} />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
                 <input
                   type="file"
                   accept="image/*,.pdf"
+                  multiple
                   onChange={handleFileChange}
                 />
-                {editingItem && (
-                  <p style={{ margin: "6px 0 0", fontSize: 12, color: "#888" }}>
-                    Leave empty to keep the current bill.
-                  </p>
-                )}
+                <p style={{ margin: "6px 0 0", fontSize: 12, color: "#888" }}>
+                  You can select multiple images or PDF documents. Pick files more
+                  than once to keep adding to the list.
+                </p>
               </div>
 
               <button
@@ -575,6 +695,60 @@ const Reimbursement = ({ setSidebarOpen }) => {
                 </p>
               ) : (
                 <p className="remark-empty">No description added.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= BILLS POPUP ================= */}
+
+      {billsPopupItem && (
+        <div
+          className="modal-overlay remark-popup-overlay"
+          onClick={() => setBillsPopupItem(null)}
+        >
+          <div
+            className="remark-popup"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="remark-popup-header">
+              <h3>Bills — {billsPopupItem.companyName}</h3>
+              <span
+                className="close-icon"
+                onClick={() => setBillsPopupItem(null)}
+              >
+                ✕
+              </span>
+            </div>
+
+            <div className="remark-popup-body">
+              {billsPopupItem.bills && billsPopupItem.bills.length > 0 ? (
+                <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                  {billsPopupItem.bills.map((bill, i) => (
+                    <li
+                      key={bill._id || i}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "6px 0",
+                        borderBottom: "1px solid #f0f0f0",
+                      }}
+                    >
+                      <FaFileAlt />
+                      <a
+                        href={bill.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {bill.originalName || `Attachment ${i + 1}`}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="remark-empty">No bills attached.</p>
               )}
             </div>
           </div>

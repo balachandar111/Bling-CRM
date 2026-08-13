@@ -15,7 +15,8 @@ import {
 // ================= CLOSED LEADS & REIMBURSEMENTS (ADMIN) =================
 // Single admin section that lets an admin review, in one place:
 //   1) Every customer whose lead has reached the "Closure" stage
-//   2) Every reimbursement claim submitted by every employee
+//   2) Every reimbursement claim submitted by every employee, along
+//      with every bill/receipt (document or image) attached to it
 //
 // All data is fetched/derived in Dashboard.jsx and simply handed down
 // here as props, matching the pattern used by LeaveRequests.jsx.
@@ -46,6 +47,7 @@ const ClosedLeadsReimbursements = ({
   const [leadSearch, setLeadSearch] = useState("");
   const [reimbSearch, setReimbSearch] = useState("");
   const [descPopupItem, setDescPopupItem] = useState(null);
+  const [billsPopupItem, setBillsPopupItem] = useState(null);
   const [reimbStatusFilter, setReimbStatusFilter] = useState("All"); // All | Pending | Approved | Rejected
 
   const filteredLeads = closedLeadCustomers.filter((c) =>
@@ -300,7 +302,7 @@ const ClosedLeadsReimbursements = ({
                 <th className="col-from-to">To</th>
                 <th className="col-remark">Description</th>
                 <th className="col-amount">Amount</th>
-                <th className="col-bill">Bill</th>
+                <th className="col-bill">Bills</th>
                 <th className="col-status">Status</th>
                 <th className="col-date">Submitted On</th>
                 <th className="col-actions">Actions</th>
@@ -329,6 +331,7 @@ const ClosedLeadsReimbursements = ({
                     Rejected: { bg: "#fff1f0", color: "#cf1322" },
                   };
                   const sc = statusColors[status] || statusColors.Pending;
+                  const bills = item.bills || [];
 
                   return (
                     <tr key={item._id}>
@@ -368,16 +371,34 @@ const ClosedLeadsReimbursements = ({
                         ₹{(Number(item.amount) || 0).toLocaleString("en-IN")}
                       </td>
                       <td className="col-bill">
-                        {item.billUrl ? (
-                          <a
-                            href={item.billUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                        {bills.length > 0 ? (
+                          <button
+                            type="button"
                             className="icon-btn bill-icon"
-                            title="View Bill"
+                            title={`View ${bills.length} bill${bills.length === 1 ? "" : "s"}`}
+                            onClick={() => setBillsPopupItem(item)}
+                            style={{ position: "relative" }}
                           >
                             <FaFileAlt />
-                          </a>
+                            <span
+                              style={{
+                                position: "absolute",
+                                top: -6,
+                                right: -8,
+                                background: "#2f54eb",
+                                color: "#fff",
+                                borderRadius: "50%",
+                                fontSize: 10,
+                                fontWeight: 700,
+                                lineHeight: "16px",
+                                width: 16,
+                                height: 16,
+                                textAlign: "center",
+                              }}
+                            >
+                              {bills.length}
+                            </span>
+                          </button>
                         ) : (
                           "-"
                         )}
@@ -460,6 +481,64 @@ const ClosedLeadsReimbursements = ({
                 <p className="remark-current">{descPopupItem.description}</p>
               ) : (
                 <p className="remark-empty">No description added.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= BILLS POPUP ================= */}
+      {billsPopupItem && (
+        <div
+          className="modal-overlay remark-popup-overlay"
+          onClick={() => setBillsPopupItem(null)}
+        >
+          <div
+            className="remark-popup"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="remark-popup-header">
+              <h3>
+                Bills — {billsPopupItem.companyName}
+                {billsPopupItem.createdBy?.name
+                  ? ` (${billsPopupItem.createdBy.name})`
+                  : ""}
+              </h3>
+              <span
+                className="close-icon"
+                onClick={() => setBillsPopupItem(null)}
+              >
+                ✕
+              </span>
+            </div>
+
+            <div className="remark-popup-body">
+              {billsPopupItem.bills && billsPopupItem.bills.length > 0 ? (
+                <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                  {billsPopupItem.bills.map((bill, i) => (
+                    <li
+                      key={bill._id || i}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "6px 0",
+                        borderBottom: "1px solid #f0f0f0",
+                      }}
+                    >
+                      <FaFileAlt />
+                      <a
+                        href={bill.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {bill.originalName || `Attachment ${i + 1}`}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="remark-empty">No bills attached.</p>
               )}
             </div>
           </div>
