@@ -1,9 +1,3 @@
-
-
-
-
-
-
 const express = require("express");
 const router = express.Router();
 
@@ -79,7 +73,8 @@ router.get(
 );
 
 // Manually add or edit an employee's attendance record for a date
-// (e.g. forgot to check in, wrong times, mark a missed day present/leave).
+// (e.g. forgot to check in, wrong times, mark a missed day present/leave,
+// or set a Work From Home location).
 router.put(
   "/employee/:employeeId/:date",
   authMiddleware,
@@ -97,4 +92,3 @@ router.put("/leave/:id/approve", authMiddleware, approveLeave);
 router.put("/leave/:id/reject", authMiddleware, rejectLeave);
 
 module.exports = router;
-

@@ -63,6 +63,9 @@ require("./routes/reimbursementRoutes");
 const payslipRoutes =
 require("./routes/payslipRoutes");
 
+const invoiceRoutes =
+require("./routes/invoiceRoutes");
+
 
 // AUTH
 
@@ -125,6 +128,14 @@ app.use(
 app.use(
   "/api/payslips",
   payslipRoutes
+);
+
+
+// INVOICES
+
+app.use(
+  "/api/invoices",
+  invoiceRoutes
 );
 
 

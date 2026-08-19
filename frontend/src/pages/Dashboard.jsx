@@ -33,6 +33,7 @@ import Reimbursement from "../user/Reimbursement";
 import MyProfile from "../user/MyProfile";
 import Tasks from "../user/Tasks";
 import Opportunity from "../user/Opportunity";
+import Invoices from "../user/Invoices";
 
 import {
   useNavigate,
@@ -63,6 +64,7 @@ FaCalendarAlt,
 FaCommentDots,
   FaHandshake,
   FaFileAlt,
+  FaFileInvoiceDollar,
 
 } from "react-icons/fa";
 
@@ -2812,6 +2814,35 @@ const closedLeadData = (() => {
   )
 }
 
+  {/* QUOTATION & INVOICE - USER PANEL ONLY (users generate their own quotations/invoices) */}
+{
+  role !== "super_admin" && (
+<li
+
+  className={
+    activeMenu ===
+    "invoices"
+
+      ? "active"
+
+      : ""
+  }
+
+  onClick={() =>
+    setActiveMenu(
+      "invoices"
+    )
+  }
+>
+
+  <FaFileInvoiceDollar />
+
+  Quotation &amp; Invoice
+
+</li>
+  )
+}
+
   {/* TASKS - visible to everyone */}
 <li
 
@@ -4967,6 +4998,17 @@ clear-filter-btn
             setSelectedCustomer={setSelectedCustomer}
             setShowCustomerDetails={setShowCustomerDetails}
             onCustomerUpdated={fetchCustomers}
+          />
+  )
+}
+
+{/* ================= QUOTATION & INVOICE (USER PANEL ONLY) ================= */}
+{
+  activeMenu === "invoices" &&
+  role !== "super_admin" && (
+
+    <Invoices
+            setSidebarOpen={setSidebarOpen}
           />
   )
 }

@@ -68,6 +68,11 @@ app.use(
   require("./routes/payslipRoutes")
 );
 
+app.use(
+  "/api/invoices",
+  require("./routes/invoiceRoutes")
+);
+
 
 // ================= TEST =================
 
