@@ -73,6 +73,11 @@ app.use(
   require("./routes/invoiceRoutes")
 );
 
+app.use(
+  "/api/project-progress",
+  require("./routes/projectProgressRoutes")
+);
+
 
 // ================= TEST =================
 

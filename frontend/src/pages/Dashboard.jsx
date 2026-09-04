@@ -35,6 +35,9 @@ import Tasks from "../user/Tasks";
 import Opportunity from "../user/Opportunity";
 import Invoices from "../user/Invoices";
 
+// Shared section (used by BOTH admin and user)
+import ProjectProgress from "../shared/ProjectProgress";
+
 import {
   useNavigate,
 } from "react-router-dom";
@@ -65,6 +68,7 @@ FaCommentDots,
   FaHandshake,
   FaFileAlt,
   FaFileInvoiceDollar,
+  FaProjectDiagram,
 
 } from "react-icons/fa";
 
@@ -2861,6 +2865,24 @@ const closedLeadData = (() => {
 
 </li>
 
+  {/* PROJECT PROGRESS - visible to everyone (admin & user both edit) */}
+<li
+
+  className={
+    activeMenu === "projectProgress"
+      ? "active"
+      : ""
+  }
+
+  onClick={() => setActiveMenu("projectProgress")}
+>
+
+  <FaProjectDiagram />
+
+  Project Progress
+
+</li>
+
 
   {/* USER MANAGEMENT - SUPER ADMIN ONLY */}
 
@@ -5017,6 +5039,13 @@ clear-filter-btn
 {
   activeMenu === "tasks" && (
     <Tasks role={role} setSidebarOpen={setSidebarOpen} />
+  )
+}
+
+{/* ================= PROJECT PROGRESS (ADMIN + USER) ================= */}
+{
+  activeMenu === "projectProgress" && (
+    <ProjectProgress role={role} setSidebarOpen={setSidebarOpen} />
   )
 }
         

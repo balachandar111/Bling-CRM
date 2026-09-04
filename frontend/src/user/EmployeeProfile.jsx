@@ -46,9 +46,11 @@ import {
   FaClipboardList,
   FaDoorOpen,
   FaTasks,
+  FaProjectDiagram,
 } from "react-icons/fa";
 
 import "./EmployeeProfile.css";
+import ProjectProgress from "../shared/ProjectProgress";
 
 // ===================== HELPERS =====================
 const formatTime = (dateStr) => {
@@ -259,7 +261,7 @@ const EmployeeProfile = () => {
   const [payslips, setPayslips] = useState([]);
 
   // -------- Attendance States --------
-  const [activeTab, setActiveTab] = useState("profile"); // "profile" | "attendance" | "tasks"
+  const [activeTab, setActiveTab] = useState("profile"); // "profile" | "attendance" | "tasks" | "projectProgress"
   const [todayRecord, setTodayRecord] = useState(null);
   const [todayDate, setTodayDate] = useState("");
   const [attendanceRecords, setAttendanceRecords] = useState([]);
@@ -824,6 +826,12 @@ const EmployeeProfile = () => {
                 onClick={() => setActiveTab("tasks")}
               >
                 <FaTasks /> Tasks
+              </button>
+              <button
+                className={`tab-btn ${activeTab === "projectProgress" ? "tab-active" : ""}`}
+                onClick={() => setActiveTab("projectProgress")}
+              >
+                <FaProjectDiagram /> Project Progress
               </button>
             </div>
 
@@ -1487,6 +1495,11 @@ const EmployeeProfile = () => {
                   </div>
                 </div>
               </div>
+            )}
+
+            {/* ===== PROJECT PROGRESS TAB ===== */}
+            {activeTab === "projectProgress" && (
+              <ProjectProgress role="user" />
             )}
           </div>
         </div>

@@ -66,6 +66,9 @@ require("./routes/payslipRoutes");
 const invoiceRoutes =
 require("./routes/invoiceRoutes");
 
+const projectProgressRoutes =
+require("./routes/projectProgressRoutes");
+
 
 // AUTH
 
@@ -136,6 +139,14 @@ app.use(
 app.use(
   "/api/invoices",
   invoiceRoutes
+);
+
+
+// PROJECT PROGRESS
+
+app.use(
+  "/api/project-progress",
+  projectProgressRoutes
 );
 
 

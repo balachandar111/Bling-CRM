@@ -1,0 +1,568 @@
+/* ================================================================
+   PROJECT PROGRESS SECTION
+   Namespaced with a "pp-" prefix so it never collides with the
+   rest of the app's CSS.
+================================================================ */
+
+.pp-section {
+  padding: 20px 26px 40px;
+}
+
+.pp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.pp-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pp-header h1 {
+  font-size: 22px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+.pp-header p {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 4px 0 0;
+}
+
+.pp-add-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.pp-add-btn:hover {
+  background: #1d4ed8;
+}
+
+/* ── table ── */
+
+.pp-table-wrapper {
+  background: #fff;
+  border-radius: 14px;
+  overflow-x: auto;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  border: 1px solid #eef1f5;
+}
+
+.pp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.pp-table thead {
+  background: #f8fafc;
+}
+
+.pp-table th {
+  text-align: left;
+  padding: 12px 16px;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #64748b;
+  font-weight: 700;
+  border-bottom: 1px solid #eef1f5;
+  white-space: nowrap;
+}
+
+.pp-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1f2937;
+  vertical-align: middle;
+}
+
+.pp-table tr:last-child td {
+  border-bottom: none;
+}
+
+.pp-table tr:hover td {
+  background: #f9fafb;
+}
+
+.pp-project-name {
+  font-weight: 600;
+  color: #111827;
+}
+
+.pp-status-cell {
+  max-width: 320px;
+  color: #4b5563;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pp-responsible-cell {
+  max-width: 220px;
+  color: #374151;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+}
+
+.pp-empty-status {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.pp-view-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  border: 1px solid #dbeafe;
+  background: #eff6ff;
+  color: #2563eb;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: 0.15s;
+}
+
+.pp-view-btn:hover {
+  background: #2563eb;
+  color: #fff;
+}
+
+.pp-delete-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  border: 1px solid #fee2e2;
+  background: #fef2f2;
+  color: #dc2626;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  margin-left: 8px;
+  transition: 0.15s;
+}
+
+.pp-delete-btn:hover {
+  background: #dc2626;
+  color: #fff;
+}
+
+.pp-empty-row td {
+  text-align: center;
+  padding: 34px 16px;
+  color: #9ca3af;
+  font-size: 13px;
+}
+
+/* ── priority badge ── */
+
+.pp-priority {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.pp-priority::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.pp-priority-high {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.pp-priority-medium {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.pp-priority-low {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+/* ── modal shells (wider than the sitewide .modal) ── */
+
+.pp-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.pp-modal {
+  width: min(640px, 100%);
+  background: #fff;
+  padding: 24px 26px 28px;
+  border-radius: 16px;
+  max-height: min(90vh, 820px);
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+.pp-modal-wide {
+  width: min(760px, 100%);
+}
+
+.pp-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.pp-modal-header h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+.pp-close-icon {
+  font-size: 16px;
+  cursor: pointer;
+  color: #6b7280;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #f1f5f9;
+  flex-shrink: 0;
+  transition: 0.2s;
+}
+
+.pp-close-icon:hover {
+  color: #dc2626;
+  background: #fee2e2;
+}
+
+/* ── form bits ── */
+
+.pp-field {
+  margin-bottom: 16px;
+}
+
+.pp-field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 7px;
+}
+
+.pp-field input[type="text"],
+.pp-field select,
+.pp-field textarea {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 9px;
+  padding: 9px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #111827;
+  background: #fff;
+}
+
+.pp-field input[type="text"]:focus,
+.pp-field select:focus,
+.pp-field textarea:focus {
+  outline: none;
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.pp-field textarea {
+  resize: vertical;
+  min-height: 64px;
+}
+
+.pp-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+/* ── people picker (POC / Responsible person) ── */
+
+.pp-picker {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px;
+  background: #f9fafb;
+}
+
+.pp-picker-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.pp-picker-tab {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 11px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: 0.15s;
+}
+
+.pp-picker-tab.active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+.pp-picker-list {
+  max-height: 160px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #eef1f5;
+  padding: 4px;
+}
+
+.pp-picker-option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 9px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12.5px;
+  color: #1f2937;
+}
+
+.pp-picker-option:hover {
+  background: #f1f5f9;
+}
+
+.pp-picker-option input {
+  accent-color: #2563eb;
+}
+
+.pp-picker-empty {
+  padding: 14px;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+.pp-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.pp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-radius: 20px;
+  padding: 4px 6px 4px 11px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.pp-chip button {
+  border: none;
+  background: rgba(29, 78, 216, 0.12);
+  color: #1d4ed8;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.pp-chip button:hover {
+  background: #1d4ed8;
+  color: #fff;
+}
+
+/* ── submit / secondary buttons ── */
+
+.pp-submit-btn {
+  width: 100%;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  padding: 11px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 13.5px;
+  cursor: pointer;
+  margin-top: 6px;
+  transition: 0.15s;
+}
+
+.pp-submit-btn:hover {
+  background: #1d4ed8;
+}
+
+.pp-submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.pp-btn-outline {
+  background: #fff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+  padding: 8px 14px;
+  border-radius: 9px;
+  font-weight: 600;
+  font-size: 12.5px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: 0.15s;
+}
+
+.pp-btn-outline:hover {
+  background: #eff6ff;
+}
+
+/* ── details modal sections ── */
+
+.pp-detail-block {
+  border: 1px solid #eef1f5;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  background: #fbfcfe;
+}
+
+.pp-detail-block h4 {
+  margin: 0 0 10px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #374151;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.pp-detail-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.pp-people-empty {
+  font-size: 12.5px;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.pp-update-item {
+  border-left: 3px solid #93c5fd;
+  padding: 8px 0 8px 12px;
+  margin-bottom: 10px;
+}
+
+.pp-update-item:last-child {
+  margin-bottom: 0;
+}
+
+.pp-update-text {
+  font-size: 13px;
+  color: #1f2937;
+  margin: 0 0 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.pp-update-meta {
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.pp-history-scroll {
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.pp-no-history {
+  text-align: center;
+  color: #9ca3af;
+  font-size: 13px;
+  padding: 30px 0;
+}
+
+.pp-inline-actions {
+  display: flex;
+  gap: 8px;
+}
+
+@media (max-width: 640px) {
+  .pp-section {
+    padding: 16px;
+  }
+
+  .pp-row-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .pp-status-cell {
+    max-width: 160px;
+  }
+
+  .pp-responsible-cell {
+    max-width: 120px;
+  }
+}

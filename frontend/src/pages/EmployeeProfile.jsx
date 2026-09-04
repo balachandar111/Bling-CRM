@@ -4,6 +4,8 @@
 import React, { useEffect, useState, useCallback } from "react";
 import API from "../services/api";
 import { useNavigate } from "react-router-dom";
+import Calendar from "react-calendar";
+import "react-calendar/dist/Calendar.css";
 
 // Wraps the browser Geolocation API in a Promise. Resolves null if the
 // browser doesn't support it, or the user denies/it times out — callers
@@ -44,9 +46,11 @@ import {
   FaClipboardList,
   FaDoorOpen,
   FaTasks,
+  FaProjectDiagram,
 } from "react-icons/fa";
 
 import "./EmployeeProfile.css";
+import ProjectProgress from "../shared/ProjectProgress";
 
 // ===================== HELPERS =====================
 const formatTime = (dateStr) => {
@@ -71,6 +75,22 @@ const getTodayString = () => {
   const istDate = new Date(now.getTime() + istOffset);
   return istDate.toISOString().slice(0, 10);
 };
+
+// ── helpers for the Task Calendar (mirrors Dashboard's user/Tasks.jsx) ──
+const toDateStr = (d) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
+const formatTaskDate = (dateStr) =>
+  new Date(dateStr).toLocaleDateString("en-IN", {
+    weekday: "short",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 
 // Department-based to-do list presets, plus a final "Other" option
 // where the employee types their own task text dynamically. "general"
@@ -241,7 +261,7 @@ const EmployeeProfile = () => {
   const [payslips, setPayslips] = useState([]);
 
   // -------- Attendance States --------
-  const [activeTab, setActiveTab] = useState("profile"); // "profile" | "attendance" | "tasks"
+  const [activeTab, setActiveTab] = useState("profile"); // "profile" | "attendance" | "tasks" | "projectProgress"
   const [todayRecord, setTodayRecord] = useState(null);
   const [todayDate, setTodayDate] = useState("");
   const [attendanceRecords, setAttendanceRecords] = useState([]);
@@ -284,6 +304,19 @@ const EmployeeProfile = () => {
   const [taskSubmitting, setTaskSubmitting] = useState(false);
   const [taskUpdating, setTaskUpdating] = useState(false);
   const [taskSavedMsg, setTaskSavedMsg] = useState(""); // "submitted" | "updated" | ""
+
+  // -------- Task Calendar States (view / edit PREVIOUS day's tasks) --------
+  const [selectedTaskDate, setSelectedTaskDate] = useState(new Date());
+  const [taskDateReports, setTaskDateReports] = useState([]);
+  const [loadingTaskDateReports, setLoadingTaskDateReports] = useState(false);
+  const [taskMarkedDates, setTaskMarkedDates] = useState([]);
+  const [isEditingTaskDate, setIsEditingTaskDate] = useState(false);
+  const [editTaskDateItems, setEditTaskDateItems] = useState([]); // [{ text, note, completed }]
+  const [editTaskDatePreset, setEditTaskDatePreset] = useState("");
+  const [editTaskDateCustomText, setEditTaskDateCustomText] = useState("");
+  const [editTaskDatePaymentStatus, setEditTaskDatePaymentStatus] = useState("");
+  const [editTaskDateNote, setEditTaskDateNote] = useState("");
+  const [savingTaskDateEdit, setSavingTaskDateEdit] = useState(false);
 
   // -------- Fetch Profile --------
   const fetchProfile = useCallback(async () => {
@@ -374,6 +407,37 @@ const EmployeeProfile = () => {
     }
   }, []);
 
+  // -------- Task Calendar: fetch this employee's own task list for a
+  // specific date, so previous days can be previewed / edited -------
+  const fetchTaskForDate = useCallback(async (dateStr) => {
+    setLoadingTaskDateReports(true);
+    try {
+      const { data } = await API.get(`/tasks/report/my?from=${dateStr}&to=${dateStr}`);
+      setTaskDateReports(data.tasks || []);
+    } catch (error) {
+      console.log(error);
+      setTaskDateReports([]);
+    }
+    setLoadingTaskDateReports(false);
+  }, []);
+
+  // Marks which days in the visible month already have a submitted task
+  // list, shown as a small dot on the calendar (same as Dashboard's
+  // user/Tasks.jsx).
+  const fetchTaskMonthMarks = useCallback(async (dateInMonth) => {
+    const year = dateInMonth.getFullYear();
+    const month = dateInMonth.getMonth();
+    const first = toDateStr(new Date(year, month, 1));
+    const last = toDateStr(new Date(year, month + 1, 0));
+    try {
+      const { data } = await API.get(`/tasks/report/my?from=${first}&to=${last}`);
+      setTaskMarkedDates(Array.from(new Set((data.tasks || []).map((t) => t.date))));
+    } catch (error) {
+      console.log(error);
+      setTaskMarkedDates([]);
+    }
+  }, []);
+
   useEffect(() => {
     fetchProfile();
     fetchPayslips();
@@ -389,6 +453,20 @@ const EmployeeProfile = () => {
     fetchResignationStatus,
     fetchTodayTask,
   ]);
+
+  useEffect(() => {
+    fetchTaskForDate(toDateStr(selectedTaskDate));
+  }, [selectedTaskDate, fetchTaskForDate]);
+
+  useEffect(() => {
+    fetchTaskMonthMarks(selectedTaskDate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Close any open date-editor whenever a different day is picked.
+  useEffect(() => {
+    setIsEditingTaskDate(false);
+  }, [selectedTaskDate]);
 
   // -------- Resignation Actions --------
   const openResignModal = () => {
@@ -574,6 +652,78 @@ const EmployeeProfile = () => {
     setTimeout(() => setTaskSavedMsg(""), 3000);
   };
 
+  // -------- Task Calendar: edit a PREVIOUS day's task list --------
+  // Opens an inline editor pre-filled with whatever was already
+  // submitted for the selected date (or empty, if nothing was), so the
+  // employee can add / remove / tick items for any past date — not just
+  // today's list above.
+  const startEditingTaskDate = () => {
+    const existing = taskDateReports[0];
+    setEditTaskDateItems(existing?.items ? existing.items.map((it) => ({ ...it })) : []);
+    setEditTaskDatePreset(taskPresets[0]);
+    setEditTaskDateCustomText("");
+    setEditTaskDatePaymentStatus("");
+    setEditTaskDateNote("");
+    setIsEditingTaskDate(true);
+  };
+
+  const cancelEditingTaskDate = () => {
+    setIsEditingTaskDate(false);
+    setEditTaskDateItems([]);
+  };
+
+  const addEditTaskDateItem = () => {
+    let text = "";
+    if (editTaskDatePreset === PAYMENT_OPTION) {
+      if (!editTaskDatePaymentStatus) {
+        alert("Please select a payment status.");
+        return;
+      }
+      text = `${PAYMENT_PREFIX}${editTaskDatePaymentStatus}`;
+    } else if (editTaskDatePreset === CUSTOM_TASK_OPTION) {
+      text = editTaskDateCustomText.trim();
+      if (!text) {
+        alert("Please type your task for the custom option.");
+        return;
+      }
+    } else {
+      text = editTaskDatePreset;
+    }
+    setEditTaskDateItems((prev) => [...prev, { text, note: editTaskDateNote.trim(), completed: false }]);
+    setEditTaskDateCustomText("");
+    setEditTaskDatePaymentStatus("");
+    setEditTaskDateNote("");
+  };
+
+  const toggleEditTaskDateItemCompleted = (index) => {
+    setEditTaskDateItems((prev) =>
+      prev.map((it, i) => (i === index ? { ...it, completed: !it.completed } : it))
+    );
+  };
+
+  const removeEditTaskDateItem = (index) => {
+    setEditTaskDateItems((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const saveEditedTaskDate = async () => {
+    if (editTaskDateItems.length === 0) {
+      alert("Please add at least one task before saving.");
+      return;
+    }
+    const dateStr = toDateStr(selectedTaskDate);
+    setSavingTaskDateEdit(true);
+    try {
+      await API.post("/tasks/report", { items: editTaskDateItems, date: dateStr });
+      setIsEditingTaskDate(false);
+      await fetchTaskForDate(dateStr);
+      fetchTaskMonthMarks(selectedTaskDate);
+      if (dateStr === getTodayString()) await fetchTodayTask();
+    } catch (error) {
+      alert(error.response?.data?.message || "Failed to save the task list for this date.");
+    }
+    setSavingTaskDateEdit(false);
+  };
+
   // -------- Determine button states --------
   const isCheckedIn =
     todayRecord &&
@@ -676,6 +826,12 @@ const EmployeeProfile = () => {
                 onClick={() => setActiveTab("tasks")}
               >
                 <FaTasks /> Tasks
+              </button>
+              <button
+                className={`tab-btn ${activeTab === "projectProgress" ? "tab-active" : ""}`}
+                onClick={() => setActiveTab("projectProgress")}
+              >
+                <FaProjectDiagram /> Project Progress
               </button>
             </div>
 
@@ -1096,7 +1252,254 @@ const EmployeeProfile = () => {
                     )}
                   </div>
                 </div>
+
+                {/* ── TASK CALENDAR — preview any previous day's task list,
+                    and edit it (add/remove/tick items) right from here. ── */}
+                <div className="task-calendar-card" style={{ marginTop: 20 }}>
+                  <h3 style={{ margin: "0 0 2px" }}>📅 My Task Calendar</h3>
+                  <p style={{ margin: 0 }}>
+                    Pick a date to preview that day's task list changes — use Edit to add or change tasks for that day, including previous days.
+                  </p>
+
+                  <div className="task-calendar-inner">
+                    {/* Calendar widget */}
+                    <div style={{ flex: "0 0 auto" }}>
+                      <Calendar
+                        onChange={setSelectedTaskDate}
+                        value={selectedTaskDate}
+                        maxDate={new Date()}
+                        onActiveStartDateChange={({ activeStartDate }) =>
+                          activeStartDate && fetchTaskMonthMarks(activeStartDate)
+                        }
+                        tileContent={({ date, view }) => {
+                          if (view !== "month") return null;
+                          if (!taskMarkedDates.includes(toDateStr(date))) return null;
+                          return (
+                            <div
+                              style={{
+                                width: 6,
+                                height: 6,
+                                borderRadius: "50%",
+                                background: "#4f46e5",
+                                margin: "3px auto 0",
+                              }}
+                            />
+                          );
+                        }}
+                      />
+                    </div>
+
+                    {/* Selected date's task list */}
+                    <div style={{ flex: "1 1 300px", minWidth: 0 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          marginBottom: 14,
+                          flexWrap: "wrap",
+                          gap: 6,
+                        }}
+                      >
+                        <span style={{ fontSize: 13, fontWeight: 700, color: "#4f46e5" }}>
+                          📅 {formatTaskDate(toDateStr(selectedTaskDate))}
+                        </span>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          {toDateStr(selectedTaskDate) === getTodayString() && (
+                            <span style={{ color: "#94a3b8", fontSize: 11 }}>Today</span>
+                          )}
+                          {!loadingTaskDateReports && !isEditingTaskDate && (
+                            <button
+                              type="button"
+                              className="task-update-btn"
+                              style={{ padding: "4px 12px", fontSize: 12 }}
+                              onClick={startEditingTaskDate}
+                            >
+                              ✏️ Edit
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {loadingTaskDateReports ? (
+                        <p style={{ color: "#94a3b8", textAlign: "center", padding: "24px 0" }}>
+                          Loading…
+                        </p>
+                      ) : isEditingTaskDate ? (
+                        <div>
+                          <div className="task-add-row">
+                            <select
+                              className="task-preset-select"
+                              value={editTaskDatePreset}
+                              onChange={(e) => setEditTaskDatePreset(e.target.value)}
+                            >
+                              {taskPresets.map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                              <option value={CUSTOM_TASK_OPTION}>Other (type your own)…</option>
+                            </select>
+
+                            {editTaskDatePreset === CUSTOM_TASK_OPTION && (
+                              <input
+                                type="text"
+                                className="task-custom-input"
+                                placeholder="Type your task…"
+                                value={editTaskDateCustomText}
+                                onChange={(e) => setEditTaskDateCustomText(e.target.value)}
+                                onKeyDown={(e) => e.key === "Enter" && addEditTaskDateItem()}
+                              />
+                            )}
+
+                            {editTaskDatePreset === PAYMENT_OPTION && (
+                              <select
+                                className="task-preset-select"
+                                value={editTaskDatePaymentStatus}
+                                onChange={(e) => setEditTaskDatePaymentStatus(e.target.value)}
+                              >
+                                <option value="">Select payment status…</option>
+                                {taskPaymentStatuses.map((status) => (
+                                  <option key={status} value={status}>{status}</option>
+                                ))}
+                              </select>
+                            )}
+
+                            <button type="button" className="task-add-btn" onClick={addEditTaskDateItem}>
+                              ➕ Add Task
+                            </button>
+                          </div>
+
+                          {editTaskDatePreset && (
+                            <div className="task-add-row" style={{ marginTop: 8 }}>
+                              <input
+                                type="text"
+                                className="task-custom-input"
+                                placeholder={`Add a note about "${editTaskDatePreset === PAYMENT_OPTION ? (editTaskDatePaymentStatus || "Payment") : editTaskDatePreset === CUSTOM_TASK_OPTION ? "this task" : editTaskDatePreset}" (optional)…`}
+                                value={editTaskDateNote}
+                                onChange={(e) => setEditTaskDateNote(e.target.value)}
+                                onKeyDown={(e) => e.key === "Enter" && addEditTaskDateItem()}
+                                style={{ flex: 1 }}
+                              />
+                            </div>
+                          )}
+
+                          {editTaskDateItems.length === 0 ? (
+                            <p className="task-empty-hint">
+                              No tasks yet for {formatTaskDate(toDateStr(selectedTaskDate))} — pick an option above and click "Add Task".
+                            </p>
+                          ) : (
+                            <ul className="task-item-checklist">
+                              {editTaskDateItems.map((it, idx) => (
+                                <li key={idx} className={`task-item-row ${it.completed ? "is-done" : ""}`}>
+                                  <label className="task-item-checkbox-label">
+                                    <input
+                                      type="checkbox"
+                                      checked={it.completed}
+                                      onChange={() => toggleEditTaskDateItemCompleted(idx)}
+                                    />
+                                    <span>
+                                      {it.text}
+                                      {it.note && (
+                                        <span style={{ display: "block", fontSize: 12, color: "#64748b", fontWeight: 400 }}>
+                                          📝 {it.note}
+                                        </span>
+                                      )}
+                                    </span>
+                                  </label>
+                                  <button
+                                    type="button"
+                                    className="task-item-remove"
+                                    onClick={() => removeEditTaskDateItem(idx)}
+                                    title="Remove task"
+                                  >
+                                    ✕
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+
+                          <div className="task-btn-row">
+                            <button
+                              type="button"
+                              className="task-update-btn"
+                              onClick={saveEditedTaskDate}
+                              disabled={savingTaskDateEdit}
+                            >
+                              {savingTaskDateEdit ? "Saving…" : "💾 Save Changes"}
+                            </button>
+                            <button
+                              type="button"
+                              className="task-submit-btn"
+                              style={{ background: "#e2e8f0", color: "#334155" }}
+                              onClick={cancelEditingTaskDate}
+                              disabled={savingTaskDateEdit}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : taskDateReports.length === 0 ? (
+                        <div
+                          style={{
+                            textAlign: "center",
+                            padding: "32px",
+                            color: "#94a3b8",
+                            background: "#f8fafc",
+                            borderRadius: 10,
+                          }}
+                        >
+                          <p style={{ margin: 0, fontSize: 14 }}>No task list for this date.</p>
+                        </div>
+                      ) : (
+                        <div className="task-report-list">
+                          {taskDateReports.map((t) => {
+                            const hasItems = Array.isArray(t.items) && t.items.length > 0;
+                            const doneCount = hasItems ? t.items.filter((it) => it.completed).length : 0;
+                            return (
+                              <div key={t._id} className="task-report-item">
+                                {hasItems ? (
+                                  <>
+                                    <div className="task-progress-label">
+                                      ✅ {doneCount} / {t.items.length} completed
+                                    </div>
+                                    <ul className="task-item-checklist task-item-checklist-readonly">
+                                      {t.items.map((it, idx) => (
+                                        <li
+                                          key={idx}
+                                          className={`task-item-row ${it.completed ? "is-done" : ""}`}
+                                        >
+                                          <span className="task-item-check-icon">
+                                            {it.completed ? "✅" : "⬜"}
+                                          </span>
+                                          <span>
+                                            {it.text}
+                                            {it.note && (
+                                              <span style={{ display: "block", fontSize: 12, color: "#64748b" }}>
+                                                📝 {it.note}
+                                              </span>
+                                            )}
+                                          </span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </>
+                                ) : (
+                                  <p className="task-report-text">{t.report}</p>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
+            )}
+
+            {/* ===== PROJECT PROGRESS TAB ===== */}
+            {activeTab === "projectProgress" && (
+              <ProjectProgress role="user" />
             )}
           </div>
         </div>

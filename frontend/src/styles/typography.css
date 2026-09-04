@@ -1,0 +1,143 @@
+/* ================================================================
+   BLING CRM — TYPOGRAPHY SYSTEM
+   ----------------------------------------------------------------
+   Structured, single-family type scale — the same approach modern
+   CRM UIs use for a clean, professional feel:
+
+     • Zoho CRM   → "Puvi" (in-house), previously "Lato" — one
+                     grotesque sans-serif, hierarchy built with
+                     weight/size, not multiple decorative fonts.
+     • Salesforce → "Salesforce Sans"
+     • HubSpot    → "Lexend"
+
+   Puvi and Salesforce Sans are proprietary and not distributable,
+   so this system uses "Inter" — the open-source face most metrics-
+   and-style compatible with them. It reads the same way: neutral,
+   highly legible at small UI sizes, tuned for screens and data-
+   dense tables. Loaded in index.css via Google Fonts.
+
+   Everything below is CSS custom properties + a couple of base
+   element rules + optional utility classes. Nothing here is
+   layout-specific — this file only owns type.
+================================================================ */
+
+:root {
+  /* ---- Font families ---- */
+  --font-family-base: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont,
+    Roboto, Helvetica, Arial, sans-serif;
+  /* Same family as base, on purpose (Zoho-style single-font system).
+     Kept as its own variable so a future rebrand only touches one line. */
+  --font-family-heading: var(--font-family-base);
+  --font-family-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo,
+    monospace;
+
+  /* ---- Weights ---- */
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+  --fw-extrabold: 800;
+
+  /* ---- Type scale ---- */
+  --fs-display: 32px;   /* dashboard hero numbers, big stat values   */
+  --fs-h1: 22px;         /* page titles (e.g. "Customers", "Employees") */
+  --fs-h2: 18px;         /* section / modal titles                     */
+  --fs-h3: 15px;         /* card titles                                */
+  --fs-h4: 13px;         /* sub-headings, form section labels          */
+  --fs-body: 13px;       /* default body copy                          */
+  --fs-body-sm: 12px;    /* table cells, secondary text                */
+  --fs-caption: 11px;    /* table headers, meta text, small labels     */
+  --fs-micro: 10px;      /* badges, timestamps, footnotes              */
+
+  /* ---- Line height ---- */
+  --lh-tight: 1.2;    /* headings */
+  --lh-snug: 1.35;    /* card/section titles */
+  --lh-normal: 1.5;   /* UI text, tables */
+  --lh-relaxed: 1.7;  /* paragraphs, remarks, long-form text */
+
+  /* ---- Letter spacing ---- */
+  --ls-tight: -0.01em;  /* large headings */
+  --ls-normal: 0;
+  --ls-wide: 0.04em;    /* uppercase labels / table headers */
+}
+
+/* ================================================================
+   BASE ELEMENTS
+   Every h1–h4/p in the app inherits from here unless a component
+   class overrides size (layout), never font-family or weight.
+================================================================ */
+
+body {
+  font-family: var(--font-family-base);
+  font-weight: var(--fw-regular);
+  line-height: var(--lh-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+h1 {
+  font-family: var(--font-family-heading);
+  font-size: var(--fs-h1);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--ls-tight);
+}
+
+h2 {
+  font-family: var(--font-family-heading);
+  font-size: var(--fs-h2);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--ls-tight);
+}
+
+h3 {
+  font-family: var(--font-family-heading);
+  font-size: var(--fs-h3);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-snug);
+}
+
+h4 {
+  font-family: var(--font-family-heading);
+  font-size: var(--fs-h4);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-snug);
+}
+
+p {
+  font-size: var(--fs-body);
+  font-weight: var(--fw-regular);
+  line-height: var(--lh-relaxed);
+}
+
+button, input, select, textarea {
+  font-family: var(--font-family-base);
+}
+
+/* ================================================================
+   UTILITY CLASSES
+   For one-off text in JSX where you don't want a new component
+   class, e.g. <span className="text-caption">Updated 2h ago</span>
+================================================================ */
+
+.text-display   { font-size: var(--fs-display); font-weight: var(--fw-extrabold); letter-spacing: var(--ls-tight); }
+.text-h1        { font-size: var(--fs-h1);       font-weight: var(--fw-bold); }
+.text-h2        { font-size: var(--fs-h2);       font-weight: var(--fw-bold); }
+.text-h3        { font-size: var(--fs-h3);       font-weight: var(--fw-semibold); }
+.text-body      { font-size: var(--fs-body);     font-weight: var(--fw-regular); }
+.text-body-sm   { font-size: var(--fs-body-sm);  font-weight: var(--fw-regular); }
+.text-caption   {
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--ls-wide);
+  color: var(--muted, #64748b);
+}
+.text-micro     { font-size: var(--fs-micro); }
+
+.font-regular   { font-weight: var(--fw-regular); }
+.font-medium    { font-weight: var(--fw-medium); }
+.font-semibold  { font-weight: var(--fw-semibold); }
+.font-bold      { font-weight: var(--fw-bold); }

@@ -1,5 +1,3 @@
-
-
 const Attendance = require("../models/attendanceModel");
 
 // ============================================================
@@ -571,144 +569,6 @@ const getTodayWorkModeSummary = async (req, res) => {
   }
 };
 
-// ============================================================
-// SUPER ADMIN: MANUALLY ADD / EDIT AN EMPLOYEE'S ATTENDANCE RECORD
-// Lets the admin create a missing record (e.g. forgot to check in) or
-// correct an existing one (wrong times, wrong status, wrong work mode)
-// for any employee on any date.
-// Body: { status, checkIn, checkOut, workMode, leaveReason }
-// - status: "present" | "absent" | "leave" (required)
-// - checkIn / checkOut: ISO datetime strings, only used/required when
-//   status === "present". totalHours is recomputed from them.
-// - workMode: required when status === "present".
-// - leaveReason: optional, only relevant when status === "leave".
-// ============================================================
-const adminUpsertAttendance = async (req, res) => {
-  try {
-    const { employeeId, date } = req.params;
-    const { status, checkIn, checkOut, workMode, leaveReason, location } = req.body;
-
-    if (!["present", "absent", "leave"].includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: "Status must be one of: present, absent, leave.",
-      });
-    }
-
-    const update = {
-      employee: employeeId,
-      date,
-      status,
-    };
-
-    if (status === "present") {
-      if (!workMode || !VALID_WORK_MODES.includes(workMode)) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Please select a work mode (Work From Office, Work From Home, or Site Visit).",
-        });
-      }
-      if (!checkIn || !checkOut) {
-        return res.status(400).json({
-          success: false,
-          message: "Both check-in and check-out times are required for a present day.",
-        });
-      }
-
-      const checkInDate = new Date(checkIn);
-      const checkOutDate = new Date(checkOut);
-      if (isNaN(checkInDate) || isNaN(checkOutDate)) {
-        return res.status(400).json({
-          success: false,
-          message: "Check-in / check-out must be valid dates.",
-        });
-      }
-      if (checkOutDate <= checkInDate) {
-        return res.status(400).json({
-          success: false,
-          message: "Check-out must be after check-in.",
-        });
-      }
-
-      update.workMode = workMode;
-      update.checkIn = checkInDate;
-      update.checkOut = checkOutDate;
-      update.totalHours = computeHours(checkInDate, checkOutDate);
-
-      // Optional — mainly meaningful for "Work From Office" so an admin
-      // can back-fill/correct proof of on-site presence, but accepted
-      // for any work mode since it's harmless extra info either way.
-      const lat = location?.latitude;
-      const lng = location?.longitude;
-      const hasValidLocation =
-        typeof lat === "number" && typeof lng === "number" && !isNaN(lat) && !isNaN(lng);
-      const locationData = hasValidLocation
-        ? {
-            latitude: lat,
-            longitude: lng,
-            accuracy: typeof location?.accuracy === "number" ? location.accuracy : null,
-            capturedAt: new Date(),
-          }
-        : { latitude: null, longitude: null, accuracy: null, capturedAt: null };
-      update.location = locationData;
-
-      // A manually-entered day is a single session — replace any stale
-      // multi-session history so the numbers displayed stay consistent.
-      update.sessions = [
-        {
-          checkIn: checkInDate,
-          checkOut: checkOutDate,
-          hours: update.totalHours,
-          workMode,
-          location: hasValidLocation
-            ? { latitude: lat, longitude: lng, accuracy: locationData.accuracy }
-            : { latitude: null, longitude: null, accuracy: null },
-        },
-      ];
-      update.leaveReason = "";
-      update.leaveStatus = "none";
-    } else if (status === "leave") {
-      update.workMode = "";
-      update.checkIn = null;
-      update.checkOut = null;
-      update.totalHours = 0;
-      update.sessions = [];
-      update.location = { latitude: null, longitude: null, accuracy: null, capturedAt: null };
-      update.leaveReason = leaveReason || "";
-      update.leaveDate = date;
-      update.leaveStatus = "approved";
-      update.leaveDecisionBy = req.user?._id || null;
-      update.leaveDecisionAt = new Date();
-    } else {
-      // absent
-      update.workMode = "";
-      update.checkIn = null;
-      update.checkOut = null;
-      update.totalHours = 0;
-      update.sessions = [];
-      update.location = { latitude: null, longitude: null, accuracy: null, capturedAt: null };
-      update.leaveReason = "";
-      update.leaveStatus = "none";
-    }
-
-    const record = await Attendance.findOneAndUpdate(
-      { employee: employeeId, date },
-      update,
-      { upsert: true, new: true, runValidators: true }
-    );
-
-    return res.json({
-      success: true,
-      message: "Attendance record saved.",
-      record,
-    });
-  } catch (error) {
-    console.error("adminUpsertAttendance error:", error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
 module.exports = {
   checkIn,
   checkOut,
@@ -722,6 +582,4 @@ module.exports = {
   approveLeave,
   rejectLeave,
   getTodayWorkModeSummary,
-  adminUpsertAttendance,
 };
-
