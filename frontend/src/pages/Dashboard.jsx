@@ -19,6 +19,8 @@ import "react-calendar/dist/Calendar.css";
 import EmployeeAttendanceModal from "../components/EmployeeAttendanceModal";
 import "../components/EmployeeAttendanceModal.css";
 import WorkModeSummaryCards from "../components/WorkModeSummaryCards";
+import MobileHeader from "../components/MobileHeader";
+import { useIsMobile, useBodyScrollLock } from "../hooks/useResponsive";
 
 // Admin-only sections
 import Employees from "../admin/Employees";
@@ -108,9 +110,26 @@ const Dashboard = () => {
   const navigate =
     useNavigate();
 
+const isMobile = useIsMobile();
+
 const [sidebarOpen,
 setSidebarOpen] =
-useState(true);
+useState(
+  () => !(typeof window !== "undefined" && window.innerWidth <= 1024)
+);
+
+// Collapse the drawer when shrinking to mobile, restore it on desktop.
+useEffect(() => {
+  setSidebarOpen(!isMobile);
+}, [isMobile]);
+
+// Stop the page behind the drawer from scrolling.
+useBodyScrollLock(isMobile && sidebarOpen);
+
+const closeSidebarOnMobile = () => {
+  if (isMobile) setSidebarOpen(false);
+};
+
 const uploadPayslip =
 async ()=>{
 
@@ -2589,11 +2608,43 @@ const closedLeadData = (() => {
 
   return (
 
-    <div className="layout">
+    <div
+      className={`layout ${
+        isMobile ? "is-mobile" : "is-desktop"
+      } ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}
+    >
 
+      {/* MOBILE APP BAR — visible at <=1024px, hidden by CSS on desktop */}
+      <MobileHeader
+        activeMenu={activeMenu}
+        isOpen={sidebarOpen}
+        onToggleSidebar={() => setSidebarOpen(prev => !prev)}
+      />
+
+      {/* DRAWER BACKDROP (mobile only) */}
+      {isMobile && sidebarOpen && (
+        <div
+          className="sidebar-backdrop"
+          role="presentation"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* DESKTOP: re-open button when the sidebar is collapsed */}
+      {!isMobile && !sidebarOpen && (
+        <button
+          type="button"
+          className="desktop-sidebar-reopen"
+          aria-label="Open menu"
+          onClick={() => setSidebarOpen(true)}
+        >
+          ☰
+        </button>
+      )}
 
       {/* SIDEBAR */}
 <div
+  id="crm-sidebar"
   className={`sidebar ${
     sidebarOpen
       ? ""
@@ -2617,7 +2668,7 @@ const closedLeadData = (() => {
 </div>
 
 
-      <ul>
+      <ul onClick={closeSidebarOnMobile}>
 
   {/* DASHBOARD */}
 

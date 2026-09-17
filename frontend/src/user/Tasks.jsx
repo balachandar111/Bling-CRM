@@ -475,7 +475,7 @@ const Tasks = ({ role, setSidebarOpen }) => {
           </div>
 
           {/* To-do list builder */}
-          <div className="task-add-row">
+          <div className="task-add-row task-add-row-mobile">
             <select
               className="task-preset-select"
               value={selectedPreset}
@@ -520,7 +520,7 @@ const Tasks = ({ role, setSidebarOpen }) => {
               employee can attach a short note to whichever item (preset,
               custom, or payment status) they're about to add. */}
           {selectedPreset && (
-            <div className="task-add-row" style={{ marginTop: 8 }}>
+            <div className="task-add-row task-add-row-mobile" style={{ marginTop: 8 }}>
               <input
                 type="text"
                 className="task-custom-input"
@@ -608,6 +608,7 @@ const Tasks = ({ role, setSidebarOpen }) => {
       {isAdmin && (
         <div className="task-calendar-card" style={{ marginBottom: 20 }}>
           <div
+            className="task-summary-header-row"
             style={{
               display: "flex",
               justifyContent: "space-between",
@@ -623,7 +624,7 @@ const Tasks = ({ role, setSidebarOpen }) => {
               </p>
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <div className="task-summary-filters" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <label style={{ fontSize: 12, color: "#64748b", display: "flex", flexDirection: "column", gap: 2 }}>
                 From
                 <input
@@ -676,12 +677,13 @@ const Tasks = ({ role, setSidebarOpen }) => {
 
           {/* ── "Today" quick filter — click a category to pop up
               today's task updates for that department ── */}
-          <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <div className="task-today-filter-row" style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <span style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}>📌 Today's Filter:</span>
             {TODAY_CATEGORIES.map((cat) => (
               <button
                 key={cat.key}
                 type="button"
+                className="task-today-filter-btn"
                 onClick={() => handleOpenTodayCategory(cat.key)}
                 style={{
                   padding: "6px 14px",
@@ -724,7 +726,7 @@ const Tasks = ({ role, setSidebarOpen }) => {
             </div>
           ) : (
             <div style={{ overflowX: "auto", marginTop: 14 }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <table className="task-summary-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: "#f1f5f9", textAlign: "left" }}>
                     <th style={{ padding: "8px 10px", border: "1px solid #e2e8f0" }}>S.No</th>
@@ -739,13 +741,13 @@ const Tasks = ({ role, setSidebarOpen }) => {
                 <tbody>
                   {summaryRows.map((r) => (
                     <tr key={r.sno}>
-                      <td style={{ padding: "8px 10px", border: "1px solid #e2e8f0" }}>{r.sno}</td>
-                      <td style={{ padding: "8px 10px", border: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>{r.date}</td>
-                      <td style={{ padding: "8px 10px", border: "1px solid #e2e8f0" }}>{r.operationTask || "—"}</td>
-                      <td style={{ padding: "8px 10px", border: "1px solid #e2e8f0" }}>{r.salesTask || "—"}</td>
-                      <td style={{ padding: "8px 10px", border: "1px solid #e2e8f0" }}>{r.itTask || "—"}</td>
-                      <td style={{ padding: "8px 10px", border: "1px solid #e2e8f0" }}>{r.others || "—"}</td>
-                      <td style={{ padding: "8px 10px", border: "1px solid #e2e8f0" }}>{r.payment || "—"}</td>
+                      <td data-label="S.No" style={{ padding: "8px 10px", border: "1px solid #e2e8f0" }}>{r.sno}</td>
+                      <td data-label="Date" style={{ padding: "8px 10px", border: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>{r.date}</td>
+                      <td data-label="Operation Task" style={{ padding: "8px 10px", border: "1px solid #e2e8f0" }}>{r.operationTask || "—"}</td>
+                      <td data-label="Sales Task" style={{ padding: "8px 10px", border: "1px solid #e2e8f0" }}>{r.salesTask || "—"}</td>
+                      <td data-label="IT Task" style={{ padding: "8px 10px", border: "1px solid #e2e8f0" }}>{r.itTask || "—"}</td>
+                      <td data-label="Others" style={{ padding: "8px 10px", border: "1px solid #e2e8f0" }}>{r.others || "—"}</td>
+                      <td data-label="Payment" style={{ padding: "8px 10px", border: "1px solid #e2e8f0" }}>{r.payment || "—"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -768,7 +770,7 @@ const Tasks = ({ role, setSidebarOpen }) => {
 
         <div className="task-calendar-inner">
           {/* Calendar widget */}
-          <div style={{ flex: "0 0 auto" }}>
+          <div className="task-calendar-widget-col" style={{ flex: "0 0 auto" }}>
             <Calendar
               onChange={setSelectedDate}
               value={selectedDate}
@@ -837,7 +839,7 @@ const Tasks = ({ role, setSidebarOpen }) => {
             ) : !isAdmin && isEditingDateReport ? (
               <div className="task-report-card" style={{ padding: 0, border: "none", boxShadow: "none" }}>
                 {/* To-do list builder for the selected date */}
-                <div className="task-add-row">
+                <div className="task-add-row task-add-row-mobile">
                   <select
                     className="task-preset-select"
                     value={editDatePreset}
@@ -879,7 +881,7 @@ const Tasks = ({ role, setSidebarOpen }) => {
                 </div>
 
                 {editDatePreset && (
-                  <div className="task-add-row" style={{ marginTop: 8 }}>
+                  <div className="task-add-row task-add-row-mobile" style={{ marginTop: 8 }}>
                     <input
                       type="text"
                       className="task-custom-input"
@@ -1031,6 +1033,7 @@ const Tasks = ({ role, setSidebarOpen }) => {
       {isAdmin && todayCategoryOpen && (
         <div className="modal-overlay" onClick={handleCloseTodayCategory}>
           <div
+            className="task-today-category-modal"
             onClick={(e) => e.stopPropagation()}
             style={{
               background: "#fff",

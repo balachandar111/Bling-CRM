@@ -3519,6 +3519,163 @@ table tr:hover, .minimal-table tr:hover, .minimal-employee-table tr:hover {
 }
 
 /* ================================================================
+   MOBILE RESPONSIVE — ATTENDANCE & TASKS
+   Restructures MyAttendance.jsx and Tasks.jsx for small screens:
+   stacked/full-width action buttons, 2-col stat grids, tables that
+   collapse into stacked "label: value" cards, and a single-column
+   calendar layout. Scoped to the classes added in those two files
+   so nothing else on the site is affected. Uses !important only
+   where it overrides an inline style set in the JSX.
+================================================================ */
+
+@media (max-width: 768px) {
+  .employee-page { padding: 0 2px; }
+
+  /* ---- Attendance: today card & action buttons ---- */
+  .att-top-card {
+    padding: 16px !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  .att-today-info { width: 100%; }
+  .att-actions-row {
+    width: 100%;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px !important;
+  }
+  .att-action-btn {
+    width: 100%;
+    margin: 0;
+    padding: 11px 8px;
+    font-size: 12.5px;
+    text-align: center;
+  }
+
+  /* ---- Attendance: stat cards / calculator results ---- */
+  .att-stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  /* ---- Attendance: section cards (calendar/calculator/history/payslips) ---- */
+  .att-section-card { padding: 14px !important; }
+
+  .att-calc-row { flex-direction: column !important; align-items: stretch !important; }
+  .att-calc-row .input-group { min-width: 0 !important; width: 100%; }
+  .att-calc-btn { width: 100%; }
+
+  /* ---- Tasks: to-do builder row goes full-width & stacked ---- */
+  .task-add-row-mobile {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .task-add-row-mobile .task-preset-select,
+  .task-add-row-mobile .task-custom-input,
+  .task-add-row-mobile .task-add-btn {
+    width: 100%;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .task-btn-row { flex-direction: column; align-items: stretch; }
+  .task-submit-btn,
+  .task-update-btn { width: 100%; }
+  .task-saved-msg { text-align: center; }
+
+  .task-item-row { align-items: flex-start; }
+
+  /* ---- Tasks: admin summary card header/filters stack ---- */
+  .task-summary-header-row { flex-direction: column; align-items: stretch !important; }
+  .task-summary-filters { width: 100%; }
+  .task-summary-filters label { flex: 1 1 45%; }
+  .task-summary-filters .task-submit-btn { flex: 1 1 auto; }
+
+  .task-today-filter-row { gap: 6px !important; }
+  .task-today-filter-btn { flex: 1 1 auto; }
+
+  /* ---- Tasks: calendar viewer stacks to one column ---- */
+  .task-calendar-inner { flex-direction: column; gap: 16px; }
+  .task-calendar-widget-col { width: 100%; }
+  .task-calendar-inner .react-calendar { width: 100%; }
+}
+
+@media (max-width: 480px) {
+  .att-actions-row { grid-template-columns: 1fr; }
+  .att-stats-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+  .adm-stat { padding: 12px 10px !important; }
+  .adm-stat h3 { font-size: 20px !important; }
+}
+
+/* ---- Tables → stacked cards on narrow screens ----
+   Applies to Attendance History, My Payslips, and the admin Task
+   Summary table. Each row becomes a bordered card; each cell shows
+   its column header as a label via the data-label attribute set in
+   the JSX, so no information is hidden — it's just re-laid-out. */
+@media (max-width: 640px) {
+  .att-history-table,
+  .att-payslip-table,
+  .task-summary-table {
+    border: none;
+  }
+  .att-history-table thead,
+  .att-payslip-table thead,
+  .task-summary-table thead {
+    display: none;
+  }
+  .att-history-table,
+  .att-history-table tbody,
+  .att-payslip-table,
+  .att-payslip-table tbody,
+  .task-summary-table,
+  .task-summary-table tbody {
+    display: block;
+    width: 100%;
+  }
+  .att-history-table tr,
+  .att-payslip-table tr,
+  .task-summary-table tr {
+    display: block;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+  .att-history-table td,
+  .att-payslip-table td,
+  .task-summary-table td {
+    display: flex !important;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 7px 2px !important;
+    border: none !important;
+    border-bottom: 1px dashed #f1f5f9 !important;
+    text-align: right;
+    white-space: normal !important;
+  }
+  .att-history-table td:last-child,
+  .att-payslip-table td:last-child,
+  .task-summary-table td:last-child {
+    border-bottom: none !important;
+  }
+  .att-history-table td::before,
+  .att-payslip-table td::before,
+  .task-summary-table td::before {
+    content: attr(data-label);
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #64748b;
+    text-align: left;
+    flex-shrink: 0;
+  }
+}
+
+/* ================================================================
    CUSTOMERS PAGE
 ================================================================ */
 

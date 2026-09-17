@@ -102,15 +102,15 @@ const AttCalculator = ({ records }) => {
     setResult({ worked, leave, absent, totalHrs });
   };
   return (
-    <div style={{ background:"#fff", borderRadius:"10px", padding:"20px", marginBottom:"20px", boxShadow:"0 1px 4px rgba(0,0,0,0.08)" }}>
+    <div className="att-section-card" style={{ background:"#fff", borderRadius:"10px", padding:"20px", marginBottom:"20px", boxShadow:"0 1px 4px rgba(0,0,0,0.08)" }}>
       <h3 style={{ marginTop:0 }}>📊 Attendance Calculator</h3>
-      <div style={{ display:"flex", gap:"12px", flexWrap:"wrap", alignItems:"flex-end" }}>
+      <div className="att-calc-row" style={{ display:"flex", gap:"12px", flexWrap:"wrap", alignItems:"flex-end" }}>
         <div className="input-group" style={{ flex:1, minWidth:"150px" }}><label>From Date</label><input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} /></div>
         <div className="input-group" style={{ flex:1, minWidth:"150px" }}><label>To Date</label><input type="date" value={toDate} onChange={e => setToDate(e.target.value)} /></div>
-        <button className="add-btn" onClick={calculate}>Calculate</button>
+        <button className="add-btn att-calc-btn" onClick={calculate}>Calculate</button>
       </div>
       {result && (
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(130px,1fr))", gap:"12px", marginTop:"16px" }}>
+        <div className="att-stats-grid" style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(130px,1fr))", gap:"12px", marginTop:"16px" }}>
           <div className="adm-stat green" style={{ borderRadius:"8px", padding:"14px", textAlign:"center" }}><h3 style={{ margin:0 }}>{result.worked}</h3><p style={{ margin:"4px 0 0" }}>Present Days</p></div>
           <div className="adm-stat orange" style={{ borderRadius:"8px", padding:"14px", textAlign:"center" }}><h3 style={{ margin:0 }}>{result.leave}</h3><p style={{ margin:"4px 0 0" }}>Leave Days</p></div>
           <div className="adm-stat red" style={{ borderRadius:"8px", padding:"14px", textAlign:"center" }}><h3 style={{ margin:0 }}>{result.absent}</h3><p style={{ margin:"4px 0 0" }}>Absent Days</p></div>
@@ -273,8 +273,8 @@ const MyAttendance = ({ setSidebarOpen }) => {
         <div style={{ background:"#fff3f3", border:"1px solid #ffccc7", color:"#cf1322", padding:"16px", borderRadius:"8px", margin:"16px 0" }}>{myAttError}</div>
       ) : (
         <>
-          <div style={{ background:"#fff", borderRadius:"10px", padding:"20px", marginBottom:"20px", boxShadow:"0 1px 4px rgba(0,0,0,0.08)", display:"flex", flexWrap:"wrap", alignItems:"center", justifyContent:"space-between", gap:"16px" }}>
-            <div>
+          <div className="att-section-card att-top-card" style={{ background:"#fff", borderRadius:"10px", padding:"20px", marginBottom:"20px", boxShadow:"0 1px 4px rgba(0,0,0,0.08)", display:"flex", flexWrap:"wrap", alignItems:"center", justifyContent:"space-between", gap:"16px" }}>
+            <div className="att-today-info">
               <h3 style={{ margin:0 }}>Today — {myTodayDate || "—"}</h3>
               <p style={{ margin:"6px 0 0", color:"#666" }}>Status: <strong>{myIsOnLeave ? "📅 On Approved Leave" : myIsLeavePending ? "⏳ Leave Pending Approval" : myIsCheckedIn ? "✅ Checked In" : myToday?.status === "present" ? "✅ Present (Checked Out)" : "❌ Not Checked In"}</strong></p>
               {myToday?.checkIn && <p style={{ margin:"4px 0 0", color:"#666" }}>First Check-In: {formatTime(myToday.checkIn)}{myToday.checkOut && " · Last Check-Out: " + formatTime(myToday.checkOut)}</p>}
@@ -285,16 +285,16 @@ const MyAttendance = ({ setSidebarOpen }) => {
                 </p>
               )}
             </div>
-            <div style={{ display:"flex", gap:"10px", flexWrap:"wrap" }}>
-              <button className="add-btn" disabled={myAttLoading || myIsCheckedIn || myIsOnLeave || myIsLeavePending} onClick={openWorkModeModal}>Check In</button>
-              <button className="add-btn" disabled={myAttLoading || !myIsCheckedIn} onClick={handleCheckOut}>Check Out</button>
-              <button className="add-btn" disabled={myIsOnLeave || myIsLeavePending} onClick={() => setShowLeaveModal(true)}>Apply Leave</button>
+            <div className="att-actions-row" style={{ display:"flex", gap:"10px", flexWrap:"wrap" }}>
+              <button className="add-btn att-action-btn" disabled={myAttLoading || myIsCheckedIn || myIsOnLeave || myIsLeavePending} onClick={openWorkModeModal}>Check In</button>
+              <button className="add-btn att-action-btn" disabled={myAttLoading || !myIsCheckedIn} onClick={handleCheckOut}>Check Out</button>
+              <button className="add-btn att-action-btn" disabled={myIsOnLeave || myIsLeavePending} onClick={() => setShowLeaveModal(true)}>Apply Leave</button>
               {resignation.status === "pending" ? (
-                <button className="add-btn" disabled style={{ opacity: 0.7 }}>Resignation Pending...</button>
+                <button className="add-btn att-action-btn" disabled style={{ opacity: 0.7 }}>Resignation Pending...</button>
               ) : resignation.status === "approved" ? (
-                <button className="add-btn" disabled style={{ opacity: 0.7 }}>Resignation Approved</button>
+                <button className="add-btn att-action-btn" disabled style={{ opacity: 0.7 }}>Resignation Approved</button>
               ) : (
-                <button className="add-btn" style={{ background: "#cf1322" }} onClick={openResignModal}>Resign</button>
+                <button className="add-btn att-action-btn" style={{ background: "#cf1322" }} onClick={openResignModal}>Resign</button>
               )}
             </div>
           </div>
@@ -305,13 +305,13 @@ const MyAttendance = ({ setSidebarOpen }) => {
             </div>
           )}
 
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(150px,1fr))", gap:"16px", marginBottom:"20px" }}>
+          <div className="att-stats-grid" style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(150px,1fr))", gap:"16px", marginBottom:"20px" }}>
             {[{ label:"Worked Days", value:stats.totalWorkedDays, cls:"green" },{ label:"Leave Days", value:stats.totalLeaveDays, cls:"orange" },{ label:"Absent Days", value:stats.totalAbsentDays, cls:"red" },{ label:"Total Hours", value:formatHours(stats.totalWorkedHours), cls:"blue" }].map(s => (
               <div key={s.label} className={"adm-stat " + s.cls} style={{ background:"#fff", borderRadius:"10px", padding:"16px", textAlign:"center", boxShadow:"0 1px 4px rgba(0,0,0,0.08)" }}><h3 style={{ margin:0 }}>{s.value}</h3><p style={{ margin:"4px 0 0" }}>{s.label}</p></div>
             ))}
           </div>
 
-          <div style={{ background:"#fff", borderRadius:"10px", padding:"20px", marginBottom:"20px", boxShadow:"0 1px 4px rgba(0,0,0,0.08)" }}>
+          <div className="att-section-card" style={{ background:"#fff", borderRadius:"10px", padding:"20px", marginBottom:"20px", boxShadow:"0 1px 4px rgba(0,0,0,0.08)" }}>
             <h3 style={{ marginTop:0 }}>📅 Attendance Calendar</h3>
             <p style={{ color:"#888", margin:"0 0 12px" }}>Click any date to view your check-in/out session details</p>
             <AttCalendar records={records} onDateClick={handleDateClick} currentMonth={calMonth} setCurrentMonth={setCalMonth} />
@@ -319,18 +319,18 @@ const MyAttendance = ({ setSidebarOpen }) => {
 
           <AttCalculator records={records} />
 
-          <div style={{ background:"#fff", borderRadius:"10px", padding:"20px", marginBottom:"20px", boxShadow:"0 1px 4px rgba(0,0,0,0.08)" }}>
+          <div className="att-section-card" style={{ background:"#fff", borderRadius:"10px", padding:"20px", marginBottom:"20px", boxShadow:"0 1px 4px rgba(0,0,0,0.08)" }}>
             <h3 style={{ marginTop:0 }}>Attendance History</h3>
             <div style={{ overflowX:"auto" }}>
-              <table className="minimal-employee-table">
+              <table className="minimal-employee-table att-history-table">
                 <thead><tr><th>Date</th><th>Status</th><th>Work Mode</th><th>Check In</th><th>Check Out</th><th>Hours</th></tr></thead>
                 <tbody>
                   {records.length === 0 ? <tr><td colSpan={6} style={{ textAlign:"center", padding:"20px" }}>No attendance records yet.</td></tr> : records.slice(0,30).map((r,i) => (
                     <tr key={i} onClick={() => handleDateClick(r.date)} className="adm-record-row" style={{ cursor:"pointer" }}>
-                      <td>{r.date}</td>
-                      <td><span className={"adm-status-badge " + r.status}>{r.status === "present" ? "✅ Present" : r.status === "leave" ? "📅 Leave" : r.status === "leave-pending" ? "⏳ Leave Pending" : r.status === "leave-rejected" ? "🚫 Leave Rejected" : "❌ Absent"}</span></td>
-                      <td>{r.workMode ? workModeIcon(r.workMode) + " " + r.workMode : "—"}</td>
-                      <td>{formatTime(r.checkIn)}</td><td>{formatTime(r.checkOut)}</td><td>{r.totalHours ? formatHours(r.totalHours) : "—"}</td>
+                      <td data-label="Date">{r.date}</td>
+                      <td data-label="Status"><span className={"adm-status-badge " + r.status}>{r.status === "present" ? "✅ Present" : r.status === "leave" ? "📅 Leave" : r.status === "leave-pending" ? "⏳ Leave Pending" : r.status === "leave-rejected" ? "🚫 Leave Rejected" : "❌ Absent"}</span></td>
+                      <td data-label="Work Mode">{r.workMode ? workModeIcon(r.workMode) + " " + r.workMode : "—"}</td>
+                      <td data-label="Check In">{formatTime(r.checkIn)}</td><td data-label="Check Out">{formatTime(r.checkOut)}</td><td data-label="Hours">{r.totalHours ? formatHours(r.totalHours) : "—"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -338,14 +338,14 @@ const MyAttendance = ({ setSidebarOpen }) => {
             </div>
           </div>
 
-          <div style={{ background:"#fff", borderRadius:"10px", padding:"20px", boxShadow:"0 1px 4px rgba(0,0,0,0.08)" }}>
+          <div className="att-section-card" style={{ background:"#fff", borderRadius:"10px", padding:"20px", boxShadow:"0 1px 4px rgba(0,0,0,0.08)" }}>
             <h3 style={{ marginTop:0 }}>My Payslips</h3>
             <div style={{ overflowX:"auto" }}>
-              <table className="minimal-employee-table">
+              <table className="minimal-employee-table att-payslip-table">
                 <thead><tr><th>Month</th><th>Year</th><th>Uploaded On</th><th>Payslip</th></tr></thead>
                 <tbody>
                   {myPayslips.length === 0 ? <tr><td colSpan={4} style={{ textAlign:"center", padding:"20px" }}>No payslips uploaded yet.</td></tr> : [...myPayslips].sort((a,b) => new Date(b.uploadedAt) - new Date(a.uploadedAt)).map((p,i) => (
-                    <tr key={i}><td>{p.month}</td><td>{p.year}</td><td>{p.uploadedAt ? new Date(p.uploadedAt).toLocaleDateString("en-IN") : "—"}</td><td><a href={p.pdfUrl} target="_blank" rel="noreferrer" className="view-doc-btn">View / Download</a></td></tr>
+                    <tr key={i}><td data-label="Month">{p.month}</td><td data-label="Year">{p.year}</td><td data-label="Uploaded On">{p.uploadedAt ? new Date(p.uploadedAt).toLocaleDateString("en-IN") : "—"}</td><td data-label="Payslip"><a href={p.pdfUrl} target="_blank" rel="noreferrer" className="view-doc-btn">View / Download</a></td></tr>
                   ))}
                 </tbody>
               </table>
