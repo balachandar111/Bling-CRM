@@ -20,7 +20,11 @@ import EmployeeAttendanceModal from "../components/EmployeeAttendanceModal";
 import "../components/EmployeeAttendanceModal.css";
 import WorkModeSummaryCards from "../components/WorkModeSummaryCards";
 import MobileHeader from "../components/MobileHeader";
-import { useIsMobile, useBodyScrollLock } from "../hooks/useResponsive";
+import {
+  useIsMobile,
+  useBodyScrollLock,
+  useClearStaleScrollLock,
+} from "../hooks/useResponsive";
 
 // Admin-only sections
 import Employees from "../admin/Employees";
@@ -125,6 +129,9 @@ useEffect(() => {
 
 // Stop the page behind the drawer from scrolling.
 useBodyScrollLock(isMobile && sidebarOpen);
+
+// Drop any lock left over from a reload or a crashed transition.
+useClearStaleScrollLock();
 
 const closeSidebarOnMobile = () => {
   if (isMobile) setSidebarOpen(false);

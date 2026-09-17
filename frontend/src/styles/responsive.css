@@ -38,20 +38,24 @@
   box-sizing: border-box;
 }
 
+/* Sideways overflow is contained on <body> only.
+   Putting overflow-x on <html> is what breaks vertical scrolling on iOS
+   Safari, and it also disables position: sticky further down the tree. */
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-}
-
-html,
-body {
-  max-width: 100%;
-  overflow-x: hidden;
+  height: auto;
+  overflow-y: visible;
 }
 
 body {
   margin: 0;
-  overscroll-behavior-y: none;
+  width: 100%;
+  max-width: 100%;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
 }
 
 img,
@@ -226,7 +230,11 @@ a {
              max(12px, var(--r-safe-right))
              calc(24px + var(--r-safe-bottom))
              max(12px, var(--r-safe-left));
-    overflow-x: hidden;
+    /* Must stay visible. overflow-x:hidden here silently forces
+       overflow-y to auto, which turns the page into a nested scroller
+       and swallows the vertical scroll. Body handles the clipping. */
+    overflow: visible !important;
+    height: auto;
   }
 
   /* ---- Drawer ---- */
@@ -262,10 +270,12 @@ a {
     display: block;
   }
 
-  /* Lock body scroll while the drawer is open */
+  /* Lock the page behind the drawer. The fixed position + saved offset is
+     set by useBodyScrollLock; iOS ignores plain overflow:hidden on body. */
   body.sidebar-locked {
+    position: fixed;
+    width: 100%;
     overflow: hidden;
-    position: relative;
   }
 
   /* Bigger, thumb-friendly nav rows */
@@ -386,17 +396,40 @@ a {
   background: #fff;
 }
 
+/* Sideways only. A table container should never own the vertical scroll
+   unless it has been given an explicit max-height. */
+@media (max-width: 1024px) {
+  .table-scroll,
+  .customer-table-wrapper,
+  .customer-table-container,
+  .employee-table-wrapper,
+  .employee-table-container,
+  .minimal-table-wrapper,
+  .adm-records-table-wrapper,
+  .opp-table-wrap,
+  .clr-table-wrap,
+  .inv-table-wrap,
+  .inv-items-table-wrap,
+  .pp-table-wrapper,
+  .customer-detail-wrapper {
+    overflow-y: auto;
+    max-height: none;
+    touch-action: pan-x pan-y;
+  }
+}
+
 .table-scroll > table {
   margin: 0;
 }
 
-/* Catch-all: any element that directly holds a table becomes a horizontal
-   scroller on touch screens. This covers every page and component in the CRM
-   — including ones with no wrapper class — with no JavaScript and no DOM
-   surgery. Browsers without :has() simply fall back to the body-level
-   overflow-x guard at the top of this file. */
+/* Catch-all for tables with no wrapper class.
+   Scoped to :only-child on purpose. An element with overflow-x:auto also gets
+   overflow-y:auto from the browser, so matching every parent that merely
+   contains a table turned page-level containers into nested scrollers and
+   trapped the vertical scroll. Only a container that holds nothing but the
+   table is safe to convert. */
 @media (max-width: 1024px) {
-  :where(div, section, main, article, form, td, li):has(> table) {
+  :where(div, section, main, article, form, td, li):has(> table:only-child) {
     max-width: 100%;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -515,6 +548,26 @@ a {
 /* ==========================================================================
    4. PHONES (<= 768px)
    ========================================================================== */
+
+@media (max-width: 1024px) {
+  /* Safety net for the older stylesheets: several page wrappers were given a
+     fixed height plus overflow:hidden for the desktop layout, which cuts the
+     page off on a phone. Let them grow instead. */
+  .layout,
+  .customer-page,
+  .employee-page,
+  .reminder-page,
+  .reimbursement-page,
+  .clr-page,
+  .profile-container,
+  .attendance-section,
+  .employee-section,
+  .leave-requests-section {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+}
 
 @media (max-width: 768px) {
 
