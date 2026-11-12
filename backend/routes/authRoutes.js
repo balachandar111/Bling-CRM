@@ -14,3 +14,6 @@ router.put("/update", protect, updateUser);
 router.post("/logout", protect, logout);
 
 module.exports = router;
+
+
+
