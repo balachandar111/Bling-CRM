@@ -16,6 +16,10 @@ import "./styles/flexible.css";
 // Must stay LAST: the responsive layer overrides the older layout rules.
 import "./styles/responsive.css";
 
+// Professional theme layer: font scale, colours, spacing, components.
+// Must stay AFTER responsive.css so it has the final say.
+import "./styles/theme.css";
+
 const App = () => {
   return (
     <BrowserRouter>

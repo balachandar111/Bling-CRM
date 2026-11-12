@@ -1,0 +1,409 @@
+/* ================================================================
+   BLING CRM — PROFESSIONAL THEME LAYER
+   ----------------------------------------------------------------
+   Imported LAST in App.jsx (after responsive.css) so it refines the
+   older layers WITHOUT changing any component, layout breakpoint or
+   behaviour. One font family, one type scale, one colour palette,
+   one spacing / radius / shadow system.
+
+   TYPE SCALE (Inter)
+     Page title ........ 24px / 700
+     Section / modal ... 18px / 600
+     Card heading ...... 16px / 600
+     Body & inputs ..... 14px / 400-500
+     Table cells ....... 13.5px
+     Labels / table head 12.5px / 600
+     Badges / captions . 11.5-12px
+================================================================ */
+
+:root {
+  /* ---- Font ---- */
+  --font-ui: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto,
+    Helvetica, Arial, sans-serif;
+
+  /* ---- Colour palette ---- */
+  --bg: #f4f6fb;            /* page background            */
+  --surface: #ffffff;       /* cards, modals, tables      */
+  --surface-2: #f8fafc;     /* table head, subtle panels  */
+  --line: #e2e8f0;          /* borders                    */
+  --line-soft: #eef2f7;     /* row dividers               */
+
+  --text: #0f172a;          /* headings, strong text      */
+  --text-2: #475569;        /* body / secondary           */
+  --text-3: #64748b;        /* captions, placeholders     */
+
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-soft: rgba(37, 99, 235, 0.10);
+
+  --nav-bg: #0f172a;        /* sidebar                    */
+  --nav-text: #cbd5e1;
+  --nav-active: rgba(59, 130, 246, 0.20);
+
+  /* ---- Shape & depth ---- */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --sh-1: 0 1px 2px rgba(15, 23, 42, 0.05), 0 1px 3px rgba(15, 23, 42, 0.06);
+  --sh-2: 0 8px 24px rgba(15, 23, 42, 0.10);
+  --sh-3: 0 24px 60px rgba(15, 23, 42, 0.25);
+  --ring: 0 0 0 3px rgba(37, 99, 235, 0.18);
+}
+
+/* ================= BASE ================= */
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+button, input, select, textarea { font-family: var(--font-ui); }
+
+p { font-size: 14px; color: var(--text-2); }
+
+h1, h2, h3, h4, h5, h6,
+.page-title, .header-left h1, .header-left h2 {
+  font-family: var(--font-ui);
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+/* ================= LAYOUT / STRUCTURE ================= */
+
+.layout { min-height: 100vh; background: var(--bg); }
+
+.main-content {
+  background: var(--bg);
+  padding: clamp(14px, 2vw, 28px);
+}
+
+/* Page header row: title left, actions right */
+.topbar,
+.employee-topbar,
+.customer-topbar,
+.reminder-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.topbar h1, .topbar h2,
+.customer-topbar h1, .customer-topbar h2,
+.employee-topbar h1, .employee-topbar h2,
+.reminder-header h1, .reminder-header h2,
+.page-title {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.page-subtitle {
+  font-size: 13.5px;
+  color: var(--text-3);
+  margin-top: 4px;
+}
+
+.top-actions, .right-box {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* Summary cards grid */
+.stats-grid, .clr-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.charts-grid, .reminder-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+/* ================= SIDEBAR (colour & finish only) ================= */
+
+
+
+.logout-btn {
+  border-radius: var(--r-sm);
+  font-weight: 600;
+}
+
+/* ================= CARDS / SURFACES ================= */
+
+.stat-card, .chart-card, .followup-card, .view-box, .profile-box,
+.clr-table-wrap, .empty-state {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--sh-1);
+}
+
+.stat-card { padding: 18px 20px; transition: transform .15s ease, box-shadow .15s ease; }
+.stat-card:hover { transform: translateY(-2px); box-shadow: var(--sh-2); }
+.stat-card h2 { font-size: 28px; font-weight: 700; line-height: 1.2; margin: 4px 0 0; }
+.stat-card p, .stat-card h4, .stat-card h3 {
+  font-size: 13px; font-weight: 500; color: var(--text-3); margin: 0;
+}
+
+.chart-card, .followup-card, .view-box { padding: 18px 20px; }
+.chart-card h3, .followup-card h3 { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
+
+.empty-state { padding: 36px 20px; text-align: center; color: var(--text-3); font-size: 14px; }
+
+/* ================= BUTTONS ================= */
+
+button { cursor: pointer; transition: background .15s ease, border-color .15s ease,
+  box-shadow .15s ease, transform .05s ease, color .15s ease; }
+button:active:not(:disabled) { transform: translateY(1px); }
+button:disabled { opacity: .55; cursor: not-allowed; }
+
+.submit-btn, .add-btn, .update-customer-btn {
+  background: var(--primary);
+  color: #fff;
+  border: 1px solid var(--primary);
+  border-radius: var(--r-sm);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 18px;
+  min-height: 40px;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.25);
+}
+.submit-btn:hover:not(:disabled), .add-btn:hover:not(:disabled),
+.update-customer-btn:hover:not(:disabled) { background: var(--primary-hover); border-color: var(--primary-hover); }
+
+.upload-btn, .download-btn, .excel-ul-btn, .excel-dl-btn {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 9px 14px;
+  min-height: 38px;
+}
+.upload-btn:hover, .download-btn:hover, .excel-ul-btn:hover, .excel-dl-btn:hover {
+  background: var(--surface-2); border-color: #cbd5e1;
+}
+
+.icon-btn {
+  width: 32px; height: 32px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text-2);
+  border-radius: var(--r-sm);
+}
+.icon-btn:hover { background: var(--primary-soft); color: var(--primary); border-color: transparent; }
+.icon-btn.delete-icon:hover { background: rgba(220, 38, 38, .10); color: #dc2626; }
+
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* ================= FORMS ================= */
+
+.input-group, .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+
+.input-group label, .form-group label, .filter-item label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+input[type="text"], input[type="email"], input[type="tel"], input[type="number"],
+input[type="password"], input[type="date"], input[type="time"],
+input[type="datetime-local"], input[type="search"], input[type="url"],
+select, .search-input {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 12px;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  box-sizing: border-box;
+}
+
+textarea {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  box-sizing: border-box;
+  resize: vertical;
+}
+
+input::placeholder, textarea::placeholder { color: #94a3b8; }
+
+input:hover, select:hover, textarea:hover { border-color: #cbd5e1; }
+
+input:focus, select:focus, textarea:focus, .search-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: var(--ring);
+}
+
+input[type="checkbox"], input[type="radio"] { accent-color: var(--primary); width: 16px; height: 16px; }
+
+.form-grid { display: grid; grid-template-columns: 1fr; gap: 0 18px; }
+@media (min-width: 700px) {
+  .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .form-grid .full-row, .form-grid .full-width { grid-column: 1 / -1; }
+}
+
+.filter-item { display: flex; flex-direction: column; gap: 6px; }
+
+/* ================= TABLES ================= */
+
+table { border-collapse: collapse; width: 100%; }
+
+.minimal-table, .customer-full-table {
+  background: var(--surface);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+
+table thead { background: var(--surface-2); }
+
+table th {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-3);
+  text-align: left;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+table td {
+  font-size: 13.5px;
+  color: var(--text-2);
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line-soft);
+  vertical-align: middle;
+}
+
+table tbody tr { transition: background .12s ease; }
+table tbody tr:hover { background: var(--surface-2); }
+table tbody tr:last-child td { border-bottom: none; }
+
+/* ================= BADGES / PILLS ================= */
+
+.priority-badge, .priority-pill, .stage-pill, .crm-pill, .crm-pill-service,
+.date-badge, .task-user-badge, .clr-value-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 5px 10px;
+  border-radius: 999px;
+  letter-spacing: .01em;
+  white-space: nowrap;
+}
+
+.notify-badge { font-size: 11px; font-weight: 700; }
+
+/* ================= MODALS ================= */
+
+.modal-overlay {
+  background: rgba(15, 23, 42, 0.55);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+.modal, .excel-modal, .profile-modal, .customer-view-modal {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-3);
+  max-height: 92vh;
+  overflow-y: auto;
+}
+
+.modal { padding: 24px; }
+
+.modal-header, .excel-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.modal-header h2, .excel-modal-header h2 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.close-icon {
+  width: 32px; height: 32px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  color: var(--text-3);
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease;
+}
+.close-icon:hover { background: #fee2e2; color: #dc2626; }
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  font-size: 13.5px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+/* ================= PAGINATION ================= */
+
+.pagination { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px; margin: 18px 0; }
+
+.pagination button {
+  min-width: 34px; height: 34px;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-2);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+}
+.pagination button:hover:not(:disabled) { background: var(--primary-soft); color: var(--primary); border-color: transparent; }
+.pagination button.active-page, .active-page { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+/* ================= POLISH ================= */
+
+::selection { background: rgba(37, 99, 235, .18); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}

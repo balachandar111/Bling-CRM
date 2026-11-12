@@ -586,6 +586,15 @@ const updateCustomer =
       }
 
 
+      // ================= WHATSAPP FLAG (not a customer field) =================
+
+      const sendWhatsApp =
+        req.body.sendWhatsApp === true ||
+        req.body.sendWhatsApp === "true";
+
+      delete req.body.sendWhatsApp;
+
+
       // ================= UPDATE FIELDS =================
 
       Object.keys(req.body)
@@ -604,13 +613,13 @@ const updateCustomer =
 
       await customer.save();
 
-      // ================= WHATSAPP THANK YOU MESSAGE =================
-      // OFF by default: re-sending a MARKETING template every time a lead is
-      // edited to the same person triggers WhatsApp's frequency cap and the
-      // messages then show as failed. Set WHATSAPP_ON_UPDATE=true to turn on.
+      // ================= WHATSAPP RESPONSE MESSAGE (MANUAL) =================
+      // On UPDATE the message is sent ONLY when the user/admin ticks the
+      // "Send WhatsApp response message" checkbox (frontend sends
+      // sendWhatsApp: true). Without the tick nothing is sent.
       let whatsapp = { ok: false, skipped: true };
-      if (process.env.WHATSAPP_ON_UPDATE === "true") {
-        // awaited for the same serverless reason as in createCustomer
+      if (sendWhatsApp) {
+        // awaited: Vercel (serverless) freezes the function after the response
         whatsapp = await sendWhatsAppResponse(customer);
       }
 
@@ -621,6 +630,7 @@ const updateCustomer =
         customer,
 
         whatsapp: {
+          requested: sendWhatsApp,
           sent: !!whatsapp.ok,
           error: whatsapp.ok || whatsapp.skipped ? undefined : whatsapp.error,
         },

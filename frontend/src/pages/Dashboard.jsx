@@ -1468,6 +1468,11 @@ const matchesAidaStage =
 );
 });
 
+  // Tick-box on the Update Customer form. WhatsApp response message is sent on
+  // update ONLY when this is ticked (always starts unticked).
+  const [sendWhatsAppOnUpdate, setSendWhatsAppOnUpdate] =
+    useState(false);
+
   const [formData, setFormData] =
 useState({
 
@@ -1933,6 +1938,8 @@ const handleFullUpdate = (customer) => {
       ?.slice(0, 10) || "",
   });
 
+  setSendWhatsAppOnUpdate(false);
+
   setShowCustomerUpdate(true);
 };
 
@@ -1960,7 +1967,10 @@ const saveFullUpdate = async (e) => {
 
       `/customers/${selectedCustomer._id}`,
 
-      formData
+      {
+        ...formData,
+        sendWhatsApp: sendWhatsAppOnUpdate,
+      }
     );
 
     console.log(response.data);
@@ -2008,16 +2018,26 @@ async (e) => {
 
   try {
 
-    await API.put(
+    const response = await API.put(
 
       `/customers/${selectedCustomer._id}`,
 
-      formData
+      {
+        ...formData,
+        sendWhatsApp: sendWhatsAppOnUpdate,
+      }
     );
 
-    alert(
-      "Customer Updated"
-    );
+    let message = "Customer Updated";
+
+    if (sendWhatsAppOnUpdate) {
+      message += response.data?.whatsapp?.sent
+        ? "\nWhatsApp response message sent"
+        : "\nWhatsApp message NOT sent: " +
+          (response.data?.whatsapp?.error || "unknown error");
+    }
+
+    alert(message);
 
     fetchCustomers();
 
@@ -6399,6 +6419,47 @@ clear-filter-btn
                 })
               }
             ></textarea>
+
+          </div>
+
+
+          {/* SEND WHATSAPP RESPONSE MESSAGE (manual, per update) */}
+
+          <div
+            className="input-group"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+            }}
+          >
+
+            <input
+
+              type="checkbox"
+
+              id="sendWhatsAppOnUpdate"
+
+              checked={sendWhatsAppOnUpdate}
+
+              onChange={(e) =>
+                setSendWhatsAppOnUpdate(
+                  e.target.checked
+                )
+              }
+
+              style={{
+                width: "auto",
+                margin: 0,
+              }}
+            />
+
+            <label
+              htmlFor="sendWhatsAppOnUpdate"
+              style={{ margin: 0, cursor: "pointer" }}
+            >
+              Send WhatsApp response message to customer
+            </label>
 
           </div>
 
