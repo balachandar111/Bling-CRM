@@ -198,7 +198,7 @@ const sendWhatsAppResponse = async (customer) => {
 
     const result = await sendBotifyTemplate({
       phone: customer && customer.phone,
-      templateName: clean(process.env.BOTIFY_TEMPLATE_NAME) || "response",
+      templateName: clean(process.env.BOTIFY_TEMPLATE_NAME) || "thankyou",
       templateData: buildTemplateData(customer),
       category: clean(process.env.BOTIFY_CATEGORY) || "MARKETING",
     });

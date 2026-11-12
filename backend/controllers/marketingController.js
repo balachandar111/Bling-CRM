@@ -322,7 +322,7 @@ const testWhatsApp = async (req, res) => {
 
     const result = await sendBotifyTemplate({
       phone,
-      templateName: templateName || process.env.BOTIFY_TEMPLATE_NAME || "response",
+      templateName: templateName || process.env.BOTIFY_TEMPLATE_NAME || "thankyou",
       templateData: Array.isArray(templateData) ? templateData : [],
       category,
     });
@@ -336,7 +336,7 @@ const testWhatsApp = async (req, res) => {
       envCheck: {
         BOTIFY_API_KEY: !!process.env.BOTIFY_API_KEY,
         BOTIFY_API_URL: process.env.BOTIFY_API_URL || "(default)",
-        BOTIFY_TEMPLATE_NAME: process.env.BOTIFY_TEMPLATE_NAME || "(default: response)",
+        BOTIFY_TEMPLATE_NAME: process.env.BOTIFY_TEMPLATE_NAME || "(default: thankyou)",
         BOTIFY_TEMPLATE_VARS: process.env.BOTIFY_TEMPLATE_VARS || "(empty)",
         BOTIFY_CATEGORY: process.env.BOTIFY_CATEGORY || "(default: MARKETING)",
         WHATSAPP_ENABLED: process.env.WHATSAPP_ENABLED || "(default: on)",
