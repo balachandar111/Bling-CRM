@@ -1,197 +1,21 @@
 require("dotenv").config();
 
-const express =
-require("express");
-
-const cors =
-require("cors");
-
-const mongoose =
-require("mongoose");
-
-const connectDB =
-require("./config/db");
-
-
-// ================= EXPRESS =================
-
-const app = express();
-
-
-// ================= MIDDLEWARE =================
-
-app.use(cors({
-  origin: "*",
-  credentials: true,
-}));
-
-app.use(express.json());
-
-app.use(express.urlencoded({
-  extended: true,
-}));
-
-
-// ================= DATABASE =================
-
-connectDB();
-
-
-// ================= ROUTES =================
-
-const authRoutes =
-require("./routes/authRoutes");
-
-const userRoutes =
-require("./routes/userRoutes");
-
-const customerRoutes =
-require("./routes/customerRoutes");
-
-const employeeRoutes =
-require("./routes/employeeRoutes");
-
-const attendanceRoutes =
-require("./routes/attendanceRoutes");
-
-const taskRoutes =
-require("./routes/taskRoutes");
-
-const reimbursementRoutes =
-require("./routes/reimbursementRoutes");
-
-const payslipRoutes =
-require("./routes/payslipRoutes");
-
-const invoiceRoutes =
-require("./routes/invoiceRoutes");
-
-const projectProgressRoutes =
-require("./routes/projectProgressRoutes");
-
-const marketingRoutes =
-require("./routes/marketingRoutes");
-
-
-// AUTH
-
-app.use(
-  "/api/auth",
-  authRoutes
-);
-
-
-// USERS
-
-app.use(
-  "/api/users",
-  userRoutes
-);
-
-
-// CUSTOMERS
-
-app.use(
-  "/api/customers",
-  customerRoutes
-);
-
-
-// EMPLOYEES
-
-app.use(
-  "/api/employees",
-  employeeRoutes
-);
-
-
-// ATTENDANCE
-
-app.use(
-  "/api/attendance",
-  attendanceRoutes
-);
-
-
-// TASKS
-
-app.use(
-  "/api/tasks",
-  taskRoutes
-);
-
-
-// REIMBURSEMENTS
-
-app.use(
-  "/api/reimbursements",
-  reimbursementRoutes
-);
-
-
-// PAYSLIPS
-
-app.use(
-  "/api/payslips",
-  payslipRoutes
-);
-
-
-// INVOICES
-
-app.use(
-  "/api/invoices",
-  invoiceRoutes
-);
-
-
-// PROJECT PROGRESS
-
-app.use(
-  "/api/project-progress",
-  projectProgressRoutes
-);
-
-
-// MARKETING (bulk email + bulk WhatsApp)
-
-app.use(
-  "/api/marketing",
-  marketingRoutes
-);
-
-
-// UPLOADS
-
-app.use(
-  "/uploads",
-  express.static("uploads")
-);
-
-
-// TEST ROUTE
-
-app.get("/", (req, res) => {
-
-  res.send(
-    "Backend Running"
-  );
-
-});
-
-
-// ================= PORT =================
-
-const PORT =
-process.env.PORT || 5000;
-
-
-// ================= SERVER =================
-
-app.listen(PORT, () => {
-
-  console.log(
-    `Server running on ${PORT}`
-  );
-
-});
+const app = require("./app");
+const connectDB = require("./config/db");
+
+const PORT = process.env.PORT || 5000;
+
+// Connect to MongoDB and start listening
+connectDB()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error("Initial MongoDB connection error:", err.message);
+    // Still listen so the server doesn't crash on startup
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT} (database connection pending)`);
+    });
+  });

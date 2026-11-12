@@ -22,6 +22,8 @@ import {
 
 } from "react-icons/fa";
 
+import API from "../services/api";
+
 const ReminderPage = ({
   customers = [],
 }) => {
@@ -151,32 +153,11 @@ async (e) => {
 
   try {
 
-    const response =
-      await fetch(
-
-        `http://localhost:5000/api/customers/${selectedCustomer._id}`,
-
-        {
-
-          method: "PUT",
-
-          headers: {
-
-            "Content-Type":
-            "application/json",
-
-            Authorization:
-              `Bearer ${localStorage.getItem("token")}`,
-          },
-
-          body: JSON.stringify(
-            formData
-          ),
-        }
+    const { data } =
+      await API.put(
+        `/customers/${selectedCustomer._id}`,
+        formData
       );
-
-    const data =
-      await response.json();
 
     if (data.success) {
 
@@ -197,7 +178,7 @@ async (e) => {
 
     console.log(error);
 
-    alert("Update Failed");
+    alert(error?.response?.data?.message || "Update Failed");
   }
 };
 

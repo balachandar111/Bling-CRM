@@ -9,7 +9,7 @@ const Employee =
 require("../models/employeeModel");
 
 const bcrypt =
-require("bcrypt");
+require("bcryptjs");
 
 const generateToken =
 require("../utils/jwt");

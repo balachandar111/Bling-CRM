@@ -29,7 +29,7 @@ const jwt =
 require("jsonwebtoken");
 
 const bcrypt =
-require("bcrypt");
+require("bcryptjs");
 
 
 // ================= REGISTER EMPLOYEE =================
