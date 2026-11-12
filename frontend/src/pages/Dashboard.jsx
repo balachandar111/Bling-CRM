@@ -44,6 +44,9 @@ import Invoices from "../user/Invoices";
 // Shared section (used by BOTH admin and user)
 import ProjectProgress from "../shared/ProjectProgress";
 
+// Marketing (Email + WhatsApp) - used by BOTH admin and user
+import Marketing from "../marketing/Marketing";
+
 import {
   useNavigate,
 } from "react-router-dom";
@@ -75,6 +78,11 @@ FaCommentDots,
   FaFileAlt,
   FaFileInvoiceDollar,
   FaProjectDiagram,
+  FaBullhorn,
+  FaEnvelope,
+  FaWhatsapp,
+  FaChevronDown,
+  FaChevronRight,
 
 } from "react-icons/fa";
 
@@ -953,6 +961,10 @@ useState("overall");
 
   const [activeMenu, setActiveMenu] =
     useState("dashboard");
+
+// Marketing group in the sidebar (expand / collapse)
+const [marketingOpen, setMarketingOpen] =
+useState(false);
 const [searchTerm, setSearchTerm] =
 useState("");
 useEffect(() => {
@@ -2940,6 +2952,86 @@ const closedLeadData = (() => {
   Project Progress
 
 </li>
+
+  {/* MARKETING - visible to everyone (Email + WhatsApp) */}
+<li
+
+  className={
+    activeMenu === "emailMarketing" ||
+    activeMenu === "whatsappMarketing"
+      ? "active"
+      : ""
+  }
+
+  onClick={(e) => {
+    // keep the mobile drawer open while expanding the group
+    e.stopPropagation();
+    setMarketingOpen((prev) => !prev);
+  }}
+
+  style={{
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+  }}
+>
+
+  <span style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+    <FaBullhorn />
+    Marketing
+  </span>
+
+  {(marketingOpen ||
+    activeMenu === "emailMarketing" ||
+    activeMenu === "whatsappMarketing")
+    ? <FaChevronDown size={11} />
+    : <FaChevronRight size={11} />}
+
+</li>
+
+{(marketingOpen ||
+  activeMenu === "emailMarketing" ||
+  activeMenu === "whatsappMarketing") && (
+  <>
+    <li
+
+      className={
+        activeMenu === "emailMarketing"
+          ? "active"
+          : ""
+      }
+
+      style={{ paddingLeft: "38px", fontSize: "14px" }}
+
+      onClick={() => setActiveMenu("emailMarketing")}
+    >
+
+      <FaEnvelope />
+
+      Email Marketing
+
+    </li>
+
+    <li
+
+      className={
+        activeMenu === "whatsappMarketing"
+          ? "active"
+          : ""
+      }
+
+      style={{ paddingLeft: "38px", fontSize: "14px" }}
+
+      onClick={() => setActiveMenu("whatsappMarketing")}
+    >
+
+      <FaWhatsapp />
+
+      WhatsApp Marketing
+
+    </li>
+  </>
+)}
 
 
   {/* USER MANAGEMENT - SUPER ADMIN ONLY */}
@@ -5104,6 +5196,29 @@ clear-filter-btn
 {
   activeMenu === "projectProgress" && (
     <ProjectProgress role={role} setSidebarOpen={setSidebarOpen} />
+  )
+}
+
+{/* ================= MARKETING (ADMIN + USER) ================= */}
+{
+  activeMenu === "emailMarketing" && (
+    <Marketing
+      key="email"
+      channel="email"
+      role={role}
+      setSidebarOpen={setSidebarOpen}
+    />
+  )
+}
+
+{
+  activeMenu === "whatsappMarketing" && (
+    <Marketing
+      key="whatsapp"
+      channel="whatsapp"
+      role={role}
+      setSidebarOpen={setSidebarOpen}
+    />
   )
 }
         

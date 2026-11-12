@@ -69,6 +69,9 @@ require("./routes/invoiceRoutes");
 const projectProgressRoutes =
 require("./routes/projectProgressRoutes");
 
+const marketingRoutes =
+require("./routes/marketingRoutes");
+
 
 // AUTH
 
@@ -147,6 +150,14 @@ app.use(
 app.use(
   "/api/project-progress",
   projectProgressRoutes
+);
+
+
+// MARKETING (bulk email + bulk WhatsApp)
+
+app.use(
+  "/api/marketing",
+  marketingRoutes
 );
 
 

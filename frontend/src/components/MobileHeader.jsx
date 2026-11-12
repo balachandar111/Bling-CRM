@@ -18,6 +18,8 @@ export const MENU_TITLES = {
   invoices: "Quotation & Invoice",
   tasks: "Tasks",
   projectProgress: "Project Progress",
+  emailMarketing: "Email Marketing",
+  whatsappMarketing: "WhatsApp Marketing",
   users: "User Management",
   leaveRequests: "Leave Requests",
   closedLeadsReimbursements: "Closed Deals & Reimbursements",
