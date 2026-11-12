@@ -75,14 +75,21 @@ const createCustomer =
         });
 
       // ================= WHATSAPP THANK YOU MESSAGE =================
-      // Fire-and-forget: does not delay or break the API response.
-      sendWhatsAppResponse(customer);
+      // MUST be awaited: on Vercel (serverless) the function is frozen as
+      // soon as the response is sent, so an un-awaited call never completes.
+      // sendWhatsAppResponse never throws and has its own 15s timeout.
+      const whatsapp = await sendWhatsAppResponse(customer);
 
       res.status(201).json({
 
         success: true,
 
         customer,
+
+        whatsapp: {
+          sent: !!whatsapp.ok,
+          error: whatsapp.ok ? undefined : whatsapp.error,
+        },
       });
 
     } catch (error) {
@@ -598,9 +605,13 @@ const updateCustomer =
       await customer.save();
 
       // ================= WHATSAPP THANK YOU MESSAGE =================
-      // Set WHATSAPP_ON_UPDATE=false in .env to send only on create.
-      if (process.env.WHATSAPP_ON_UPDATE !== "false") {
-        sendWhatsAppResponse(customer);
+      // OFF by default: re-sending a MARKETING template every time a lead is
+      // edited to the same person triggers WhatsApp's frequency cap and the
+      // messages then show as failed. Set WHATSAPP_ON_UPDATE=true to turn on.
+      let whatsapp = { ok: false, skipped: true };
+      if (process.env.WHATSAPP_ON_UPDATE === "true") {
+        // awaited for the same serverless reason as in createCustomer
+        whatsapp = await sendWhatsAppResponse(customer);
       }
 
       res.status(200).json({
@@ -608,6 +619,11 @@ const updateCustomer =
         success: true,
 
         customer,
+
+        whatsapp: {
+          sent: !!whatsapp.ok,
+          error: whatsapp.ok || whatsapp.skipped ? undefined : whatsapp.error,
+        },
       });
 
     } catch (error) {

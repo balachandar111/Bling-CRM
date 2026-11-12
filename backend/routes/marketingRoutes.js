@@ -7,6 +7,7 @@ const protect = require("../middlewares/authMiddleware");
 const {
   sendBulkEmail,
   sendBulkWhatsApp,
+  testWhatsApp,
   previewEmail,
   sendTestEmail,
 } = require("../controllers/marketingController");
@@ -23,5 +24,8 @@ router.post("/email/test", protect, sendTestEmail);
 router.post("/email", protect, sendBulkEmail);
 
 router.post("/whatsapp", protect, sendBulkWhatsApp);
+
+// one-message diagnostic: shows the exact Botify request + response
+router.post("/whatsapp/test", protect, testWhatsApp);
 
 module.exports = router;
