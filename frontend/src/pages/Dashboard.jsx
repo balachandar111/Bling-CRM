@@ -81,6 +81,8 @@ FaCommentDots,
   FaBullhorn,
   FaEnvelope,
   FaWhatsapp,
+  FaBars,
+  FaChevronLeft,
   FaChevronDown,
   FaChevronRight,
 
@@ -2674,10 +2676,12 @@ const closedLeadData = (() => {
         <button
           type="button"
           className="desktop-sidebar-reopen"
-          aria-label="Open menu"
+          aria-label="Open navigation"
+          aria-controls="crm-sidebar"
+          aria-expanded="false"
           onClick={() => setSidebarOpen(true)}
         >
-          ☰
+          <FaBars aria-hidden="true" />
         </button>
       )}
 
@@ -2701,6 +2705,18 @@ const closedLeadData = (() => {
 
     className="crm-logo"
   />
+
+  <button
+    type="button"
+    className="sidebar-collapse-toggle"
+    aria-label={isMobile ? "Close navigation" : "Collapse navigation"}
+    aria-controls="crm-sidebar"
+    aria-expanded={sidebarOpen}
+    title={isMobile ? "Close menu" : "Collapse sidebar"}
+    onClick={() => setSidebarOpen(false)}
+  >
+    <FaChevronLeft aria-hidden="true" />
+  </button>
 
  
 
@@ -3287,15 +3303,6 @@ const closedLeadData = (() => {
 
                 <div>
                   <div className="dash">
-                   <button
-      className="sidebar-toggle"
-      onClick={() =>
-        setSidebarOpen(prev => !prev)
-      }
-    >
-      ☰
-    </button>
-
                   <h1 className="dh1">
                     CRM Analytics Dashboard
                   </h1>
@@ -4005,15 +4012,6 @@ clear-filter-btn
 
 
   <div className="header-left">
-
-    <button
-      className="sidebar-toggle"
-      onClick={() =>
-        setSidebarOpen(prev => !prev)
-      }
-    >
-      ☰
-    </button>
 
     <div>
 
@@ -4880,15 +4878,6 @@ clear-filter-btn
       <div className="reminder-header">
 
          <div className="header-left">
-
-    <button
-      className="sidebar-toggle"
-      onClick={() =>
-        setSidebarOpen(prev => !prev)
-      }
-    >
-      ☰
-    </button>
 
           <h1 className="rh1">
             Follow Up Reminders
