@@ -154,8 +154,13 @@ status: {
     enum: [
       "Website",
       "Social media",
+      "Social Media",
       "Expo",
-      "Referral"
+      "Referral",
+      "CITASIS",
+      "YES",
+      "others",
+      "Others"
     ],
 
     default: "Website",

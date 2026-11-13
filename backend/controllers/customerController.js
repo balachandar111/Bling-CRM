@@ -276,19 +276,25 @@ const bulkUploadCustomers =
           (customer) => ({
 
             name:
-              customer.name || "",
+              customer.name || customer.Name || "",
 
             email:
-              customer.email || "",
+              customer.email || customer.Email || "",
 
             phone:
               customer.phone !== undefined &&
                 customer.phone !== null
                 ? String(customer.phone).trim()
+                : customer.Phone !== undefined &&
+                  customer.Phone !== null
+                ? String(customer.Phone).trim()
+                : customer["Contact No"] !== undefined &&
+                  customer["Contact No"] !== null
+                ? String(customer["Contact No"]).trim()
                 : "",
 
             company:
-              customer.company || "",
+              customer.company || customer.Company || "",
 
             status:
               customer.status || "lead",
@@ -327,8 +333,17 @@ const bulkUploadCustomers =
             sector:
               customer.sector || "",
 
-            location:
-              customer.location || "",
+            location: (() => {
+              const val =
+                customer.location ??
+                customer.Location ??
+                customer.LOCATION ??
+                customer["Location "] ??
+                customer["location "];
+              return val !== undefined && val !== null
+                ? String(val).trim()
+                : "";
+            })(),
 
             service:
               customer.service || "",

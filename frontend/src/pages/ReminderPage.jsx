@@ -69,13 +69,10 @@ const ReminderPage = ({
 
   }, [customers]);
 
-  const [showUpdateModal,
-setShowUpdateModal] =
-useState(false);
-
-const [selectedCustomer,
-setSelectedCustomer] =
-useState(null);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [sendWhatsAppOnUpdate, setSendWhatsAppOnUpdate] = useState(false);
+  const [updateCustomerLoading, setUpdateCustomerLoading] = useState(false);
 
 const [formData,
 setFormData] =
@@ -96,6 +93,8 @@ useState({
   assignedTo: "",
 
   followUpDate: "",
+
+  source: "Website",
 
   remark: "",
 });
@@ -129,6 +128,9 @@ const handleUpdate =
     priority:
       customer.priority || "",
 
+    source:
+      customer.source || "Website",
+
     assignedTo:
       customer.assignedTo || "",
 
@@ -140,6 +142,7 @@ const handleUpdate =
       customer.remark || "",
   });
 
+  setSendWhatsAppOnUpdate(false);
   setShowUpdateModal(true);
 };
 
@@ -150,20 +153,30 @@ const updateCustomer =
 async (e) => {
 
   e.preventDefault();
+  if (updateCustomerLoading) return;
+  setUpdateCustomerLoading(true);
 
   try {
 
     const { data } =
       await API.put(
         `/customers/${selectedCustomer._id}`,
-        formData
+        {
+          ...formData,
+          sendWhatsApp: sendWhatsAppOnUpdate,
+        }
       );
 
     if (data.success) {
 
-      alert(
-        "Customer Updated Successfully"
-      );
+      let message = "Customer Updated Successfully";
+      if (sendWhatsAppOnUpdate) {
+        message += data?.whatsapp?.sent
+          ? "\nWhatsApp response message sent"
+          : "\nWhatsApp message NOT sent: " + (data?.whatsapp?.error || "unknown error");
+      }
+
+      alert(message);
 
       setShowUpdateModal(false);
 
@@ -179,6 +192,8 @@ async (e) => {
     console.log(error);
 
     alert(error?.response?.data?.message || "Update Failed");
+  } finally {
+    setUpdateCustomerLoading(false);
   }
 };
 
@@ -463,6 +478,179 @@ update-customer-btn
 
       </div>
 
+      {/* UPDATE MODAL */}
+      {showUpdateModal && selectedCustomer && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h2>Update Follow-up Customer</h2>
+              <span
+                className="close-icon"
+                onClick={() => setShowUpdateModal(false)}
+              >
+                ✕
+              </span>
+            </div>
+
+            <form onSubmit={updateCustomer}>
+              <div className="form-grid">
+                <div className="input-group">
+                  <label>Customer Name</label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div className="input-group">
+                  <label>Company</label>
+                  <input
+                    type="text"
+                    value={formData.company}
+                    onChange={(e) =>
+                      setFormData({ ...formData, company: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div className="input-group">
+                  <label>Email</label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) =>
+                      setFormData({ ...formData, email: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div className="input-group">
+                  <label>Contact No</label>
+                  <input
+                    type="text"
+                    value={formData.phone}
+                    onChange={(e) =>
+                      setFormData({ ...formData, phone: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div className="input-group">
+                  <label>Lead Stage</label>
+                  <select
+                    value={formData.leadStage}
+                    onChange={(e) =>
+                      setFormData({ ...formData, leadStage: e.target.value })
+                    }
+                  >
+                    <option value="">Select Stage</option>
+                    <option value="Awareness">Awareness</option>
+                    <option value="Interest">Interest</option>
+                    <option value="Desire">Desire</option>
+                    <option value="Action">Action</option>
+                    <option value="Closure">Closure</option>
+                  </select>
+                </div>
+
+                <div className="input-group">
+                  <label>Priority</label>
+                  <select
+                    value={formData.priority}
+                    onChange={(e) =>
+                      setFormData({ ...formData, priority: e.target.value })
+                    }
+                  >
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                  </select>
+                </div>
+
+                <div className="input-group">
+                  <label>Lead Source</label>
+                  <select
+                    value={formData.source}
+                    onChange={(e) =>
+                      setFormData({ ...formData, source: e.target.value })
+                    }
+                  >
+                    <option value="Website">Website</option>
+                    <option value="Referral">Referral</option>
+                    <option value="Expo">Expo</option>
+                    <option value="Social Media">Social Media</option>
+                    <option value="CITASIS">CITASIS</option>
+                    <option value="YES">YES</option>
+                    <option value="others">Others</option>
+                  </select>
+                </div>
+
+                <div className="input-group">
+                  <label>Follow Up Date</label>
+                  <input
+                    type="date"
+                    value={formData.followUpDate}
+                    onChange={(e) =>
+                      setFormData({ ...formData, followUpDate: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="input-group" style={{ marginTop: "12px" }}>
+                <label>Remarks</label>
+                <textarea
+                  rows="3"
+                  value={formData.remark}
+                  onChange={(e) =>
+                    setFormData({ ...formData, remark: e.target.value })
+                  }
+                ></textarea>
+              </div>
+
+              {/* SEND WHATSAPP RESPONSE MESSAGE OPTION */}
+              <div
+                className="input-group"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  marginTop: "16px",
+                  marginBottom: "16px",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  id="reminderSendWhatsApp"
+                  checked={sendWhatsAppOnUpdate}
+                  onChange={(e) => setSendWhatsAppOnUpdate(e.target.checked)}
+                  style={{ width: "auto", margin: 0, cursor: "pointer" }}
+                />
+                <label
+                  htmlFor="reminderSendWhatsApp"
+                  style={{ margin: 0, cursor: "pointer", fontWeight: "500", color: "#111827" }}
+                >
+                  Send WhatsApp response message to customer
+                </label>
+              </div>
+
+              <button
+                type="submit"
+                className="submit-btn"
+                disabled={updateCustomerLoading}
+                style={{
+                  opacity: updateCustomerLoading ? 0.7 : 1,
+                  cursor: updateCustomerLoading ? "not-allowed" : "pointer",
+                }}
+              >
+                {updateCustomerLoading ? "Updating Customer..." : "Update Customer"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* CSS */}
 
@@ -615,6 +803,101 @@ update-customer-btn
           .reminder-grid {
             grid-template-columns: 1fr;
           }
+        }
+
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0,0,0,0.5);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          z-index: 1000;
+        }
+
+        .modal {
+          background: white;
+          padding: 25px 30px;
+          border-radius: 16px;
+          width: 90%;
+          max-width: 600px;
+          max-height: 90vh;
+          overflow-y: auto;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .modal-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 20px;
+        }
+
+        .modal-header h2 {
+          margin: 0;
+          font-size: 20px;
+          color: #111827;
+        }
+
+        .close-icon {
+          font-size: 20px;
+          cursor: pointer;
+          color: #6B7280;
+        }
+
+        .form-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 15px;
+        }
+
+        .input-group {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .input-group label {
+          font-size: 13px;
+          font-weight: 500;
+          color: #374151;
+        }
+
+        .input-group input,
+        .input-group select,
+        .input-group textarea {
+          padding: 9px 12px;
+          border: 1px solid #D1D5DB;
+          border-radius: 8px;
+          font-size: 14px;
+          outline: none;
+          font-family: inherit;
+        }
+
+        .input-group input:focus,
+        .input-group select:focus,
+        .input-group textarea:focus {
+          border-color: #2563EB;
+        }
+
+        .submit-btn {
+          width: 100%;
+          padding: 12px;
+          background: #2563EB;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          font-size: 15px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: 0.2s;
+        }
+
+        .submit-btn:hover:not(:disabled) {
+          background: #1D4ED8;
         }
 
         `}

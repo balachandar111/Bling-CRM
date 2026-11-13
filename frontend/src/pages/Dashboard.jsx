@@ -715,6 +715,9 @@ const downloadExcel = () => {
       Company:
       customer.company,
 
+      Location:
+      customer.location || "",
+
       Status:
       customer.status,
 
@@ -1715,6 +1718,9 @@ async () => {
   const [adminReimbursements, setAdminReimbursements] = useState([]);
   const [loadingReimbursements, setLoadingReimbursements] = useState(false);
   const [reimbursementActionLoading, setReimbursementActionLoading] = useState(false);
+  const [addCustomerLoading, setAddCustomerLoading] = useState(false);
+  const [updateCustomerLoading, setUpdateCustomerLoading] = useState(false);
+  const [statusUpdateLoading, setStatusUpdateLoading] = useState(false);
 
   const fetchAllReimbursements = async () => {
     setLoadingReimbursements(true);
@@ -1831,6 +1837,8 @@ useEffect(() => {
   async (e) => {
 
     e.preventDefault();
+    if (addCustomerLoading) return;
+    setAddCustomerLoading(true);
     console.log("Sending Data =>", formData);
 
     try {
@@ -1887,8 +1895,10 @@ aidaStage: "",
       console.log(error);
 
       alert(
-        error.response?.data?.message
+        error.response?.data?.message || "Failed to add customer"
       );
+    } finally {
+      setAddCustomerLoading(false);
     }
   };
 // ================= FULL UPDATE =================
@@ -2017,6 +2027,8 @@ const updateCustomer =
 async (e) => {
 
   e.preventDefault();
+  if (updateCustomerLoading) return;
+  setUpdateCustomerLoading(true);
 
   try {
 
@@ -2048,6 +2060,9 @@ async (e) => {
   } catch (error) {
 
     console.log(error);
+    alert(error.response?.data?.message || "Update Failed");
+  } finally {
+    setUpdateCustomerLoading(false);
   }
 };
 const updateLeadStatus =
@@ -2084,6 +2099,8 @@ const saveStatusUpdate =
 async (e) => {
 
   e.preventDefault();
+  if (statusUpdateLoading) return;
+  setStatusUpdateLoading(true);
 
   try {
 
@@ -2112,6 +2129,9 @@ async (e) => {
   } catch (error) {
 
     console.log(error);
+    alert(error.response?.data?.message || "Status Update Failed");
+  } finally {
+    setStatusUpdateLoading(false);
   }
 };
 
@@ -2359,28 +2379,6 @@ const sourceData = [
   },
 
   {
-    name: "Instagram",
-
-    value:
-      analyticsCustomers.filter(
-        (c) =>
-          c.source ===
-          "Instagram"
-      ).length,
-  },
-
-  {
-    name: "LinkedIn",
-
-    value:
-      analyticsCustomers.filter(
-        (c) =>
-          c.source ===
-          "LinkedIn"
-      ).length,
-  },
-
-  {
     name: "Referral",
 
     value:
@@ -2388,6 +2386,52 @@ const sourceData = [
         (c) =>
           c.source ===
           "Referral"
+      ).length,
+  },
+
+  {
+    name: "Expo",
+
+    value:
+      analyticsCustomers.filter(
+        (c) =>
+          c.source ===
+          "Expo"
+      ).length,
+  },
+
+  {
+    name: "Social Media",
+
+    value:
+      analyticsCustomers.filter(
+        (c) =>
+          c.source === "Social media" ||
+          c.source === "Social Media" ||
+          c.source === "Instagram" ||
+          c.source === "LinkedIn"
+      ).length,
+  },
+
+  {
+    name: "CITASIS",
+
+    value:
+      analyticsCustomers.filter(
+        (c) =>
+          c.source ===
+          "CITASIS"
+      ).length,
+  },
+
+  {
+    name: "YES",
+
+    value:
+      analyticsCustomers.filter(
+        (c) =>
+          c.source ===
+          "YES"
       ).length,
   },
 ];
@@ -4216,6 +4260,18 @@ clear-filter-btn
       Social Media
     </option>
 
+    <option value="CITASIS">
+      CITASIS
+    </option>
+
+    <option value="YES">
+      YES
+    </option>
+
+    <option value="others">
+      Others
+    </option>
+
   </select>
 
 </div>
@@ -4414,7 +4470,7 @@ clear-filter-btn
           <button
             className="excel-dl-btn"
             onClick={() => {
-              const template = [{ name: "", email: "", "phone": "", company: "", status: "", leadStage: "", priority: "", source: "", assignedTo: "", product: "", sector: "",followUpDate: "", remark: "" }];
+              const template = [{ name: "", email: "", phone: "", company: "", location: "", status: "", leadStage: "", priority: "", source: "", assignedTo: "", product: "", sector: "", followUpDate: "", remark: "" }];
               const ws = XLSX.utils.json_to_sheet(template);
               const wb = XLSX.utils.book_new();
               XLSX.utils.book_append_sheet(wb, ws, "Customers");
@@ -5024,7 +5080,7 @@ clear-filter-btn
                     </div>
 
 
-                    <div className="right-box">
+                    <div className="right-box" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
 
                       <span className="priority-pill">
 
@@ -5041,8 +5097,31 @@ clear-filter-btn
                         }
 
                       </span>
-               
-                      
+
+                      <button
+                        className="update-customer-btn"
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "5px",
+                          padding: "6px 14px",
+                          borderRadius: "20px",
+                          background: "#2563EB",
+                          color: "white",
+                          border: "none",
+                          fontSize: "12px",
+                          fontWeight: "600",
+                          cursor: "pointer",
+                          marginLeft: "4px",
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleFullUpdate(customer);
+                        }}
+                        title="Update Follow-up Customer"
+                      >
+                        <FaEdit /> Update
+                      </button>
 
                     </div>
 
@@ -5535,6 +5614,9 @@ clear-filter-btn
     <option value="Referral">Referral</option>
     <option value="Expo">Expo</option>
     <option value="Social Media">Social Media</option>
+    <option value="CITASIS">CITASIS</option>
+    <option value="YES">YES</option>
+    <option value="others">Others</option>
   
   </select>
 </div>
@@ -5789,9 +5871,14 @@ clear-filter-btn
           <button
             type="submit"
             className="submit-btn"
+            disabled={addCustomerLoading}
+            style={{
+              opacity: addCustomerLoading ? 0.7 : 1,
+              cursor: addCustomerLoading ? "not-allowed" : "pointer",
+            }}
           >
 
-            Save Customer
+            {addCustomerLoading ? "Saving Customer..." : "Save Customer"}
 
           </button>
 
@@ -6304,6 +6391,8 @@ clear-filter-btn
     <option value="Referral">Referral</option>
     <option value="Expo">Expo</option>
     <option value="Social media">Social Media</option>
+    <option value="CITASIS">CITASIS</option>
+    <option value="YES">YES</option>
     <option value="others">Others</option>
    
   </select>
@@ -6456,9 +6545,14 @@ clear-filter-btn
           <button
             type="submit"
             className="submit-btn"
+            disabled={updateCustomerLoading}
+            style={{
+              opacity: updateCustomerLoading ? 0.7 : 1,
+              cursor: updateCustomerLoading ? "not-allowed" : "pointer",
+            }}
           >
 
-            Update Customer
+            {updateCustomerLoading ? "Updating Customer..." : "Update Customer"}
 
           </button>
 
@@ -6597,9 +6691,14 @@ clear-filter-btn
           <button
             type="submit"
             className="submit-btn"
+            disabled={statusUpdateLoading}
+            style={{
+              opacity: statusUpdateLoading ? 0.7 : 1,
+              cursor: statusUpdateLoading ? "not-allowed" : "pointer",
+            }}
           >
 
-            Update Status
+            {statusUpdateLoading ? "Updating Status..." : "Update Status"}
 
           </button>
 
