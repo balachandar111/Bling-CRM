@@ -432,6 +432,7 @@ exports.onboardLeadsToProduct = async (req, res) => {
         if (newLeadsToAdd.length >= availableSlots) break;
         if (existingCustomerIds.has(String(cust._id))) continue;
 
+        const initialNote = (cust.remark || "").trim();
         newLeadsToAdd.push({
           customerId: cust._id,
           name: cust.name || "",
@@ -440,8 +441,26 @@ exports.onboardLeadsToProduct = async (req, res) => {
           email: cust.email || "",
           location: cust.location || "",
           stage: "Call",
-          stageHistory: [{ stage: "Call", updatedAt: new Date(), updatedBy: req.user._id }],
-          notes: cust.remark || "",
+          stageHistory: [
+            {
+              stage: "Call",
+              updatedAt: new Date(),
+              updatedBy: req.user._id,
+              updatedByName: req.user.name || "User",
+            },
+          ],
+          notes: initialNote,
+          notesHistory: initialNote
+            ? [
+                {
+                  note: initialNote,
+                  stage: "Call",
+                  authorName: req.user.name || "User",
+                  authorId: req.user._id,
+                  createdAt: new Date(),
+                },
+              ]
+            : [],
           onboardedAt: new Date(),
         });
       }
@@ -451,6 +470,7 @@ exports.onboardLeadsToProduct = async (req, res) => {
     if (leads && Array.isArray(leads) && leads.length > 0) {
       for (const item of leads) {
         if (newLeadsToAdd.length >= availableSlots) break;
+        const initialNote = (item.notes || "").trim();
         newLeadsToAdd.push({
           customerId: item.customerId || null,
           name: item.name || "",
@@ -459,8 +479,26 @@ exports.onboardLeadsToProduct = async (req, res) => {
           email: item.email || "",
           location: item.location || "",
           stage: item.stage || "Call",
-          stageHistory: [{ stage: item.stage || "Call", updatedAt: new Date(), updatedBy: req.user._id }],
-          notes: item.notes || "",
+          stageHistory: [
+            {
+              stage: item.stage || "Call",
+              updatedAt: new Date(),
+              updatedBy: req.user._id,
+              updatedByName: req.user.name || "User",
+            },
+          ],
+          notes: initialNote,
+          notesHistory: initialNote
+            ? [
+                {
+                  note: initialNote,
+                  stage: item.stage || "Call",
+                  authorName: req.user.name || "User",
+                  authorId: req.user._id,
+                  createdAt: new Date(),
+                },
+              ]
+            : [],
           onboardedAt: new Date(),
         });
       }
@@ -528,17 +566,30 @@ exports.updateLeadStage = async (req, res) => {
     }
 
     lead.stage = stage;
-    if (notes !== undefined) lead.notes = notes;
+    if (notes !== undefined && notes !== null && String(notes).trim() !== "") {
+      const cleanNote = String(notes).trim();
+      lead.notes = cleanNote;
+      if (!lead.notesHistory) lead.notesHistory = [];
+      lead.notesHistory.push({
+        note: cleanNote,
+        stage: stage,
+        authorName: req.user.name || "User",
+        authorId: req.user._id,
+        createdAt: new Date(),
+      });
+    }
 
     // Track timestamp when moved into Quote
     if (stage === "Quote") {
       lead.quotedAt = new Date();
     }
 
+    if (!lead.stageHistory) lead.stageHistory = [];
     lead.stageHistory.push({
       stage,
       updatedAt: new Date(),
       updatedBy: req.user._id,
+      updatedByName: req.user.name || "User",
     });
 
     await track.save();
@@ -560,6 +611,78 @@ exports.updateLeadStage = async (req, res) => {
     });
   } catch (error) {
     console.error("Update Lead Stage Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ================= ADD / EDIT LEAD NOTE (ANY TIME) =================
+exports.updateLeadNotes = async (req, res) => {
+  try {
+    const { id, productId, leadId } = req.params;
+    const { note, stage } = req.body;
+
+    if (!note || !note.trim()) {
+      return res.status(400).json({ success: false, message: "Note text is required" });
+    }
+
+    const track = await LeadTrack.findById(id);
+    if (!track) {
+      return res.status(404).json({ success: false, message: "Lead Track not found" });
+    }
+
+    const candidateIds = await getCandidateUserIds(req.user);
+    if (!hasTrackAccess(track, req.user, candidateIds)) {
+      return res.status(403).json({ success: false, message: "Access denied" });
+    }
+
+    const product = track.products.id(productId);
+    if (!product) {
+      return res.status(404).json({ success: false, message: "Product card not found" });
+    }
+
+    const lead = product.onboardedLeads.id(leadId);
+    if (!lead) {
+      return res.status(404).json({ success: false, message: "Lead not found in this product" });
+    }
+
+    const cleanNote = note.trim();
+    lead.notes = cleanNote;
+
+    if (!lead.notesHistory) lead.notesHistory = [];
+    lead.notesHistory.push({
+      note: cleanNote,
+      stage: stage || lead.stage || "Call",
+      authorName: req.user.name || "User",
+      authorId: req.user._id,
+      createdAt: new Date(),
+    });
+
+    await track.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Note updated successfully",
+      notes: lead.notes,
+      notesHistory: lead.notesHistory,
+      lead,
+    });
+  } catch (error) {
+    console.error("Update Lead Notes Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ================= CLEAR ALL LEAD TRACKS (ADMIN ONLY) =================
+exports.clearAllLeadTracks = async (req, res) => {
+  try {
+    const result = await LeadTrack.deleteMany({});
+    res.status(200).json({
+      success: true,
+      message: `All lead tracks cleared successfully (${result.deletedCount} tracks deleted)`,
+      deletedCount: result.deletedCount,
+    });
+  } catch (error) {
+    console.error("Clear All Lead Tracks Error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

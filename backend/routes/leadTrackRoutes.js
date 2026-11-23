@@ -15,6 +15,8 @@ const {
   removeLeadFromProduct,
   getAdminLeadTrackReport,
   getAssignableUsers,
+  updateLeadNotes,
+  clearAllLeadTracks,
 } = require("../controllers/leadTrackController");
 
 // ================= ANALYTICS REPORT (ADMIN ONLY) =================
@@ -32,6 +34,14 @@ router.get(
   protect,
   roleMiddleware("super_admin"),
   getAssignableUsers
+);
+
+// ================= CLEAR ALL TRACKS (ADMIN ONLY) =================
+router.delete(
+  "/clear-all",
+  protect,
+  roleMiddleware("super_admin"),
+  clearAllLeadTracks
 );
 
 // ================= TRACKS CRUD =================
@@ -79,6 +89,12 @@ router.patch(
   "/:id/products/:productId/leads/:leadId/stage",
   protect,
   updateLeadStage
+);
+
+router.patch(
+  "/:id/products/:productId/leads/:leadId/notes",
+  protect,
+  updateLeadNotes
 );
 
 router.delete(

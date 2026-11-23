@@ -1,5 +1,13 @@
 const mongoose = require("mongoose");
 
+const noteEntrySchema = new mongoose.Schema({
+  note: { type: String, required: true },
+  stage: { type: String, default: "" },
+  authorName: { type: String, default: "" },
+  authorId: { type: mongoose.Schema.Types.ObjectId, ref: "UserDetails" },
+  createdAt: { type: Date, default: Date.now },
+});
+
 const onboardedLeadSchema = new mongoose.Schema({
   customerId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -20,10 +28,12 @@ const onboardedLeadSchema = new mongoose.Schema({
       stage: { type: String },
       updatedAt: { type: Date, default: Date.now },
       updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "UserDetails" },
+      updatedByName: { type: String, default: "" },
     },
   ],
   quotedAt: { type: Date },
   notes: { type: String, default: "" },
+  notesHistory: [noteEntrySchema],
   onboardedAt: { type: Date, default: Date.now },
 });
 

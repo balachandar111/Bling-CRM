@@ -13,7 +13,16 @@ import {
   FaSearch,
   FaTimes,
   FaUserCheck,
-  FaExternalLinkAlt,
+  FaInfoCircle,
+  FaRegCommentDots,
+  FaHistory,
+  FaSave,
+  FaEdit,
+  FaMapMarkerAlt,
+  FaBuilding,
+  FaCalendarAlt,
+  FaUser,
+  FaEnvelope,
 } from "react-icons/fa";
 import API from "../services/api";
 import "./UserLeadTrack.css";
@@ -26,10 +35,17 @@ const PRODUCT_ICONS = {
   WhatsappAtuomation: "🤖",
 };
 
+const STAGE_CONFIG = [
+  { key: "Call", label: "Call", icon: FaPhoneAlt, color: "#2563eb", bg: "#eff6ff" },
+  { key: "WhatsappMessage", label: "WhatsApp", icon: FaWhatsapp, color: "#10b981", bg: "#ecfdf5" },
+  { key: "Demo", label: "Demo", icon: FaLaptopCode, color: "#9333ea", bg: "#faf5ff" },
+  { key: "Quote", label: "Quote", icon: FaFileInvoice, color: "#e11d48", bg: "#fff1f2" },
+];
+
 const UserLeadTrack = () => {
   const [tracks, setTracks] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [activeProductTrack, setActiveProductTrack] = useState(null); // When inside a product card
+  const [activeProductTrack, setActiveProductTrack] = useState(null);
   const [parentTrackId, setParentTrackId] = useState(null);
 
   // Onboard modal state
@@ -40,7 +56,7 @@ const UserLeadTrack = () => {
   const [selectedCustomerIds, setSelectedCustomerIds] = useState([]);
   const [onboarding, setOnboarding] = useState(false);
 
-  // Manual new lead form inside modal
+  // Manual new lead form inside onboard modal
   const [manualMode, setManualMode] = useState(false);
   const [manualLead, setManualLead] = useState({
     name: "",
@@ -50,6 +66,13 @@ const UserLeadTrack = () => {
     location: "",
     notes: "",
   });
+
+  // Overall Details Modal State
+  const [selectedLeadForDetails, setSelectedLeadForDetails] = useState(null);
+  const [detailNoteInput, setDetailNoteInput] = useState("");
+  const [detailNoteStage, setDetailNoteStage] = useState("Call");
+  const [savingNote, setSavingNote] = useState(false);
+  const [noteSuccessMsg, setNoteSuccessMsg] = useState("");
 
   useEffect(() => {
     fetchMyLeadTracks();
@@ -71,6 +94,16 @@ const UserLeadTrack = () => {
           );
           if (updatedProd) {
             setActiveProductTrack(updatedProd);
+
+            // Also refresh selected lead details if open
+            if (selectedLeadForDetails) {
+              const updatedLead = updatedProd.onboardedLeads.find(
+                (l) => String(l._id) === String(selectedLeadForDetails._id)
+              );
+              if (updatedLead) {
+                setSelectedLeadForDetails(updatedLead);
+              }
+            }
           }
         }
       }
@@ -101,6 +134,7 @@ const UserLeadTrack = () => {
   const closeProductWorkspace = () => {
     setActiveProductTrack(null);
     setParentTrackId(null);
+    setSelectedLeadForDetails(null);
   };
 
   const openOnboardModal = () => {
@@ -181,15 +215,14 @@ const UserLeadTrack = () => {
   // Pipeline Stage Action: call -> WhatsappMessage -> demo -> Quote
   const handleStageChange = async (leadId, newStage, phone) => {
     try {
-      const res = await API.patch(
+      await API.patch(
         `/lead-tracks/${parentTrackId}/products/${activeProductTrack._id}/leads/${leadId}/stage`,
         { stage: newStage }
       );
 
-      // Optimistically or server-sync update
       fetchMyLeadTracks();
 
-      // If user clicked WhatsApp, optionally open WhatsApp chat
+      // If user clicked WhatsApp, open WhatsApp chat
       if (newStage === "WhatsappMessage" && phone) {
         const cleanPhone = String(phone).replace(/\D/g, "");
         if (cleanPhone) {
@@ -209,6 +242,9 @@ const UserLeadTrack = () => {
       await API.delete(
         `/lead-tracks/${parentTrackId}/products/${activeProductTrack._id}/leads/${leadId}`
       );
+      if (selectedLeadForDetails && selectedLeadForDetails._id === leadId) {
+        setSelectedLeadForDetails(null);
+      }
       fetchMyLeadTracks();
     } catch (err) {
       console.error(err);
@@ -216,9 +252,54 @@ const UserLeadTrack = () => {
     }
   };
 
-  // Filter customers for modal
+  // Open Details Modal for a lead
+  const openLeadDetailsModal = (lead) => {
+    setSelectedLeadForDetails(lead);
+    setDetailNoteInput("");
+    setDetailNoteStage(lead.stage || "Call");
+    setNoteSuccessMsg("");
+  };
+
+  // Add / Edit Note from Details Modal or inline
+  const handleSaveDetailNote = async (e) => {
+    if (e) e.preventDefault();
+    if (!detailNoteInput.trim()) {
+      alert("Please enter a note before saving.");
+      return;
+    }
+
+    try {
+      setSavingNote(true);
+      const res = await API.patch(
+        `/lead-tracks/${parentTrackId}/products/${activeProductTrack._id}/leads/${selectedLeadForDetails._id}/notes`,
+        {
+          note: detailNoteInput.trim(),
+          stage: detailNoteStage,
+        }
+      );
+
+      setNoteSuccessMsg("Note saved successfully!");
+      setDetailNoteInput("");
+      setTimeout(() => setNoteSuccessMsg(""), 3000);
+
+      // Refresh lead details & workspace
+      if (res.data.lead) {
+        setSelectedLeadForDetails(res.data.lead);
+      }
+      fetchMyLeadTracks();
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || "Failed to save note");
+    } finally {
+      setSavingNote(false);
+    }
+  };
+
+  // Filter customers for onboarding modal
   const existingCustomerIds = new Set(
-    activeProductTrack?.onboardedLeads?.map((l) => (l.customerId ? String(l.customerId) : null)).filter(Boolean) || []
+    activeProductTrack?.onboardedLeads
+      ?.map((l) => (l.customerId ? String(l.customerId) : null))
+      .filter(Boolean) || []
   );
 
   const filteredCustomers = customers.filter((c) => {
@@ -247,7 +328,7 @@ const UserLeadTrack = () => {
                 <FaBullseye style={{ color: "#2563eb" }} /> Track-Lead Workspace
               </h1>
               <p>
-                View your assigned product targets, onboard customer leads, and progress them to Quote stage.
+                View your assigned product targets, onboard customer leads, log notes history, and progress leads to Quote stage.
               </p>
             </div>
           </div>
@@ -298,36 +379,32 @@ const UserLeadTrack = () => {
               Loading your lead tracks...
             </div>
           ) : tracks.length === 0 ? (
-            <div
-              style={{
-                background: "#ffffff",
-                padding: "50px",
-                borderRadius: "14px",
-                textAlign: "center",
-                border: "1px dashed #cbd5e1",
-              }}
-            >
-              <h3 style={{ margin: "0 0 10px 0", color: "#334155" }}>No Assigned Lead Tracks</h3>
-              <p style={{ margin: 0, color: "#64748b", fontSize: "14px" }}>
-                You do not have any active lead tracking cards assigned yet. When your administrator creates a Lead Track for you, your product cards will appear here.
+            <div className="ult-empty-state">
+              <div className="ult-empty-icon">🎯</div>
+              <h3>No Assigned Lead Tracks</h3>
+              <p>
+                You do not have any active lead tracking cards assigned yet. When your administrator assigns a Lead Track to you, your product cards will appear here.
               </p>
             </div>
           ) : (
             tracks.map((track) => (
               <div key={track._id} style={{ marginBottom: "32px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
-                  <h3 style={{ margin: 0, fontSize: "18px", color: "#0f172a", fontWeight: 700 }}>
+                <div className="ult-track-title-row">
+                  <h3>
                     📋 {track.title || "Sales Lead Track"} ({track.startMonth} to {track.endMonth})
                   </h3>
-                  <span style={{ fontSize: "13px", color: "#64748b" }}>
-                    {track.products.length} Product Cards Assigned
+                  <span className="ult-track-badge">
+                    {track.products.length} Products Assigned
                   </span>
                 </div>
 
                 <div className="ult-cards-grid">
                   {track.products.map((product) => {
                     const isCompleted = product.remainingTarget === 0 && product.target > 0;
-                    const progressPercent = product.target > 0 ? Math.min(100, Math.round((product.quotedCount / product.target) * 100)) : 0;
+                    const progressPercent =
+                      product.target > 0
+                        ? Math.min(100, Math.round((product.quotedCount / product.target) * 100))
+                        : 0;
 
                     return (
                       <div
@@ -339,36 +416,36 @@ const UserLeadTrack = () => {
                           {/* CARD HEADER */}
                           <div className="ult-card-header">
                             <span className="ult-prod-badge">
-                              <span>{PRODUCT_ICONS[product.productName] || "📦"}</span>
-                              <span>{product.productName}</span>
+                              <span className="ult-prod-icon">{PRODUCT_ICONS[product.productName] || "📦"}</span>
+                              <span className="ult-prod-name">{product.productName}</span>
                             </span>
 
                             <span
                               className={`ult-status-pill ${isCompleted ? "completed" : "active"}`}
                             >
-                              {isCompleted ? "Target Met 🎉" : "Active"}
+                              {isCompleted ? "Target Met 🎉" : "In Progress"}
                             </span>
                           </div>
 
                           {/* METRICS ROW */}
                           <div className="ult-metrics-row">
                             <div className="ult-metric-box">
-                              <span className="label">Target Lead</span>
+                              <span className="label">Target</span>
                               <span className="val">{product.target}</span>
                             </div>
 
                             <div className="ult-metric-box remaining-box">
-                              <span className="label">Remaining Target</span>
+                              <span className="label">Remaining</span>
                               <span className="val">{product.remainingTarget}</span>
                             </div>
 
                             <div className="ult-metric-box">
                               <span className="label">Onboarded</span>
-                              <span className="val">{product.onboardedCount} / {product.target}</span>
+                              <span className="val">{product.onboardedCount}</span>
                             </div>
 
                             <div className="ult-metric-box quoted-box">
-                              <span className="label">Quote Achieved</span>
+                              <span className="label">Quoted</span>
                               <span className="val">{product.quotedCount}</span>
                             </div>
                           </div>
@@ -376,8 +453,10 @@ const UserLeadTrack = () => {
                           {/* PROGRESS BAR */}
                           <div className="ult-progress-wrapper">
                             <div className="ult-progress-labels">
-                              <span>Quote Progress</span>
-                              <span><strong>{progressPercent}%</strong> ({product.quotedCount}/{product.target})</span>
+                              <span>Quote Conversion</span>
+                              <span>
+                                <strong>{progressPercent}%</strong> ({product.quotedCount}/{product.target})
+                              </span>
                             </div>
                             <div className="ult-progress-bar-bg">
                               <div
@@ -389,7 +468,7 @@ const UserLeadTrack = () => {
                         </div>
 
                         <button className="ult-open-card-btn">
-                          Open Card &amp; Leads ({product.onboardedCount})
+                          Open Workspace &amp; Leads ({product.onboardedCount}) →
                         </button>
                       </div>
                     );
@@ -408,14 +487,15 @@ const UserLeadTrack = () => {
           <div className="ult-workspace-header">
             <div className="ult-ws-title-box">
               <button className="ult-back-btn" onClick={closeProductWorkspace}>
-                <FaArrowLeft /> Back to Cards
+                <FaArrowLeft /> Back to Product Cards
               </button>
               <div>
                 <h2>
-                  {PRODUCT_ICONS[activeProductTrack.productName]} {activeProductTrack.productName} Leads
+                  {PRODUCT_ICONS[activeProductTrack.productName]} {activeProductTrack.productName} Workspace
                 </h2>
-                <div style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>
-                  Assigned Target: <strong>{activeProductTrack.target}</strong> | Quoted:{" "}
+                <div className="ult-ws-sub">
+                  Target: <strong>{activeProductTrack.target}</strong> | Onboarded:{" "}
+                  <strong>{activeProductTrack.onboardedCount}</strong> | Quoted:{" "}
                   <strong style={{ color: "#16a34a" }}>{activeProductTrack.quotedCount}</strong> | Remaining:{" "}
                   <strong style={{ color: "#d97706" }}>{activeProductTrack.remainingTarget}</strong>
                 </div>
@@ -424,19 +504,13 @@ const UserLeadTrack = () => {
 
             <div className="ult-ws-actions">
               <div
-                style={{
-                  background: activeProductTrack.remainingTarget === 0 ? "#ecfdf5" : "#fffbeb",
-                  border: `1px solid ${activeProductTrack.remainingTarget === 0 ? "#a7f3d0" : "#fde68a"}`,
-                  padding: "8px 16px",
-                  borderRadius: "8px",
-                  fontSize: "14px",
-                  fontWeight: 700,
-                  color: activeProductTrack.remainingTarget === 0 ? "#047857" : "#b45309",
-                }}
+                className={`ult-target-status-pill ${
+                  activeProductTrack.remainingTarget === 0 ? "complete" : "pending"
+                }`}
               >
                 {activeProductTrack.remainingTarget === 0
                   ? "🎉 Target Complete (0 Remaining)"
-                  : `Remaining Target: ${activeProductTrack.remainingTarget} leads`}
+                  : `Target Remaining: ${activeProductTrack.remainingTarget}`}
               </div>
 
               <button
@@ -452,13 +526,18 @@ const UserLeadTrack = () => {
 
           {/* LEADS LIST TABLE */}
           <div className="ult-leads-card">
-            {(!activeProductTrack.onboardedLeads || activeProductTrack.onboardedLeads.length === 0) ? (
-              <div style={{ textAlign: "center", padding: "50px", color: "#64748b" }}>
-                <h3 style={{ margin: "0 0 10px 0", color: "#334155" }}>No Leads Onboarded Yet</h3>
-                <p style={{ margin: "0 0 20px 0", fontSize: "14px" }}>
-                  Click &ldquo;Onboard Leads&rdquo; above to select up to {activeProductTrack.target} customer leads from the CRM pool into this product card.
+            {!activeProductTrack.onboardedLeads || activeProductTrack.onboardedLeads.length === 0 ? (
+              <div className="ult-empty-state">
+                <div className="ult-empty-icon">👥</div>
+                <h3>No Leads Onboarded Yet</h3>
+                <p>
+                  Click &ldquo;Onboard Leads&rdquo; above to select up to {activeProductTrack.target} customer leads from the CRM pool into this product workspace.
                 </p>
-                <button className="ult-onboard-btn" style={{ margin: "0 auto" }} onClick={openOnboardModal}>
+                <button
+                  className="ult-onboard-btn"
+                  style={{ margin: "16px auto 0" }}
+                  onClick={openOnboardModal}
+                >
                   <FaPlus /> Onboard First Leads
                 </button>
               </div>
@@ -467,39 +546,41 @@ const UserLeadTrack = () => {
                 <table className="ult-table">
                   <thead>
                     <tr>
-                      <th style={{ width: "40px" }}>#</th>
-                      <th>Lead / Company</th>
-                      <th>Contact &amp; Links</th>
+                      <th style={{ width: "35px" }}>#</th>
+                      <th>Lead &amp; Company</th>
+                      <th>Contact Info</th>
                       <th>Location</th>
-                      <th style={{ minWidth: "360px" }}>Pipeline Actions (Call → WhatsApp → Demo → Quote)</th>
-                      <th>Notes</th>
-                      <th style={{ width: "50px" }}></th>
+                      <th style={{ minWidth: "340px" }}>Pipeline Progression (Call → WhatsApp → Demo → Quote)</th>
+                      <th>Latest Notes &amp; History</th>
+                      <th style={{ textAlign: "center", minWidth: "120px" }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {activeProductTrack.onboardedLeads.map((lead, idx) => {
                       const isQuoted = lead.stage === "Quote";
+                      const notesCount = lead.notesHistory?.length || (lead.notes ? 1 : 0);
 
                       return (
                         <tr key={lead._id || idx}>
                           <td><strong>{idx + 1}</strong></td>
                           <td>
-                            <strong>{lead.name || "Customer Lead"}</strong>
+                            <div className="ult-lead-name">{lead.name || "Customer Lead"}</div>
                             {lead.company && (
-                              <div style={{ fontSize: "12px", color: "#64748b" }}>
+                              <div className="ult-lead-company">
+                                <FaBuilding size={11} style={{ marginRight: "4px" }} />
                                 {lead.company}
                               </div>
                             )}
                           </td>
                           <td>
-                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <div className="ult-contact-row">
                               <span>{lead.phone || "-"}</span>
                               {lead.phone && (
                                 <>
                                   <a
                                     href={`tel:${lead.phone}`}
                                     title="Call Lead"
-                                    style={{ color: "#2563eb", fontSize: "14px" }}
+                                    className="ult-phone-link"
                                   >
                                     <FaPhoneAlt />
                                   </a>
@@ -507,8 +588,8 @@ const UserLeadTrack = () => {
                                     href={`https://wa.me/${String(lead.phone).replace(/\D/g, "")}`}
                                     target="_blank"
                                     rel="noreferrer"
-                                    title="Open WhatsApp"
-                                    style={{ color: "#10b981", fontSize: "15px" }}
+                                    title="Chat on WhatsApp"
+                                    className="ult-wa-link"
                                   >
                                     <FaWhatsapp />
                                   </a>
@@ -516,72 +597,90 @@ const UserLeadTrack = () => {
                               )}
                             </div>
                             {lead.email && (
-                              <div style={{ fontSize: "12px", color: "#64748b" }}>
+                              <div className="ult-lead-email">
+                                <FaEnvelope size={10} style={{ marginRight: "4px" }} />
                                 {lead.email}
                               </div>
                             )}
                           </td>
-                          <td>{lead.location || "-"}</td>
+                          <td>
+                            {lead.location ? (
+                              <span className="ult-location-tag">
+                                <FaMapMarkerAlt size={10} style={{ marginRight: "4px" }} />
+                                {lead.location}
+                              </span>
+                            ) : (
+                              "-"
+                            )}
+                          </td>
 
-                          {/* ACTION BUTTONS (call -> WhastappMessage -> demo -> Quote) */}
+                          {/* ACTION BUTTONS (Call -> WhatsappMessage -> Demo -> Quote) */}
                           <td>
                             <div className="ult-pipeline-buttons">
-                              <button
-                                className={`ult-stage-btn ${lead.stage === "Call" ? "active Call" : ""}`}
-                                onClick={() => handleStageChange(lead._id, "Call", lead.phone)}
-                                title="Set stage to Call"
-                              >
-                                <FaPhoneAlt size={11} /> Call
-                              </button>
-
-                              <button
-                                className={`ult-stage-btn ${lead.stage === "WhatsappMessage" ? "active WhatsappMessage" : ""}`}
-                                onClick={() => handleStageChange(lead._id, "WhatsappMessage", lead.phone)}
-                                title="Set stage to WhatsApp Message"
-                              >
-                                <FaWhatsapp size={13} /> WhatsApp
-                              </button>
-
-                              <button
-                                className={`ult-stage-btn ${lead.stage === "Demo" ? "active Demo" : ""}`}
-                                onClick={() => handleStageChange(lead._id, "Demo", lead.phone)}
-                                title="Set stage to Demo"
-                              >
-                                <FaLaptopCode size={13} /> Demo
-                              </button>
-
-                              <button
-                                className={`ult-stage-btn ${lead.stage === "Quote" ? "active Quote" : ""}`}
-                                onClick={() => handleStageChange(lead._id, "Quote", lead.phone)}
-                                title="Move to Quote stage (Decreases remaining target by 1)"
-                              >
-                                <FaFileInvoice size={12} /> Quote {isQuoted && "✓"}
-                              </button>
+                              {STAGE_CONFIG.map((stg) => {
+                                const StgIcon = stg.icon;
+                                const isActive = lead.stage === stg.key;
+                                return (
+                                  <button
+                                    key={stg.key}
+                                    className={`ult-stage-btn ${isActive ? `active ${stg.key}` : ""}`}
+                                    onClick={() => handleStageChange(lead._id, stg.key, lead.phone)}
+                                    title={`Move to ${stg.label}`}
+                                  >
+                                    <StgIcon size={12} /> {stg.label}
+                                    {stg.key === "Quote" && isQuoted && " ✓"}
+                                  </button>
+                                );
+                              })}
                             </div>
 
                             {isQuoted && (
-                              <div style={{ fontSize: "11px", color: "#16a34a", marginTop: "4px", fontWeight: 600 }}>
-                                ✓ Quoted (Target reduced by 1)
+                              <div className="ult-quoted-badge-text">
+                                <FaCheckCircle size={11} /> Quote Sent (Remaining Target Reduced by 1)
                               </div>
                             )}
                           </td>
 
-                          {/* NOTES */}
+                          {/* NOTES COLUMN */}
                           <td>
-                            <span style={{ fontSize: "12px", color: "#475569" }}>
-                              {lead.notes || "No notes"}
-                            </span>
+                            <div className="ult-notes-cell" onClick={() => openLeadDetailsModal(lead)}>
+                              <div className="ult-note-preview">
+                                {lead.notes ? (
+                                  lead.notes
+                                ) : (
+                                  <span style={{ color: "#94a3b8", fontStyle: "italic" }}>
+                                    No notes yet. Click to add.
+                                  </span>
+                                )}
+                              </div>
+                              <div className="ult-notes-meta">
+                                <span className="ult-notes-count-pill">
+                                  <FaRegCommentDots size={10} /> {notesCount} note{notesCount !== 1 ? "s" : ""}
+                                </span>
+                                <span className="ult-edit-hint">✏️ Edit</span>
+                              </div>
+                            </div>
                           </td>
 
-                          {/* REMOVE ACTION */}
+                          {/* DETAILS & REMOVE BUTTONS */}
                           <td>
-                            <button
-                              className="ult-remove-lead-btn"
-                              onClick={() => handleRemoveLead(lead._id)}
-                              title="Remove lead"
-                            >
-                              <FaTrash />
-                            </button>
+                            <div className="ult-action-cell">
+                              <button
+                                className="ult-details-btn"
+                                onClick={() => openLeadDetailsModal(lead)}
+                                title="View Overall Lead Details & Notes History"
+                              >
+                                <FaInfoCircle /> Details
+                              </button>
+
+                              <button
+                                className="ult-remove-lead-btn"
+                                onClick={() => handleRemoveLead(lead._id)}
+                                title="Remove lead from product"
+                              >
+                                <FaTrash />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -594,7 +693,297 @@ const UserLeadTrack = () => {
         </div>
       )}
 
-      {/* ================= ONBOARD MODAL ================= */}
+      {/* ================= MODAL: OVERALL LEAD DETAILS & NOTES HISTORY ================= */}
+      {selectedLeadForDetails && (
+        <div className="ult-modal-overlay" onClick={() => setSelectedLeadForDetails(null)}>
+          <div className="ult-details-modal" onClick={(e) => e.stopPropagation()}>
+            {/* MODAL HEADER */}
+            <div className="ult-details-header">
+              <div className="ult-dh-title">
+                <span className="ult-dh-icon">👤</span>
+                <div>
+                  <h3>{selectedLeadForDetails.name || "Customer Lead"}</h3>
+                  <div className="ult-dh-sub">
+                    {selectedLeadForDetails.company && (
+                      <span>🏢 {selectedLeadForDetails.company} • </span>
+                    )}
+                    <span>Product: <strong>{activeProductTrack?.productName}</strong></span>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <span className={`ult-stage-chip-large ${selectedLeadForDetails.stage}`}>
+                  Stage: {selectedLeadForDetails.stage}
+                </span>
+                <button
+                  className="ult-close-btn"
+                  onClick={() => setSelectedLeadForDetails(null)}
+                >
+                  <FaTimes />
+                </button>
+              </div>
+            </div>
+
+            {/* MODAL BODY */}
+            <div className="ult-details-body">
+              {/* SECTION 1: CUSTOMER QUICK INFO */}
+              <div className="ult-details-section">
+                <h4 className="ult-section-title">
+                  <FaUser style={{ color: "#2563eb" }} /> Customer Information
+                </h4>
+                <div className="ult-info-grid">
+                  <div className="ult-info-item">
+                    <span className="lbl">Contact Name</span>
+                    <span className="val">{selectedLeadForDetails.name || "-"}</span>
+                  </div>
+                  <div className="ult-info-item">
+                    <span className="lbl">Company</span>
+                    <span className="val">{selectedLeadForDetails.company || "-"}</span>
+                  </div>
+                  <div className="ult-info-item">
+                    <span className="lbl">Phone Number</span>
+                    <span className="val" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      {selectedLeadForDetails.phone || "-"}
+                      {selectedLeadForDetails.phone && (
+                        <>
+                          <a
+                            href={`tel:${selectedLeadForDetails.phone}`}
+                            className="ult-phone-link"
+                            title="Call"
+                          >
+                            <FaPhoneAlt size={12} />
+                          </a>
+                          <a
+                            href={`https://wa.me/${String(selectedLeadForDetails.phone).replace(/\D/g, "")}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="ult-wa-link"
+                            title="WhatsApp"
+                          >
+                            <FaWhatsapp size={14} />
+                          </a>
+                        </>
+                      )}
+                    </span>
+                  </div>
+                  <div className="ult-info-item">
+                    <span className="lbl">Email Address</span>
+                    <span className="val">{selectedLeadForDetails.email || "-"}</span>
+                  </div>
+                  <div className="ult-info-item">
+                    <span className="lbl">Location</span>
+                    <span className="val">{selectedLeadForDetails.location || "-"}</span>
+                  </div>
+                  <div className="ult-info-item">
+                    <span className="lbl">Onboarded At</span>
+                    <span className="val">
+                      {selectedLeadForDetails.onboardedAt
+                        ? new Date(selectedLeadForDetails.onboardedAt).toLocaleString()
+                        : "-"}
+                    </span>
+                  </div>
+                  {selectedLeadForDetails.quotedAt && (
+                    <div className="ult-info-item" style={{ gridColumn: "span 2" }}>
+                      <span className="lbl">Quoted Timestamp</span>
+                      <span className="val" style={{ color: "#16a34a", fontWeight: 700 }}>
+                        ✓ Quoted on {new Date(selectedLeadForDetails.quotedAt).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* SECTION 2: PIPELINE PROGRESSION STEPPER */}
+              <div className="ult-details-section">
+                <h4 className="ult-section-title">
+                  <FaHistory style={{ color: "#9333ea" }} /> Pipeline Stage Actions
+                </h4>
+                <p style={{ margin: "0 0 12px 0", fontSize: "13px", color: "#64748b" }}>
+                  Click to transition this lead to any stage. Advancing to Quote stage decrements your remaining target.
+                </p>
+
+                <div className="ult-details-pipeline-bar">
+                  {STAGE_CONFIG.map((stg) => {
+                    const StgIcon = stg.icon;
+                    const isActive = selectedLeadForDetails.stage === stg.key;
+                    return (
+                      <button
+                        key={stg.key}
+                        className={`ult-details-stg-btn ${isActive ? `active ${stg.key}` : ""}`}
+                        onClick={() => {
+                          handleStageChange(
+                            selectedLeadForDetails._id,
+                            stg.key,
+                            selectedLeadForDetails.phone
+                          );
+                          setSelectedLeadForDetails((prev) => ({
+                            ...prev,
+                            stage: stg.key,
+                          }));
+                        }}
+                      >
+                        <StgIcon size={14} />
+                        <span>{stg.label}</span>
+                        {isActive && <span className="ult-active-check">✓ Active</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* STAGE HISTORY LOG */}
+                {selectedLeadForDetails.stageHistory && selectedLeadForDetails.stageHistory.length > 0 && (
+                  <div className="ult-stage-history-box">
+                    <span style={{ fontSize: "12px", fontWeight: 700, color: "#475569" }}>
+                      Stage Timeline History:
+                    </span>
+                    <div className="ult-stage-history-list">
+                      {selectedLeadForDetails.stageHistory.map((sh, sIdx) => (
+                        <div key={sIdx} className="ult-stage-history-item">
+                          <span className={`ult-stage-mini-tag ${sh.stage}`}>{sh.stage}</span>
+                          <span className="ult-sh-date">
+                            {sh.updatedAt ? new Date(sh.updatedAt).toLocaleString() : "-"}
+                          </span>
+                          {sh.updatedByName && (
+                            <span className="ult-sh-user">by {sh.updatedByName}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* SECTION 3: NOTES & NOTES HISTORY */}
+              <div className="ult-details-section">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                  <h4 className="ult-section-title" style={{ margin: 0 }}>
+                    <FaRegCommentDots style={{ color: "#10b981" }} /> Notes History &amp; Updates
+                  </h4>
+                  <span style={{ fontSize: "12px", color: "#64748b" }}>
+                    Total: {selectedLeadForDetails.notesHistory?.length || (selectedLeadForDetails.notes ? 1 : 0)} note(s)
+                  </span>
+                </div>
+
+                {/* ADD / EDIT NOTE FORM */}
+                <form onSubmit={handleSaveDetailNote} className="ult-note-input-form">
+                  <div style={{ display: "flex", gap: "10px", marginBottom: "8px" }}>
+                    <select
+                      className="ult-note-stage-select"
+                      value={detailNoteStage}
+                      onChange={(e) => setDetailNoteStage(e.target.value)}
+                    >
+                      <option value="Call">Stage: Call</option>
+                      <option value="WhatsappMessage">Stage: WhatsApp</option>
+                      <option value="Demo">Stage: Demo</option>
+                      <option value="Quote">Stage: Quote</option>
+                    </select>
+
+                    <span style={{ fontSize: "12px", color: "#64748b", alignSelf: "center" }}>
+                      Add a note for this stage or record client response:
+                    </span>
+                  </div>
+
+                  <textarea
+                    className="ult-note-textarea"
+                    placeholder="Write note or follow-up update here (e.g. Discussed CRM pricing, requested demo next Tuesday)..."
+                    value={detailNoteInput}
+                    onChange={(e) => setDetailNoteInput(e.target.value)}
+                    rows={3}
+                  />
+
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "8px" }}>
+                    {noteSuccessMsg && (
+                      <span style={{ color: "#16a34a", fontSize: "13px", fontWeight: 600 }}>
+                        ✓ {noteSuccessMsg}
+                      </span>
+                    )}
+                    {!noteSuccessMsg && <div />}
+
+                    <button
+                      type="submit"
+                      className="ult-save-note-btn"
+                      disabled={savingNote || !detailNoteInput.trim()}
+                    >
+                      <FaSave /> {savingNote ? "Saving..." : "Save Note"}
+                    </button>
+                  </div>
+                </form>
+
+                {/* NOTES TIMELINE LOG */}
+                <div className="ult-notes-timeline">
+                  <div style={{ fontSize: "13px", fontWeight: 700, color: "#334155", marginBottom: "10px" }}>
+                    Notes History Log:
+                  </div>
+
+                  {(!selectedLeadForDetails.notesHistory || selectedLeadForDetails.notesHistory.length === 0) &&
+                  !selectedLeadForDetails.notes ? (
+                    <div style={{ padding: "20px", textAlign: "center", color: "#94a3b8", background: "#f8fafc", borderRadius: "8px" }}>
+                      No notes recorded yet. Add your first note above.
+                    </div>
+                  ) : (
+                    <div className="ult-notes-history-cards">
+                      {/* If notesHistory array has items, display in reverse chronological order */}
+                      {selectedLeadForDetails.notesHistory && selectedLeadForDetails.notesHistory.length > 0 ? (
+                        [...selectedLeadForDetails.notesHistory].reverse().map((nh, nIdx) => (
+                          <div key={nh._id || nIdx} className="ult-note-card">
+                            <div className="ult-nc-header">
+                              <span className={`ult-nc-stage-badge ${nh.stage || "General"}`}>
+                                {nh.stage || "General"}
+                              </span>
+                              <div className="ult-nc-meta">
+                                <span>👤 {nh.authorName || "User"}</span>
+                                <span>•</span>
+                                <span>
+                                  {nh.createdAt ? new Date(nh.createdAt).toLocaleString() : "-"}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="ult-nc-body">{nh.note}</div>
+                            <button
+                              type="button"
+                              className="ult-nc-edit-btn"
+                              onClick={() => {
+                                setDetailNoteInput(nh.note);
+                                if (nh.stage) setDetailNoteStage(nh.stage);
+                              }}
+                            >
+                              <FaEdit size={11} /> Copy to Edit
+                            </button>
+                          </div>
+                        ))
+                      ) : (
+                        // Fallback if legacy single note string exists
+                        <div className="ult-note-card">
+                          <div className="ult-nc-header">
+                            <span className="ult-nc-stage-badge General">General</span>
+                            <div className="ult-nc-meta">
+                              <span>Initial Note</span>
+                            </div>
+                          </div>
+                          <div className="ult-nc-body">{selectedLeadForDetails.notes}</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* MODAL FOOTER */}
+            <div className="ult-details-footer">
+              <button
+                className="ult-close-details-btn"
+                onClick={() => setSelectedLeadForDetails(null)}
+              >
+                Close Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: ONBOARD LEADS ================= */}
       {showOnboardModal && (
         <div className="ult-modal-overlay" onClick={() => setShowOnboardModal(false)}>
           <div className="ult-modal-card" onClick={(e) => e.stopPropagation()}>
@@ -618,7 +1007,7 @@ const UserLeadTrack = () => {
                 <button
                   style={{
                     flex: 1,
-                    padding: "8px",
+                    padding: "10px",
                     borderRadius: "8px",
                     border: "1px solid #cbd5e1",
                     background: !manualMode ? "#2563eb" : "#f1f5f9",
@@ -634,7 +1023,7 @@ const UserLeadTrack = () => {
                 <button
                   style={{
                     flex: 1,
-                    padding: "8px",
+                    padding: "10px",
                     borderRadius: "8px",
                     border: "1px solid #cbd5e1",
                     background: manualMode ? "#2563eb" : "#f1f5f9",
@@ -649,51 +1038,48 @@ const UserLeadTrack = () => {
                 </button>
               </div>
 
-              {!manualMode ? (
+              {/* MODE 1: SELECT FROM CRM CUSTOMERS */}
+              {!manualMode && (
                 <>
                   <input
                     type="text"
                     className="ult-search-input"
-                    placeholder="🔍 Search customers by name, company, phone, location..."
+                    placeholder="Search by customer name, company, phone, location..."
                     value={customerSearch}
                     onChange={(e) => setCustomerSearch(e.target.value)}
                   />
 
                   {loadingCustomers ? (
                     <div style={{ textAlign: "center", padding: "30px", color: "#64748b" }}>
-                      Loading customer list...
+                      Loading CRM customers...
                     </div>
                   ) : filteredCustomers.length === 0 ? (
                     <div style={{ textAlign: "center", padding: "30px", color: "#64748b" }}>
-                      No available customers found matching search.
+                      No available customers found matching &ldquo;{customerSearch}&rdquo;.
                     </div>
                   ) : (
                     <div className="ult-customer-select-list">
                       {filteredCustomers.map((cust) => {
-                        const isChecked = selectedCustomerIds.includes(cust._id);
-
+                        const isSelected = selectedCustomerIds.includes(cust._id);
                         return (
                           <div
                             key={cust._id}
-                            className="ult-customer-row"
+                            className={`ult-customer-row ${isSelected ? "selected" : ""}`}
                             onClick={() => toggleSelectCustomer(cust._id)}
                           >
                             <input
                               type="checkbox"
-                              checked={isChecked}
-                              onChange={() => {}} // handled by row click
+                              checked={isSelected}
+                              onChange={() => {}}
                             />
                             <div style={{ flex: 1 }}>
-                              <div style={{ fontWeight: 600, color: "#0f172a" }}>
-                                {cust.name || "Unnamed"}
-                                {cust.company && (
-                                  <span style={{ fontWeight: 400, color: "#64748b", marginLeft: "8px" }}>
-                                    ({cust.company})
-                                  </span>
-                                )}
+                              <div style={{ fontWeight: 600, color: "#0f172a", fontSize: "14px" }}>
+                                {cust.name || "Customer"}
                               </div>
                               <div style={{ fontSize: "12px", color: "#64748b" }}>
-                                📞 {cust.phone || "No phone"} | 📍 {cust.location || "N/A"} | 🏷️ {cust.status || "lead"}
+                                {cust.company && <span>{cust.company} • </span>}
+                                {cust.phone && <span>{cust.phone} • </span>}
+                                {cust.location && <span>{cust.location}</span>}
                               </div>
                             </div>
                           </div>
@@ -701,58 +1087,96 @@ const UserLeadTrack = () => {
                       })}
                     </div>
                   )}
+
+                  <div style={{ fontSize: "13px", color: "#64748b", marginTop: "8px" }}>
+                    Selected: <strong>{selectedCustomerIds.length}</strong> / Max Available:{" "}
+                    <strong>{availableSlots}</strong>
+                  </div>
                 </>
-              ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                    <label style={{ fontSize: "12px", fontWeight: 600 }}>Lead Name *</label>
-                    <input
-                      type="text"
-                      className="ult-search-input"
-                      placeholder="e.g. Rahul Sharma"
-                      value={manualLead.name}
-                      onChange={(e) => setManualLead({ ...manualLead, name: e.target.value })}
-                    />
+              )}
+
+              {/* MODE 2: ENTER DETAILS MANUALLY */}
+              {manualMode && (
+                <div className="ult-manual-form">
+                  <div className="ult-form-row">
+                    <div className="ult-form-col">
+                      <label>Contact Name *</label>
+                      <input
+                        type="text"
+                        className="ult-input"
+                        placeholder="e.g. John Doe"
+                        value={manualLead.name}
+                        onChange={(e) =>
+                          setManualLead((prev) => ({ ...prev, name: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <div className="ult-form-col">
+                      <label>Company Name</label>
+                      <input
+                        type="text"
+                        className="ult-input"
+                        placeholder="e.g. Acme Corp"
+                        value={manualLead.company}
+                        onChange={(e) =>
+                          setManualLead((prev) => ({ ...prev, company: e.target.value }))
+                        }
+                      />
+                    </div>
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                    <label style={{ fontSize: "12px", fontWeight: 600 }}>Company Name</label>
-                    <input
-                      type="text"
-                      className="ult-search-input"
-                      placeholder="e.g. Acme Corp"
-                      value={manualLead.company}
-                      onChange={(e) => setManualLead({ ...manualLead, company: e.target.value })}
-                    />
+
+                  <div className="ult-form-row">
+                    <div className="ult-form-col">
+                      <label>Phone Number *</label>
+                      <input
+                        type="tel"
+                        className="ult-input"
+                        placeholder="e.g. +91 9876543210"
+                        value={manualLead.phone}
+                        onChange={(e) =>
+                          setManualLead((prev) => ({ ...prev, phone: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <div className="ult-form-col">
+                      <label>Email Address</label>
+                      <input
+                        type="email"
+                        className="ult-input"
+                        placeholder="e.g. client@example.com"
+                        value={manualLead.email}
+                        onChange={(e) =>
+                          setManualLead((prev) => ({ ...prev, email: e.target.value }))
+                        }
+                      />
+                    </div>
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                    <label style={{ fontSize: "12px", fontWeight: 600 }}>Phone Number *</label>
-                    <input
-                      type="text"
-                      className="ult-search-input"
-                      placeholder="e.g. 9876543210"
-                      value={manualLead.phone}
-                      onChange={(e) => setManualLead({ ...manualLead, phone: e.target.value })}
-                    />
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                    <label style={{ fontSize: "12px", fontWeight: 600 }}>Email Address</label>
-                    <input
-                      type="email"
-                      className="ult-search-input"
-                      placeholder="e.g. rahul@example.com"
-                      value={manualLead.email}
-                      onChange={(e) => setManualLead({ ...manualLead, email: e.target.value })}
-                    />
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "4px", gridColumn: "span 2" }}>
-                    <label style={{ fontSize: "12px", fontWeight: 600 }}>Location</label>
-                    <input
-                      type="text"
-                      className="ult-search-input"
-                      placeholder="e.g. Mumbai, Maharashtra"
-                      value={manualLead.location}
-                      onChange={(e) => setManualLead({ ...manualLead, location: e.target.value })}
-                    />
+
+                  <div className="ult-form-row">
+                    <div className="ult-form-col">
+                      <label>Location / City</label>
+                      <input
+                        type="text"
+                        className="ult-input"
+                        placeholder="e.g. Chennai"
+                        value={manualLead.location}
+                        onChange={(e) =>
+                          setManualLead((prev) => ({ ...prev, location: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <div className="ult-form-col">
+                      <label>Initial Notes / Stage Remark</label>
+                      <input
+                        type="text"
+                        className="ult-input"
+                        placeholder="e.g. Interested in Genunitys plan"
+                        value={manualLead.notes}
+                        onChange={(e) =>
+                          setManualLead((prev) => ({ ...prev, notes: e.target.value }))
+                        }
+                      />
+                    </div>
                   </div>
                 </div>
               )}
@@ -760,29 +1184,25 @@ const UserLeadTrack = () => {
 
             <div className="ult-modal-footer">
               <button
-                style={{
-                  background: "#f1f5f9",
-                  border: "1px solid #cbd5e1",
-                  padding: "8px 16px",
-                  borderRadius: "8px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
+                className="ult-cancel-btn"
                 onClick={() => setShowOnboardModal(false)}
               >
                 Cancel
               </button>
-
               <button
-                className="ult-onboard-btn"
+                className="ult-confirm-onboard-btn"
                 onClick={handleOnboardCustomers}
-                disabled={onboarding || (!manualMode && selectedCustomerIds.length === 0)}
+                disabled={
+                  onboarding ||
+                  (!manualMode && selectedCustomerIds.length === 0) ||
+                  (manualMode && !manualLead.name && !manualLead.phone)
+                }
               >
                 {onboarding
                   ? "Onboarding..."
                   : manualMode
-                  ? "Onboard Lead"
-                  : `Onboard Selected Leads (${selectedCustomerIds.length})`}
+                  ? "Onboard Manual Lead"
+                  : `Onboard Selected (${selectedCustomerIds.length})`}
               </button>
             </div>
           </div>
@@ -793,4 +1213,3 @@ const UserLeadTrack = () => {
 };
 
 export default UserLeadTrack;
-

@@ -619,3 +619,23 @@
   color: #b91c1c;
 }
 
+.alt-clear-all-btn {
+  background: #fee2e2;
+  color: #ef4444;
+  border: 1px solid #fecaca;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.alt-clear-all-btn:hover {
+  background: #fecaca;
+  color: #b91c1c;
+}
+
