@@ -401,14 +401,19 @@ const bulkDeleteCustomers = async () => {
     return;
 
   try {
+    setBulkDeleteLoading(true);
 
-    await API.delete("/customers/bulk-delete", {
+    const res = await API.delete("/customers/bulk-delete", {
       data: { ids: checkedCustomerIds },
     });
 
-    alert("Selected customers deleted successfully");
+    alert(
+      res.data?.message ||
+      `${checkedCustomerIds.length} selected customer(s) deleted successfully`
+    );
 
     setCheckedCustomerIds([]);
+    setCurrentPage(1);
 
     fetchCustomers();
 
@@ -420,6 +425,8 @@ const bulkDeleteCustomers = async () => {
       error.response?.data?.message ||
       "Bulk delete failed"
     );
+  } finally {
+    setBulkDeleteLoading(false);
   }
 };
 
@@ -974,11 +981,6 @@ const [searchTerm, setSearchTerm] =
 useState("");
 useEffect(() => {
 
-  setCurrentPage(1);
-
-}, [searchTerm]);
-useEffect(() => {
-
 const fullScreenPages = [
   "customers",
   "dashboard",
@@ -1016,6 +1018,7 @@ useState([]);
 const [checkedCustomerIds,
 setCheckedCustomerIds] =
 useState([]);
+const [bulkDeleteLoading, setBulkDeleteLoading] = useState(false);
 
 // ================= REMARK POPUP =================
 // Holds the customer whose remark is currently being viewed in the
@@ -1037,6 +1040,22 @@ setShowUserList] =
 useState(false);
 const [showExcelModal, setShowExcelModal] = useState(false);
 const [selectedUserFilter, setSelectedUserFilter] = useState("");
+
+useEffect(() => {
+  setCurrentPage(1);
+}, [
+  searchTerm,
+  solutionFilter,
+  productFilter,
+  priorityFilter,
+  statusFilter,
+  sourceFilter,
+  sectorFilter,
+  assignedToFilter,
+  serviceFilter,
+  aidaStageFilter,
+  selectedUserFilter,
+]);
 const filteredUsers =
 users.filter((user) =>
 
@@ -1434,6 +1453,8 @@ customers.filter((customer) => {
     statusFilter;
 const matchesSource =
   !sourceFilter ||
+  (customer.source &&
+    customer.source.trim().toLowerCase() === sourceFilter.trim().toLowerCase()) ||
   customer.source
     ?.toLowerCase()
     .includes(sourceFilter.toLowerCase());
@@ -1529,6 +1550,94 @@ const totalPages = Math.ceil(
   filteredCustomers.length /
   customersPerPage
 );
+
+// Determine if any filters are active
+const hasActiveFilter = Boolean(
+  searchTerm ||
+  solutionFilter ||
+  productFilter ||
+  priorityFilter ||
+  statusFilter ||
+  sourceFilter ||
+  sectorFilter ||
+  assignedToFilter ||
+  serviceFilter ||
+  aidaStageFilter ||
+  selectedUserFilter
+);
+
+// Check if all filtered customers are currently selected
+const allFilteredSelected =
+  filteredCustomers.length > 0 &&
+  filteredCustomers.every((c) => checkedCustomerIds.includes(c._id));
+
+// Toggle select all filtered customers across all pages
+const toggleSelectAllFilteredCustomers = () => {
+  const filteredIds = filteredCustomers.map((c) => c._id);
+  const isAllSelected =
+    filteredIds.length > 0 &&
+    filteredIds.every((id) => checkedCustomerIds.includes(id));
+
+  if (isAllSelected) {
+    // Deselect all filtered customers
+    setCheckedCustomerIds((prev) =>
+      prev.filter((id) => !filteredIds.includes(id))
+    );
+  } else {
+    // Select all filtered customers
+    setCheckedCustomerIds((prev) => [
+      ...prev,
+      ...filteredIds.filter((id) => !prev.includes(id)),
+    ]);
+  }
+};
+
+// Delete all filtered customers directly (e.g. Lead Source: YES)
+const deleteFilteredCustomers = async () => {
+  if (filteredCustomers.length === 0) {
+    alert("No filtered customers to delete");
+    return;
+  }
+
+  const filterSummary = sourceFilter
+    ? `with Lead Source "${sourceFilter}"`
+    : hasActiveFilter
+    ? "matching current filters"
+    : "in database";
+
+  const confirmDelete = window.confirm(
+    `⚠️ Are you sure you want to delete ALL ${filteredCustomers.length} customer(s) ${filterSummary}?\n\nThis cannot be undone.`
+  );
+
+  if (!confirmDelete) return;
+
+  const idsToDelete = filteredCustomers.map((c) => c._id);
+
+  try {
+    setBulkDeleteLoading(true);
+    const res = await API.delete("/customers/bulk-delete", {
+      data: { ids: idsToDelete },
+    });
+
+    alert(
+      res.data?.message ||
+      `${idsToDelete.length} customer(s) deleted successfully`
+    );
+
+    setCheckedCustomerIds((prev) =>
+      prev.filter((id) => !idsToDelete.includes(id))
+    );
+    setCurrentPage(1);
+    fetchCustomers();
+  } catch (error) {
+    console.log(error);
+    alert(
+      error.response?.data?.message || "Failed to delete filtered customers"
+    );
+  } finally {
+    setBulkDeleteLoading(false);
+  }
+};
 
 
 // ================= FORMAT DATE =================
@@ -2197,8 +2306,17 @@ async (e) => {
       console.log(error);
 
       alert(
-        error.response?.data?.message
+        error.response?.data?.message ||
+        (error.response?.status === 413
+          ? "Payload too large. Please upload the data in smaller batches."
+          : null) ||
+        error.message ||
+        "Upload failed"
       );
+    } finally {
+      if (e.target) {
+        e.target.value = "";
+      }
     }
   };
 
@@ -4415,7 +4533,8 @@ clear-filter-btn
 <button
   className="clear-filter-btn"
   onClick={() => {
-
+    setSearchTerm("");
+    setSolutionFilter("");
     setProductFilter("");
     setPriorityFilter("");
     setStatusFilter("");
@@ -4424,7 +4543,8 @@ clear-filter-btn
     setAssignedToFilter("");
     setServiceFilter("");
     setAidaStageFilter("");
-
+    setSelectedUserFilter("");
+    setCurrentPage(1);
   }}
 >
 
@@ -4438,13 +4558,64 @@ clear-filter-btn
   📥 Download Excel
 </button>
 
+{filteredCustomers.length > 0 && (
+  <button
+    className="download-btn"
+    style={{
+      background: allFilteredSelected ? "#475569" : "#2563EB",
+      color: "white",
+    }}
+    onClick={toggleSelectAllFilteredCustomers}
+    title={
+      allFilteredSelected
+        ? "Deselect all customers"
+        : hasActiveFilter
+        ? `Select all ${filteredCustomers.length} filtered customers across all pages`
+        : `Select all ${filteredCustomers.length} customers across all pages`
+    }
+  >
+    {allFilteredSelected
+      ? `◻️ Deselect All (${filteredCustomers.length})`
+      : hasActiveFilter
+      ? `☑️ Select All Filtered (${filteredCustomers.length})`
+      : `☑️ Select All Customers (${filteredCustomers.length})`}
+  </button>
+)}
+
+{hasActiveFilter && filteredCustomers.length > 0 && (
+  <button
+    className="download-btn"
+    disabled={bulkDeleteLoading}
+    style={{
+      background: "#b91c1c",
+      color: "white",
+      opacity: bulkDeleteLoading ? 0.7 : 1,
+      cursor: bulkDeleteLoading ? "not-allowed" : "pointer",
+    }}
+    onClick={deleteFilteredCustomers}
+    title={`Delete all ${filteredCustomers.length} filtered customer(s) ${sourceFilter ? `with Lead Source "${sourceFilter}"` : ""}`}
+  >
+    {bulkDeleteLoading
+      ? "Deleting..."
+      : `🗑️ Delete All Filtered (${filteredCustomers.length})`}
+  </button>
+)}
+
 {checkedCustomerIds.length > 0 && (
   <button
     className="download-btn"
-    style={{ background: "#e53935" }}
+    disabled={bulkDeleteLoading}
+    style={{
+      background: "#e53935",
+      color: "white",
+      opacity: bulkDeleteLoading ? 0.7 : 1,
+      cursor: bulkDeleteLoading ? "not-allowed" : "pointer",
+    }}
     onClick={bulkDeleteCustomers}
   >
-    🗑️ Delete Selected ({checkedCustomerIds.length})
+    {bulkDeleteLoading
+      ? "Deleting..."
+      : `🗑️ Delete Selected (${checkedCustomerIds.length})`}
   </button>
 )}
 </div>
@@ -4512,6 +4683,88 @@ clear-filter-btn
 {/* TABLE */}
 
     <div className="customer-table-container">
+
+        {/* SELECTION NOTIFICATION BANNER */}
+        {currentCustomers.length > 0 &&
+          currentCustomers.every((c) => checkedCustomerIds.includes(c._id)) &&
+          filteredCustomers.length > currentCustomers.length && (
+            <div
+              style={{
+                background: "#eff6ff",
+                border: "1px solid #bfdbfe",
+                color: "#1e40af",
+                padding: "10px 16px",
+                borderRadius: "8px",
+                marginBottom: "12px",
+                fontSize: "13px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: "10px",
+              }}
+            >
+              <span>
+                {allFilteredSelected ? (
+                  <>
+                    ✅ All <strong>{filteredCustomers.length}</strong> {hasActiveFilter ? "filtered " : ""}customers are selected across all pages.
+                  </>
+                ) : (
+                  <>
+                    All <strong>{currentCustomers.length}</strong> customers on this page are selected.
+                  </>
+                )}
+              </span>
+
+              <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                {allFilteredSelected ? (
+                  <button
+                    type="button"
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      color: "#2563eb",
+                      fontWeight: "600",
+                      cursor: "pointer",
+                      textDecoration: "underline",
+                      fontSize: "13px",
+                    }}
+                    onClick={() => {
+                      const filteredIds = filteredCustomers.map((c) => c._id);
+                      setCheckedCustomerIds((prev) =>
+                        prev.filter((id) => !filteredIds.includes(id))
+                      );
+                    }}
+                  >
+                    Clear selection
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    style={{
+                      background: "#2563eb",
+                      border: "none",
+                      color: "#fff",
+                      fontWeight: "600",
+                      cursor: "pointer",
+                      padding: "5px 14px",
+                      borderRadius: "6px",
+                      fontSize: "12px",
+                    }}
+                    onClick={() => {
+                      const filteredIds = filteredCustomers.map((c) => c._id);
+                      setCheckedCustomerIds((prev) => [
+                        ...prev,
+                        ...filteredIds.filter((id) => !prev.includes(id)),
+                      ]);
+                    }}
+                  >
+                    Select all {filteredCustomers.length} {hasActiveFilter ? "filtered " : ""}customers
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
         <table className="minimal-table customer-full-table">
 
