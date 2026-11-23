@@ -14,6 +14,7 @@ const {
   updateLeadStage,
   removeLeadFromProduct,
   getAdminLeadTrackReport,
+  getAssignableUsers,
 } = require("../controllers/leadTrackController");
 
 // ================= ANALYTICS REPORT (ADMIN ONLY) =================
@@ -23,6 +24,14 @@ router.get(
   protect,
   roleMiddleware("super_admin"),
   getAdminLeadTrackReport
+);
+
+// ================= ASSIGNABLE USERS & EMPLOYEES (ADMIN ONLY) =================
+router.get(
+  "/assignable-users",
+  protect,
+  roleMiddleware("super_admin"),
+  getAssignableUsers
 );
 
 // ================= TRACKS CRUD =================
@@ -79,3 +88,4 @@ router.delete(
 );
 
 module.exports = router;
+

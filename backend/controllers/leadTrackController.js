@@ -1,6 +1,116 @@
 const LeadTrack = require("../models/leadTrackModel");
 const User = require("../models/userModel");
+const Employee = require("../models/employeeModel");
 const Customer = require("../models/customerModel");
+
+// ================= HELPER: RESOLVE ALL CANDIDATE USER/EMPLOYEE IDS =================
+const getCandidateUserIds = async (user) => {
+  const ids = [];
+  if (!user) return ids;
+
+  if (user._id) ids.push(String(user._id));
+
+  // If user object has linkedEmployeeId
+  if (user.linkedEmployeeId) {
+    const empId = user.linkedEmployeeId._id || user.linkedEmployeeId;
+    if (empId) ids.push(String(empId));
+  }
+
+  try {
+    const query = [];
+    if (user._id) {
+      query.push({ linkedEmployeeId: user._id });
+    }
+    if (user.email) {
+      query.push({ email: user.email.toLowerCase().trim() });
+    }
+
+    if (query.length > 0) {
+      const matchedUsers = await User.find({ $or: query }).select("_id email linkedEmployeeId");
+      matchedUsers.forEach((u) => {
+        ids.push(String(u._id));
+        if (u.linkedEmployeeId) ids.push(String(u.linkedEmployeeId));
+      });
+
+      const matchedEmps = await Employee.find({ $or: query }).select("_id email");
+      matchedEmps.forEach((e) => {
+        ids.push(String(e._id));
+      });
+    }
+  } catch (err) {
+    console.warn("Candidate IDs lookup error:", err.message);
+  }
+
+  return [...new Set(ids)];
+};
+
+// ================= HELPER: CHECK TRACK ACCESS =================
+const hasTrackAccess = (track, user, candidateIds = []) => {
+  if (user.role === "super_admin") return true;
+
+  const trackAssignedId = String(track.assignedTo?._id || track.assignedTo || "");
+  if (candidateIds.includes(trackAssignedId)) return true;
+  if (String(user._id) === trackAssignedId) return true;
+
+  if (
+    track.assignedToName &&
+    user.name &&
+    track.assignedToName.trim().toLowerCase() === user.name.trim().toLowerCase()
+  ) {
+    return true;
+  }
+
+  return false;
+};
+
+// ================= GET ASSIGNABLE USERS & EMPLOYEES (ADMIN ONLY) =================
+exports.getAssignableUsers = async (req, res) => {
+  try {
+    const users = await User.find().select("name email role linkedEmployeeId");
+    const employees = await Employee.find({ isActive: { $ne: false } }).select(
+      "name email department designation"
+    );
+
+    const map = new Map();
+
+    users.forEach((u) => {
+      const emailKey = u.email ? u.email.toLowerCase().trim() : String(u._id);
+      map.set(emailKey, {
+        _id: u._id,
+        name: u.name,
+        email: u.email,
+        role: u.role || "user",
+        type: "user",
+      });
+    });
+
+    employees.forEach((e) => {
+      const emailKey = e.email ? e.email.toLowerCase().trim() : String(e._id);
+      if (!map.has(emailKey)) {
+        map.set(emailKey, {
+          _id: e._id,
+          name: e.name,
+          email: e.email,
+          role: e.designation || e.department || "Employee",
+          type: "employee",
+        });
+      }
+    });
+
+    const assignable = Array.from(map.values()).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
+
+    res.status(200).json({
+      success: true,
+      count: assignable.length,
+      users: assignable,
+    });
+  } catch (error) {
+    console.error("Get Assignable Users Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 
 // ================= CREATE LEAD TRACK (ADMIN ONLY) =================
 exports.createLeadTrack = async (req, res) => {
@@ -25,10 +135,13 @@ exports.createLeadTrack = async (req, res) => {
       });
     }
 
-    // Look up assigned user
-    const user = await User.findById(assignedTo).select("name email");
+    // Look up assigned user or employee
+    let user = await User.findById(assignedTo).select("name email");
     if (!user) {
-      return res.status(404).json({ success: false, message: "Assigned user not found" });
+      user = await Employee.findById(assignedTo).select("name email");
+    }
+    if (!user) {
+      return res.status(404).json({ success: false, message: "Assigned user or employee not found" });
     }
 
     // Validate products and targets
@@ -84,9 +197,31 @@ exports.getLeadTracks = async (req, res) => {
 
     // Non-admin can ONLY view tracks assigned to them
     if (!isAdmin) {
-      filter.assignedTo = req.user._id;
-    } else if (userId) {
-      filter.assignedTo = userId;
+      const candidateIds = await getCandidateUserIds(req.user);
+      const orConditions = [{ assignedTo: { $in: candidateIds } }];
+      if (req.user.name) {
+        orConditions.push({
+          assignedToName: { $regex: new RegExp(`^${req.user.name.trim()}$`, "i") },
+        });
+      }
+      filter.$or = orConditions;
+    } else if (userId && userId !== "all") {
+      let targetUser = await User.findById(userId).select("_id email linkedEmployeeId name");
+      if (!targetUser) {
+        targetUser = await Employee.findById(userId).select("_id email name");
+      }
+      if (targetUser) {
+        const candidateIds = await getCandidateUserIds(targetUser);
+        const orConditions = [{ assignedTo: { $in: candidateIds } }];
+        if (targetUser.name) {
+          orConditions.push({
+            assignedToName: { $regex: new RegExp(`^${targetUser.name.trim()}$`, "i") },
+          });
+        }
+        filter.$or = orConditions;
+      } else {
+        filter.assignedTo = userId;
+      }
     }
 
     if (status) {
@@ -94,8 +229,13 @@ exports.getLeadTracks = async (req, res) => {
     }
 
     if (month) {
-      // Matches startMonth or endMonth
-      filter.$or = [{ startMonth: month }, { endMonth: month }];
+      const monthCondition = [{ startMonth: month }, { endMonth: month }];
+      if (filter.$or) {
+        filter.$and = [{ $or: filter.$or }, { $or: monthCondition }];
+        delete filter.$or;
+      } else {
+        filter.$or = monthCondition;
+      }
     }
 
     const tracks = await LeadTrack.find(filter)
@@ -158,8 +298,8 @@ exports.getLeadTrackById = async (req, res) => {
       return res.status(404).json({ success: false, message: "Lead Track not found" });
     }
 
-    const isAdmin = req.user.role === "super_admin";
-    if (!isAdmin && String(track.assignedTo._id || track.assignedTo) !== String(req.user._id)) {
+    const candidateIds = await getCandidateUserIds(req.user);
+    if (!hasTrackAccess(track, req.user, candidateIds)) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
@@ -203,7 +343,6 @@ exports.updateLeadTrack = async (req, res) => {
     if (status) track.status = status;
 
     if (products && Array.isArray(products)) {
-      // Update target or add new products without losing existing onboarded leads
       products.forEach((updatedP) => {
         const existingP = track.products.find(
           (p) => String(p._id) === String(updatedP._id) || p.productName === updatedP.productName
@@ -260,8 +399,8 @@ exports.onboardLeadsToProduct = async (req, res) => {
       return res.status(404).json({ success: false, message: "Lead Track not found" });
     }
 
-    const isAdmin = req.user.role === "super_admin";
-    if (!isAdmin && String(track.assignedTo) !== String(req.user._id)) {
+    const candidateIds = await getCandidateUserIds(req.user);
+    if (!hasTrackAccess(track, req.user, candidateIds)) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
@@ -373,8 +512,8 @@ exports.updateLeadStage = async (req, res) => {
       return res.status(404).json({ success: false, message: "Lead Track not found" });
     }
 
-    const isAdmin = req.user.role === "super_admin";
-    if (!isAdmin && String(track.assignedTo) !== String(req.user._id)) {
+    const candidateIds = await getCandidateUserIds(req.user);
+    if (!hasTrackAccess(track, req.user, candidateIds)) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
@@ -435,8 +574,8 @@ exports.removeLeadFromProduct = async (req, res) => {
       return res.status(404).json({ success: false, message: "Lead Track not found" });
     }
 
-    const isAdmin = req.user.role === "super_admin";
-    if (!isAdmin && String(track.assignedTo) !== String(req.user._id)) {
+    const candidateIds = await getCandidateUserIds(req.user);
+    if (!hasTrackAccess(track, req.user, candidateIds)) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
@@ -493,18 +632,39 @@ exports.getAdminLeadTrackReport = async (req, res) => {
     let totalCurrentMonthQuoted = 0;
     let totalLastMonthQuoted = 0;
 
-    // Group report by user
+    // Group report by user/employee
     const userMap = new Map();
 
-    tracks.forEach((track) => {
-      const uId = String(track.assignedTo?._id || track.assignedTo || "unknown");
-      const uName = track.assignedToName || track.assignedTo?.name || "Unknown User";
+    for (const track of tracks) {
+      const assignedObj =
+        track.assignedTo && typeof track.assignedTo === "object"
+          ? track.assignedTo
+          : null;
+      let uId = String(assignedObj?._id || track.assignedTo || "unknown");
+      let uName = track.assignedToName || assignedObj?.name || "";
+      let uEmail = assignedObj?.email || "";
 
-      if (!userMap.has(uId)) {
-        userMap.set(uId, {
+      // Fallback lookup if assignedTo was an Employee ID not in UserDetails
+      if (!uEmail && track.assignedTo) {
+        try {
+          const emp = await Employee.findById(track.assignedTo).select("name email");
+          if (emp) {
+            uName = uName || emp.name;
+            uEmail = emp.email || "";
+          }
+        } catch (e) {}
+      }
+
+      if (!uName) uName = "Unknown User";
+
+      // Group together by email or normalized name
+      const mapKey = uEmail ? uEmail.toLowerCase().trim() : uName.toLowerCase().trim();
+
+      if (!userMap.has(mapKey)) {
+        userMap.set(mapKey, {
           userId: uId,
           userName: uName,
-          userEmail: track.assignedTo?.email || "",
+          userEmail: uEmail,
           tracksCount: 0,
           cardsCount: 0,
           totalTarget: 0,
@@ -518,7 +678,7 @@ exports.getAdminLeadTrackReport = async (req, res) => {
         });
       }
 
-      const userData = userMap.get(uId);
+      const userData = userMap.get(mapKey);
       userData.tracksCount += 1;
 
       let trackTarget = 0;
@@ -592,7 +752,7 @@ exports.getAdminLeadTrackReport = async (req, res) => {
         remaining: Math.max(0, trackTarget - trackQuoted),
         products: trackCards,
       });
-    });
+    }
 
     const usersReport = Array.from(userMap.values());
 
@@ -607,8 +767,14 @@ exports.getAdminLeadTrackReport = async (req, res) => {
         totalRemainingTarget: Math.max(0, totalAllTarget - totalAllQuoted),
         currentMonthQuoted: totalCurrentMonthQuoted,
         lastMonthQuoted: totalLastMonthQuoted,
-        currentMonthName: currentMonthStart.toLocaleString("default", { month: "long", year: "numeric" }),
-        lastMonthName: lastMonthStart.toLocaleString("default", { month: "long", year: "numeric" }),
+        currentMonthName: currentMonthStart.toLocaleString("default", {
+          month: "long",
+          year: "numeric",
+        }),
+        lastMonthName: lastMonthStart.toLocaleString("default", {
+          month: "long",
+          year: "numeric",
+        }),
       },
       usersReport,
     });

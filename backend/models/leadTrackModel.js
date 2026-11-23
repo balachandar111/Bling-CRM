@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const onboardedLeadSchema = new mongoose.Schema({
   customerId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Customer",
+    ref: "CustomerDetails",
   },
   name: { type: String, default: "" },
   company: { type: String, default: "" },
@@ -19,7 +19,7 @@ const onboardedLeadSchema = new mongoose.Schema({
     {
       stage: { type: String },
       updatedAt: { type: Date, default: Date.now },
-      updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "UserDetails" },
     },
   ],
   quotedAt: { type: Date },
@@ -52,7 +52,7 @@ const leadTrackSchema = new mongoose.Schema(
   {
     assignedTo: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "UserDetails",
       required: true,
     },
     assignedToName: {
@@ -74,7 +74,7 @@ const leadTrackSchema = new mongoose.Schema(
     products: [productTrackSchema],
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "UserDetails",
     },
     createdByName: {
       type: String,
@@ -111,3 +111,4 @@ leadTrackSchema.methods.calculateStats = function () {
 };
 
 module.exports = mongoose.model("LeadTrack", leadTrackSchema);
+

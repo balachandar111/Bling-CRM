@@ -67,10 +67,15 @@ const AdminLeadTrack = () => {
 
   const fetchUsers = async () => {
     try {
-      const res = await API.get("/users");
-      setUsers(res.data.users || res.data || []);
+      const res = await API.get("/lead-tracks/assignable-users");
+      setUsers(res.data.users || []);
     } catch (err) {
-      console.error("Failed to fetch users:", err);
+      try {
+        const fallbackRes = await API.get("/users");
+        setUsers(fallbackRes.data.users || fallbackRes.data || []);
+      } catch (e) {
+        console.error("Failed to fetch users:", e);
+      }
     }
   };
 
@@ -194,7 +199,10 @@ const AdminLeadTrack = () => {
   const usersToDisplay =
     reportData?.usersReport?.filter((u) => {
       if (selectedUserFilter === "all") return true;
-      return String(u.userId) === String(selectedUserFilter);
+      return (
+        String(u.userId) === String(selectedUserFilter) ||
+        (u.userName && u.userName.toLowerCase() === selectedUserFilter.toLowerCase())
+      );
     }) || [];
 
   return (
@@ -741,3 +749,4 @@ const AdminLeadTrack = () => {
 };
 
 export default AdminLeadTrack;
+
