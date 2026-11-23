@@ -55,6 +55,7 @@ app.use("/api/payslips", require("./routes/payslipRoutes"));
 app.use("/api/invoices", require("./routes/invoiceRoutes"));
 app.use("/api/project-progress", require("./routes/projectProgressRoutes"));
 app.use("/api/marketing", require("./routes/marketingRoutes"));
+app.use("/api/lead-tracks", require("./routes/leadTrackRoutes"));
 
 // ================= STATIC UPLOADS =================
 app.use("/uploads", express.static("uploads"));

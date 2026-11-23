@@ -32,6 +32,7 @@ import UserManagement from "../admin/UserManagement";
 import LeaveRequests from "../admin/LeaveRequests";
 import ClosedLeadsReimbursements from "../admin/ClosedLeadsReimbursements";
 import AdminOpportunity from "../admin/Opportunity";
+import AdminLeadTrack from "../admin/AdminLeadTrack";
 
 // User-only sections
 import MyAttendance from "../user/MyAttendance";
@@ -40,6 +41,7 @@ import MyProfile from "../user/MyProfile";
 import Tasks from "../user/Tasks";
 import Opportunity from "../user/Opportunity";
 import Invoices from "../user/Invoices";
+import UserLeadTrack from "../user/UserLeadTrack";
 
 // Shared section (used by BOTH admin and user)
 import ProjectProgress from "../shared/ProjectProgress";
@@ -85,6 +87,7 @@ FaCommentDots,
   FaChevronLeft,
   FaChevronDown,
   FaChevronRight,
+  FaBullseye,
 
 } from "react-icons/fa";
 
@@ -992,6 +995,7 @@ const fullScreenPages = [
   "myProfile",
   "opportunity",
   "closedLeadsReimbursements",
+  "leadTrack",
 ];
 
   setSidebarOpen(
@@ -3114,6 +3118,15 @@ const closedLeadData = (() => {
 </li>
   )
 }
+
+  {/* LEAD TRACK / TRACK-LEAD (Admin: "Lead Track", User: "Track-Lead") */}
+<li
+  className={activeMenu === "leadTrack" ? "active" : ""}
+  onClick={() => setActiveMenu("leadTrack")}
+>
+  <FaBullseye />
+  {role === "super_admin" ? "Lead Track" : "Track-Lead"}
+</li>
 
   {/* TASKS - visible to everyone */}
 <li
@@ -5560,6 +5573,17 @@ clear-filter-btn
       role={role}
       setSidebarOpen={setSidebarOpen}
     />
+  )
+}
+
+{/* ================= LEAD TRACK (ADMIN & USER) ================= */}
+{
+  activeMenu === "leadTrack" && (
+    role === "super_admin" ? (
+      <AdminLeadTrack />
+    ) : (
+      <UserLeadTrack />
+    )
   )
 }
         
