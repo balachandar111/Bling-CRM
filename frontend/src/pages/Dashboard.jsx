@@ -728,6 +728,12 @@ const downloadExcel = () => {
       Location:
       customer.location || "",
 
+      "Spark Name":
+      customer.sparkName || "",
+
+      "Spark Number":
+      customer.sparkNumber || "",
+
       Status:
       customer.status,
 
@@ -976,6 +982,28 @@ useState("overall");
 
   const [activeMenu, setActiveMenu] =
     useState("dashboard");
+
+  // Admin Live KPI Summary States for Dashboard
+  const [adminLeadTrackStats, setAdminLeadTrackStats] = useState({
+    completedLeads: 0,
+    targetLeads: 0,
+    totalOnboarded: 0,
+    totalRemaining: 0,
+  });
+
+  const [adminTaskStats, setAdminTaskStats] = useState({
+    completedTasks: 0,
+    totalTasks: 0,
+    updatedEmployees: 0,
+    totalEmployees: 0,
+  });
+
+  const [adminProjectStats, setAdminProjectStats] = useState({
+    totalProjects: 0,
+    highPriority: 0,
+    mediumPriority: 0,
+    lowPriority: 0,
+  });
 
 // Marketing group in the sidebar (expand / collapse)
 const [marketingOpen, setMarketingOpen] =
@@ -1512,6 +1540,8 @@ useState({
   company: "",
   sector: "",
   location: "",
+  sparkName: "",
+  sparkNumber: "",
 
   status: "lead",
   leadStage: "Awareness",
@@ -1883,6 +1913,56 @@ async () => {
     setReimbursementActionLoading(false);
   };
 
+  const fetchLeadTrackOverview = async () => {
+    try {
+      const res = await API.get("/lead-tracks/report/analytics");
+      if (res.data?.metrics) {
+        setAdminLeadTrackStats({
+          completedLeads: res.data.metrics.totalQuoted || 0,
+          targetLeads: res.data.metrics.totalTarget || 0,
+          totalOnboarded: res.data.metrics.totalOnboarded || 0,
+          totalRemaining: res.data.metrics.totalRemaining || 0,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to fetch lead track overview for dashboard:", err);
+    }
+  };
+
+  const fetchTodayTaskOverview = async () => {
+    try {
+      const res = await API.get("/tasks/department-overview");
+      const depts = res.data?.departments || [];
+      const completedTasks = depts.reduce((acc, d) => acc + (d.completedCount || 0), 0);
+      const totalTasks = depts.reduce((acc, d) => acc + (d.totalTasksCount || 0), 0);
+      const updatedEmployees = depts.reduce((acc, d) => acc + (d.updatedTodayCount || 0), 0);
+      const totalEmployees = depts.reduce((acc, d) => acc + (d.employeeCount || 0), 0);
+      setAdminTaskStats({
+        completedTasks,
+        totalTasks,
+        updatedEmployees,
+        totalEmployees,
+      });
+    } catch (err) {
+      console.error("Failed to fetch task overview for dashboard:", err);
+    }
+  };
+
+  const fetchProjectsOverview = async () => {
+    try {
+      const res = await API.get("/project-progress");
+      const list = res.data?.projects || [];
+      setAdminProjectStats({
+        totalProjects: list.length,
+        highPriority: list.filter((p) => (p.priority || "").toLowerCase() === "high").length,
+        mediumPriority: list.filter((p) => (p.priority || "").toLowerCase() === "medium").length,
+        lowPriority: list.filter((p) => (p.priority || "").toLowerCase() === "low").length,
+      });
+    } catch (err) {
+      console.error("Failed to fetch project progress overview for dashboard:", err);
+    }
+  };
+
   useEffect(() => {
 
    fetchCustomers();
@@ -1894,11 +1974,23 @@ if (role === "super_admin") {
   fetchPendingLeaves();
   fetchPendingResignations();
   fetchAllReimbursements();
+  fetchLeadTrackOverview();
+  fetchTodayTaskOverview();
+  fetchProjectsOverview();
   // Auto-migrate existing users → linked employee records (idempotent)
   API.post("/users/migrate-employees").catch(() => {});
 }
 
   }, []);
+
+  // Refresh live KPI metrics whenever admin switches back to dashboard
+  useEffect(() => {
+    if (activeMenu === "dashboard" && role === "super_admin") {
+      fetchLeadTrackOverview();
+      fetchTodayTaskOverview();
+      fetchProjectsOverview();
+    }
+  }, [activeMenu, role]);
 // ================= TODAY REMINDER =================
 
 useEffect(() => {
@@ -1990,6 +2082,8 @@ useEffect(() => {
 
         sector: "",
         location: "",
+        sparkName: "",
+        sparkNumber: "",
         assignedTo: "",
         solution: "",
 hasProduct: false,
@@ -2048,6 +2142,8 @@ const handleFullUpdate = (customer) => {
     assignedTo: customer.assignedTo || "",
     sector: customer.sector || "",
     location: customer.location || "",
+    sparkName: customer.sparkName || "",
+    sparkNumber: customer.sparkNumber || "",
     hasProduct: !!customer.product,
     hasService: !!customer.service,
     product:customer.product || "",
@@ -3903,25 +3999,72 @@ clear-filter-btn
 
 </div>
 
-                <div className="stat-card">
+                {/* ADMIN EXCLUSIVE KPI CARDS */}
+                {role === "super_admin" ? (
+                  <>
+                    <div
+                      className="stat-card clickable-card"
+                      onClick={() => setActiveMenu("leadTrack")}
+                      style={{ cursor: "pointer", borderLeft: "4px solid #2563eb" }}
+                      title="Click to view Lead Tracking & Product Targets"
+                    >
+                      <div>
+                        <h4>🎯 Completed Leads / Target</h4>
+                        <h2>
+                          {adminLeadTrackStats.completedLeads} / {adminLeadTrackStats.targetLeads}
+                        </h2>
+                        <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>
+                          {adminLeadTrackStats.totalOnboarded} Onboarded Leads →
+                        </span>
+                      </div>
+                      <FaBullseye className="icon blue" />
+                    </div>
 
-                  <div>
+                    <div
+                      className="stat-card clickable-card"
+                      onClick={() => setActiveMenu("tasks")}
+                      style={{ cursor: "pointer", borderLeft: "4px solid #10b981" }}
+                      title="Click to view Today's Employee Tasks & Progress"
+                    >
+                      <div>
+                        <h4>📋 Today's Tasks (Done / Total)</h4>
+                        <h2>
+                          {adminTaskStats.completedTasks} / {adminTaskStats.totalTasks}
+                        </h2>
+                        <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>
+                          {adminTaskStats.updatedEmployees} Employees Submitted →
+                        </span>
+                      </div>
+                      <FaTasks className="icon green" />
+                    </div>
 
-                    <h4>
-                      Active Leads
-                    </h4>
-
-                    <h2>
-                      {
-                        activeLeads
-                      }
-                    </h2>
-
+                    <div
+                      className="stat-card clickable-card"
+                      onClick={() => setActiveMenu("projectProgress")}
+                      style={{ cursor: "pointer", borderLeft: "4px solid #9333ea" }}
+                      title="Click to view Project Progress & Timeline"
+                    >
+                      <div>
+                        <h4>🚀 Projects (High / Total)</h4>
+                        <h2>
+                          {adminProjectStats.highPriority} High / {adminProjectStats.totalProjects} Total
+                        </h2>
+                        <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>
+                          View Deliverables &amp; History →
+                        </span>
+                      </div>
+                      <FaProjectDiagram className="icon purple" />
+                    </div>
+                  </>
+                ) : (
+                  <div className="stat-card">
+                    <div>
+                      <h4>Active Leads</h4>
+                      <h2>{activeLeads}</h2>
+                    </div>
+                    <FaChartLine className="icon orange" />
                   </div>
-
-                  <FaChartLine className="icon orange" />
-
-                </div>
+                )}
 
                 <div
                   className={`stat-card${role === "super_admin" ? " clickable-card" : ""}`}
@@ -3975,183 +4118,331 @@ clear-filter-btn
               {user?.role === "super_admin" && <WorkModeSummaryCards />}
 
 
-              {/* CHARTS */}
+              {/* ================= ADMIN OPERATIONAL HUB (Replaces Sales Funnel, Product/Service & Closed Lead Analytics) ================= */}
+              {role === "super_admin" ? (
+                <div style={{ marginTop: "24px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "10px" }}>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: "18px", fontWeight: 700, color: "#0f172a" }}>
+                        ⚡ Executive Command Hub &amp; Live Operations
+                      </h3>
+                      <p style={{ margin: "4px 0 0", fontSize: "13px", color: "#64748b" }}>
+                        Real-time status across lead targets, employee tasks, active projects, and closed deals.
+                      </p>
+                    </div>
+                  </div>
 
-              <div className="charts-grid">
-                
-
-                <div className="chart-card">
-
-                  <h3>
-                    Sales Funnel
-                  </h3>
-
-                  <ResponsiveContainer
-                    width="100%"
-                    height={300}
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+                      gap: "20px",
+                      marginBottom: "28px",
+                    }}
                   >
-
-                    <PieChart>
-
-                      <Pie
-                        data={stageData}
-                        dataKey="value"
-                        outerRadius={100}
-                        label
-                      >
-
-                        {
-                          stageData.map(
-                            (
-                              entry,
-                              index
-                            ) => (
-
-                              <Cell
-                                key={index}
-                                fill={
-                                  COLORS[
-                                    index
-                                  ]
-                                }
-                              />
-                            )
-                          )
-                        }
-
-                      </Pie>
-
-                      <Tooltip />
-
-                    </PieChart>
-
-                  </ResponsiveContainer>
-
-                </div>
-
-
-                <div className="chart-card">
-
-                 <h3>
-  Product Analytics
-</h3>
-
-                  <ResponsiveContainer
-                    width="100%"
-                    height={300}
-                  >
-
-                    <BarChart
-                     data={productData}
+                    {/* HUB CARD 1: LEAD TRACKING PROGRESS */}
+                    <div
+                      style={{
+                        background: "#ffffff",
+                        border: "1px solid #e2e8f0",
+                        borderRadius: "14px",
+                        padding: "20px",
+                        boxShadow: "0 2px 6px rgba(0, 0, 0, 0.03)",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                        cursor: "pointer",
+                        transition: "all 0.2s ease",
+                      }}
+                      onClick={() => setActiveMenu("leadTrack")}
+                      title="Click to open Lead Track"
                     >
+                      <div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                          <span style={{ fontSize: "14px", fontWeight: 700, color: "#0f172a", display: "flex", alignItems: "center", gap: "8px" }}>
+                            <FaBullseye style={{ color: "#2563eb" }} /> Lead Track Targets
+                          </span>
+                          <span style={{ fontSize: "11px", fontWeight: 700, padding: "3px 8px", background: "#eff6ff", color: "#2563eb", borderRadius: "12px" }}>
+                            Sales Targets
+                          </span>
+                        </div>
 
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                      />
+                        <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginBottom: "6px" }}>
+                          <h2 style={{ margin: 0, fontSize: "28px", fontWeight: 800, color: "#0f172a" }}>
+                            {adminLeadTrackStats.completedLeads}
+                          </h2>
+                          <span style={{ fontSize: "14px", color: "#64748b", fontWeight: 600 }}>
+                            / {adminLeadTrackStats.targetLeads} Quoted Leads
+                          </span>
+                        </div>
 
-                     <XAxis
-  dataKey="name"
-/>
+                        {/* Progress Bar */}
+                        <div style={{ height: "6px", background: "#e2e8f0", borderRadius: "10px", overflow: "hidden", margin: "10px 0" }}>
+                          <div
+                            style={{
+                              height: "100%",
+                              width: `${
+                                adminLeadTrackStats.targetLeads > 0
+                                  ? Math.min(100, Math.round((adminLeadTrackStats.completedLeads / adminLeadTrackStats.targetLeads) * 100))
+                                  : 0
+                              }%`,
+                              background: "linear-gradient(90deg, #2563eb, #10b981)",
+                            }}
+                          />
+                        </div>
 
-                      <YAxis />
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#64748b" }}>
+                          <span>👥 Onboarded: <strong>{adminLeadTrackStats.totalOnboarded}</strong></span>
+                          <span>⏳ Remaining: <strong style={{ color: "#d97706" }}>{adminLeadTrackStats.totalRemaining}</strong></span>
+                        </div>
+                      </div>
 
-                      <Tooltip />
-<Bar
-  dataKey="value"
-  fill="#2563EB"
-/>
+                      <div style={{ marginTop: "16px", paddingTop: "12px", borderTop: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: "12px", fontWeight: 700, color: "#2563eb" }}>
+                          View Lead Track &amp; Products →
+                        </span>
+                      </div>
+                    </div>
 
-                    </BarChart>
-
-                  </ResponsiveContainer>
-
-                </div>
-
-              </div>
-
-
-              {/* EXTRA ANALYTICS */}
-
-              <div className="charts-grid">
-
-                <div className="chart-card">
-
-                  <h3>
-                    Service Analytics
-                  </h3>
-
-                  <ResponsiveContainer
-                    width="100%"
-                    height={320}
-                  >
-
-                    <BarChart
-                      data={serviceData}
+                    {/* HUB CARD 2: TODAY'S EMPLOYEE TASKS */}
+                    <div
+                      style={{
+                        background: "#ffffff",
+                        border: "1px solid #e2e8f0",
+                        borderRadius: "14px",
+                        padding: "20px",
+                        boxShadow: "0 2px 6px rgba(0, 0, 0, 0.03)",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                        cursor: "pointer",
+                        transition: "all 0.2s ease",
+                      }}
+                      onClick={() => setActiveMenu("tasks")}
+                      title="Click to review Today's Employee Tasks"
                     >
+                      <div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                          <span style={{ fontSize: "14px", fontWeight: 700, color: "#0f172a", display: "flex", alignItems: "center", gap: "8px" }}>
+                            <FaTasks style={{ color: "#10b981" }} /> Today's Employee Tasks
+                          </span>
+                          <span style={{ fontSize: "11px", fontWeight: 700, padding: "3px 8px", background: "#ecfdf5", color: "#059669", borderRadius: "12px" }}>
+                            All Employees
+                          </span>
+                        </div>
 
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                      />
+                        <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginBottom: "6px" }}>
+                          <h2 style={{ margin: 0, fontSize: "28px", fontWeight: 800, color: "#0f172a" }}>
+                            {adminTaskStats.completedTasks}
+                          </h2>
+                          <span style={{ fontSize: "14px", color: "#64748b", fontWeight: 600 }}>
+                            / {adminTaskStats.totalTasks} Tasks Completed
+                          </span>
+                        </div>
 
-                      <XAxis
-                        dataKey="name"
-                      />
+                        {/* Progress Bar */}
+                        <div style={{ height: "6px", background: "#e2e8f0", borderRadius: "10px", overflow: "hidden", margin: "10px 0" }}>
+                          <div
+                            style={{
+                              height: "100%",
+                              width: `${
+                                adminTaskStats.totalTasks > 0
+                                  ? Math.min(100, Math.round((adminTaskStats.completedTasks / adminTaskStats.totalTasks) * 100))
+                                  : 0
+                              }%`,
+                              background: "#10b981",
+                            }}
+                          />
+                        </div>
 
-                      <YAxis />
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#64748b" }}>
+                          <span>✍️ Submissions: <strong>{adminTaskStats.updatedEmployees}</strong> active</span>
+                          <span>👥 Total Staff: <strong>{adminTaskStats.totalEmployees || employees.length}</strong></span>
+                        </div>
+                      </div>
 
-                      <Tooltip />
+                      <div style={{ marginTop: "16px", paddingTop: "12px", borderTop: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: "12px", fontWeight: 700, color: "#10b981" }}>
+                          Review Department Tasks &amp; Todos →
+                        </span>
+                      </div>
+                    </div>
 
-                      <Bar
-                        dataKey="value"
-                        fill="#7C3AED"
-                      />
-
-                    </BarChart>
-
-                  </ResponsiveContainer>
-
-                </div>
-
-
-                <div className="chart-card">
-
-                  <h3>
-                    Closed Lead Analytics
-                  </h3>
-
-                  <ResponsiveContainer
-                    width="100%"
-                    height={320}
-                  >
-
-                    <BarChart
-                      data={closedLeadData}
+                    {/* HUB CARD 3: PROJECT PROGRESS & DELIVERABLES */}
+                    <div
+                      style={{
+                        background: "#ffffff",
+                        border: "1px solid #e2e8f0",
+                        borderRadius: "14px",
+                        padding: "20px",
+                        boxShadow: "0 2px 6px rgba(0, 0, 0, 0.03)",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                        cursor: "pointer",
+                        transition: "all 0.2s ease",
+                      }}
+                      onClick={() => setActiveMenu("projectProgress")}
+                      title="Click to view Project Progress"
                     >
+                      <div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                          <span style={{ fontSize: "14px", fontWeight: 700, color: "#0f172a", display: "flex", alignItems: "center", gap: "8px" }}>
+                            <FaProjectDiagram style={{ color: "#9333ea" }} /> Active Projects
+                          </span>
+                          <span style={{ fontSize: "11px", fontWeight: 700, padding: "3px 8px", background: "#faf5ff", color: "#7e22ce", borderRadius: "12px" }}>
+                            Ongoing
+                          </span>
+                        </div>
 
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                      />
+                        <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginBottom: "8px" }}>
+                          <h2 style={{ margin: 0, fontSize: "28px", fontWeight: 800, color: "#0f172a" }}>
+                            {adminProjectStats.totalProjects}
+                          </h2>
+                          <span style={{ fontSize: "14px", color: "#64748b", fontWeight: 600 }}>
+                            Total Projects Active
+                          </span>
+                        </div>
 
-                      <XAxis
-                        dataKey="name"
-                      />
+                        {/* Priority Breakdown Chips */}
+                        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", margin: "10px 0" }}>
+                          <span style={{ fontSize: "11px", fontWeight: 700, padding: "3px 8px", background: "#fef2f2", color: "#dc2626", borderRadius: "6px" }}>
+                            🔴 {adminProjectStats.highPriority} High
+                          </span>
+                          <span style={{ fontSize: "11px", fontWeight: 700, padding: "3px 8px", background: "#fffbeb", color: "#d97706", borderRadius: "6px" }}>
+                            🟡 {adminProjectStats.mediumPriority} Medium
+                          </span>
+                          <span style={{ fontSize: "11px", fontWeight: 700, padding: "3px 8px", background: "#f0fdf4", color: "#16a34a", borderRadius: "6px" }}>
+                            🟢 {adminProjectStats.lowPriority} Low
+                          </span>
+                        </div>
 
-                      <YAxis />
+                        <div style={{ fontSize: "12px", color: "#64748b" }}>
+                          Organized note &amp; progress timeline available
+                        </div>
+                      </div>
 
-                      <Tooltip />
+                      <div style={{ marginTop: "16px", paddingTop: "12px", borderTop: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: "12px", fontWeight: 700, color: "#9333ea" }}>
+                          Open Project Progress &amp; Timeline →
+                        </span>
+                      </div>
+                    </div>
 
-                      <Bar
-                        dataKey="value"
-                        fill="#16A34A"
-                      />
+                    {/* HUB CARD 4: CLOSED LEADS & REVENUE */}
+                    <div
+                      style={{
+                        background: "#ffffff",
+                        border: "1px solid #e2e8f0",
+                        borderRadius: "14px",
+                        padding: "20px",
+                        boxShadow: "0 2px 6px rgba(0, 0, 0, 0.03)",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                        cursor: "pointer",
+                        transition: "all 0.2s ease",
+                      }}
+                      onClick={() => setActiveMenu("closedLeadsReimbursements")}
+                      title="Click to view Closed Leads & Reimbursements"
+                    >
+                      <div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                          <span style={{ fontSize: "14px", fontWeight: 700, color: "#0f172a", display: "flex", alignItems: "center", gap: "8px" }}>
+                            <FaHandshake style={{ color: "#16a34a" }} /> Closed Deals &amp; Revenue
+                          </span>
+                          <span style={{ fontSize: "11px", fontWeight: 700, padding: "3px 8px", background: "#f0fdf4", color: "#166534", borderRadius: "12px" }}>
+                            Converted
+                          </span>
+                        </div>
 
-                    </BarChart>
+                        <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginBottom: "6px" }}>
+                          <h2 style={{ margin: 0, fontSize: "28px", fontWeight: 800, color: "#16a34a" }}>
+                            {converted}
+                          </h2>
+                          <span style={{ fontSize: "14px", color: "#64748b", fontWeight: 600 }}>
+                            Closed Leads
+                          </span>
+                        </div>
 
-                  </ResponsiveContainer>
+                        <div style={{ margin: "10px 0", fontSize: "18px", fontWeight: 800, color: "#0f172a" }}>
+                          ₹{totalClosedValue.toLocaleString("en-IN")}
+                        </div>
 
+                        <div style={{ fontSize: "12px", color: "#64748b" }}>
+                          Total Closed Deal Value Generated
+                        </div>
+                      </div>
+
+                      <div style={{ marginTop: "16px", paddingTop: "12px", borderTop: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: "12px", fontWeight: 700, color: "#16a34a" }}>
+                          View Closed Leads &amp; Reimbursements →
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
+              ) : (
+                /* USER NON-ADMIN CHARTS */
+                <>
+                  <div className="charts-grid">
+                    <div className="chart-card">
+                      <h3>Sales Funnel</h3>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <PieChart>
+                          <Pie data={stageData} dataKey="value" outerRadius={100} label>
+                            {stageData.map((entry, index) => (
+                              <Cell key={index} fill={COLORS[index]} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
 
-              </div>
+                    <div className="chart-card">
+                      <h3>Product Analytics</h3>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={productData}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="name" />
+                          <YAxis />
+                          <Tooltip />
+                          <Bar dataKey="value" fill="#2563EB" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  <div className="charts-grid">
+                    <div className="chart-card">
+                      <h3>Service Analytics</h3>
+                      <ResponsiveContainer width="100%" height={320}>
+                        <BarChart data={serviceData}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="name" />
+                          <YAxis />
+                          <Tooltip />
+                          <Bar dataKey="value" fill="#7C3AED" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    <div className="chart-card">
+                      <h3>Closed Lead Analytics</h3>
+                      <ResponsiveContainer width="100%" height={320}>
+                        <BarChart data={closedLeadData}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="name" />
+                          <YAxis />
+                          <Tooltip />
+                          <Bar dataKey="value" fill="#16A34A" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                </>
+              )}
 
 
           
@@ -4878,6 +5169,11 @@ clear-filter-btn
 
                     <td>
                       {customer.name || "-"}
+                      {(customer.sparkName || customer.sparkNumber) && (
+                        <div style={{ fontSize: "11px", color: "#d97706", fontWeight: 600, marginTop: "2px" }}>
+                          ⚡ {customer.sparkName || "-"} {customer.sparkNumber ? `(${customer.sparkNumber})` : ""}
+                        </div>
+                      )}
                     </td>
 
                     <td>
@@ -5797,6 +6093,30 @@ clear-filter-btn
 
             </div>
 
+            {/* SPARK NAME */}
+            <div className="input-group">
+              <label>Spark Name</label>
+              <input
+                type="text"
+                name="sparkName"
+                placeholder="Enter spark name"
+                value={formData.sparkName}
+                onChange={handleChange}
+              />
+            </div>
+
+            {/* SPARK NUMBER */}
+            <div className="input-group">
+              <label>Spark Number</label>
+              <input
+                type="text"
+                name="sparkNumber"
+                placeholder="Enter spark number"
+                value={formData.sparkNumber}
+                onChange={handleChange}
+              />
+            </div>
+
 
           
 
@@ -6463,6 +6783,40 @@ clear-filter-btn
 
 </div>
 
+{/* SPARK NAME */}
+<div className="input-group">
+  <label>Spark Name</label>
+  <input
+    type="text"
+    name="sparkName"
+    placeholder="Enter Spark Name"
+    value={formData.sparkName}
+    onChange={(e) =>
+      setFormData({
+        ...formData,
+        sparkName: e.target.value,
+      })
+    }
+  />
+</div>
+
+{/* SPARK NUMBER */}
+<div className="input-group">
+  <label>Spark Number</label>
+  <input
+    type="text"
+    name="sparkNumber"
+    placeholder="Enter Spark Number"
+    value={formData.sparkNumber}
+    onChange={(e) =>
+      setFormData({
+        ...formData,
+        sparkNumber: e.target.value,
+      })
+    }
+  />
+</div>
+
 {/* SERVICE */}
 
 {formData.hasService && (
@@ -7071,6 +7425,19 @@ clear-filter-btn
             </h4>
 
           </div>
+
+          {(selectedCustomer.sparkName || selectedCustomer.sparkNumber) && (
+            <>
+              <div className="detail-row">
+                <span>Spark Name</span>
+                <h4>{selectedCustomer.sparkName || "N/A"}</h4>
+              </div>
+              <div className="detail-row">
+                <span>Spark Number</span>
+                <h4>{selectedCustomer.sparkNumber || "N/A"}</h4>
+              </div>
+            </>
+          )}
 
 
           <div className="detail-row">

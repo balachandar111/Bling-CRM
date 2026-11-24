@@ -14,6 +14,8 @@ import {
   FaWhatsapp,
   FaLaptopCode,
   FaFileInvoice,
+  FaEdit,
+  FaSave,
 } from "react-icons/fa";
 import API from "../services/api";
 import "./AdminLeadTrack.css";
@@ -24,6 +26,8 @@ const STANDARD_PRODUCTS = [
   "CRM",
   "Custom-Website",
   "WhatsappAtuomation",
+  "Projects",
+  "QuickCommerce",
 ];
 
 const AdminLeadTrack = () => {
@@ -47,17 +51,31 @@ const AdminLeadTrack = () => {
   });
   const [trackTitle, setTrackTitle] = useState("");
   const [productSelections, setProductSelections] = useState({
-    Genunitys: { selected: true, target: 25 },
-    Rewards: { selected: true, target: 25 },
-    CRM: { selected: true, target: 25 },
-    "Custom-Website": { selected: true, target: 25 },
-    WhatsappAtuomation: { selected: true, target: 25 },
+    Genunitys: { selected: true, target: 25, noTarget: false },
+    Rewards: { selected: true, target: 25, noTarget: false },
+    CRM: { selected: true, target: 25, noTarget: false },
+    "Custom-Website": { selected: true, target: 25, noTarget: false },
+    WhatsappAtuomation: { selected: true, target: 25, noTarget: false },
+    Projects: { selected: true, target: 25, noTarget: false },
+    QuickCommerce: { selected: true, target: 25, noTarget: false },
   });
   const [creating, setCreating] = useState(false);
 
   // Modal State for inspecting leads of a specific card
   const [selectedCardForModal, setSelectedCardForModal] = useState(null);
   const [selectedLeadForAdminDetails, setSelectedLeadForAdminDetails] = useState(null);
+
+  // Edit Track Modal State
+  const [editingTrack, setEditingTrack] = useState(null);
+  const [editTrackForm, setEditTrackForm] = useState({
+    title: "",
+    startMonth: "",
+    endMonth: "",
+    status: "active",
+    products: [],
+  });
+  const [newProductToAdd, setNewProductToAdd] = useState("");
+  const [savingEditTrack, setSavingEditTrack] = useState(false);
 
   // Fetch Users and Report on mount
   useEffect(() => {
@@ -122,6 +140,16 @@ const AdminLeadTrack = () => {
     }));
   };
 
+  const handleNoTargetToggle = (prod) => {
+    setProductSelections((prev) => ({
+      ...prev,
+      [prod]: {
+        ...prev[prod],
+        noTarget: !prev[prod]?.noTarget,
+      },
+    }));
+  };
+
   const setAllTargets = (targetValue) => {
     setProductSelections((prev) => {
       const updated = {};
@@ -129,6 +157,21 @@ const AdminLeadTrack = () => {
         updated[p] = {
           selected: true,
           target: targetValue,
+          noTarget: false,
+        };
+      });
+      return updated;
+    });
+  };
+
+  const setAllNoTarget = () => {
+    setProductSelections((prev) => {
+      const updated = {};
+      STANDARD_PRODUCTS.forEach((p) => {
+        updated[p] = {
+          selected: true,
+          target: 0,
+          noTarget: true,
         };
       });
       return updated;
@@ -143,10 +186,11 @@ const AdminLeadTrack = () => {
     }
 
     const selectedProducts = STANDARD_PRODUCTS.filter(
-      (p) => productSelections[p].selected
+      (p) => productSelections[p]?.selected
     ).map((p) => ({
       productName: p,
-      target: productSelections[p].target,
+      target: productSelections[p]?.noTarget ? 0 : productSelections[p]?.target,
+      noTarget: !!productSelections[p]?.noTarget,
     }));
 
     if (selectedProducts.length === 0) {
@@ -213,6 +257,127 @@ const AdminLeadTrack = () => {
     } catch (err) {
       console.error(err);
       alert(err.response?.data?.message || "Failed to clear all tracks");
+    }
+  };
+
+  // ================= EDIT TRACK HANDLERS =================
+  const handleOpenEditTrack = (track) => {
+    setEditingTrack(track);
+    setEditTrackForm({
+      title: track.title || "",
+      startMonth: track.startMonth || "",
+      endMonth: track.endMonth || "",
+      status: track.status || "active",
+      products: (track.products || []).map((p) => ({
+        _id: p._id,
+        productName: p.productName,
+        target: p.target !== undefined ? p.target : 25,
+        noTarget: !!p.noTarget,
+        onboardedCount: p.onboardedLeads?.length || p.onboardedCount || 0,
+      })),
+    });
+    setNewProductToAdd("");
+  };
+
+  const handleOpenEditTrackById = (trackId) => {
+    const track = allTracks.find((t) => String(t._id) === String(trackId));
+    if (track) {
+      handleOpenEditTrack(track);
+    }
+  };
+
+  const handleEditProductTargetChange = (index, value) => {
+    setEditTrackForm((prev) => {
+      const nextProds = [...prev.products];
+      nextProds[index] = {
+        ...nextProds[index],
+        target: Math.max(0, parseInt(value, 10) || 0),
+      };
+      return { ...prev, products: nextProds };
+    });
+  };
+
+  const handleEditProductNoTargetToggle = (index) => {
+    setEditTrackForm((prev) => {
+      const nextProds = [...prev.products];
+      const currentNoTarget = !nextProds[index].noTarget;
+      nextProds[index] = {
+        ...nextProds[index],
+        noTarget: currentNoTarget,
+        target: currentNoTarget ? 0 : nextProds[index].target || 25,
+      };
+      return { ...prev, products: nextProds };
+    });
+  };
+
+  const handleEditRemoveProduct = (index) => {
+    const prod = editTrackForm.products[index];
+    if (prod && prod.onboardedCount > 0) {
+      if (
+        !window.confirm(
+          `Product "${prod.productName}" currently has ${prod.onboardedCount} onboarded lead(s). Are you sure you want to remove this product from this track?`
+        )
+      ) {
+        return;
+      }
+    }
+    setEditTrackForm((prev) => ({
+      ...prev,
+      products: prev.products.filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleEditAddProduct = () => {
+    if (!newProductToAdd) return;
+    if (editTrackForm.products.some((p) => p.productName === newProductToAdd)) {
+      alert("This product is already in this lead track.");
+      return;
+    }
+    setEditTrackForm((prev) => ({
+      ...prev,
+      products: [
+        ...prev.products,
+        {
+          productName: newProductToAdd,
+          target: 25,
+          noTarget: false,
+          onboardedCount: 0,
+        },
+      ],
+    }));
+    setNewProductToAdd("");
+  };
+
+  const handleSaveEditTrack = async (e) => {
+    if (e) e.preventDefault();
+    if (!editTrackForm.products || editTrackForm.products.length === 0) {
+      alert("Please keep at least one product in this lead track.");
+      return;
+    }
+    try {
+      setSavingEditTrack(true);
+      await API.put(`/lead-tracks/${editingTrack._id}`, {
+        title: editTrackForm.title,
+        startMonth: editTrackForm.startMonth,
+        endMonth: editTrackForm.endMonth,
+        status: editTrackForm.status,
+        products: editTrackForm.products.map((p) => ({
+          _id: p._id,
+          productName: p.productName,
+          target: p.noTarget ? 0 : Math.max(0, parseInt(p.target, 10) || 0),
+          noTarget: !!p.noTarget,
+        })),
+      });
+
+      alert("Lead Track updated successfully!");
+      setEditingTrack(null);
+      fetchReport();
+      fetchAllTracks();
+    } catch (err) {
+      console.error("Failed to update track:", err);
+      alert(err.response?.data?.message || "Failed to update track");
+    } finally {
+      setSavingEditTrack(false);
     }
   };
 
@@ -407,11 +572,11 @@ const AdminLeadTrack = () => {
                           <span
                             className="alt-tag-badge"
                             style={{
-                              background: card.remainingTarget === 0 ? "#dcfce7" : "#eff6ff",
-                              color: card.remainingTarget === 0 ? "#15803d" : "#2563eb",
+                              background: card.noTarget ? "#fef3c7" : card.remainingTarget === 0 ? "#dcfce7" : "#eff6ff",
+                              color: card.noTarget ? "#b45309" : card.remainingTarget === 0 ? "#15803d" : "#2563eb",
                             }}
                           >
-                            {card.remainingTarget === 0 ? "Target Met 🎉" : "Active"}
+                            {card.noTarget ? "♾️ No Target" : card.remainingTarget === 0 ? "Target Met 🎉" : "Active"}
                           </span>
                         </div>
 
@@ -423,7 +588,7 @@ const AdminLeadTrack = () => {
                         <div className="alt-card-counts">
                           <div className="alt-count-box">
                             <span className="label">Target Lead</span>
-                            <span className="val">{card.target}</span>
+                            <span className="val">{card.noTarget ? "No Target" : card.target}</span>
                           </div>
                           <div className="alt-count-box highlight">
                             <span className="label">Quoted Achieved</span>
@@ -435,7 +600,7 @@ const AdminLeadTrack = () => {
                           </div>
                           <div className="alt-count-box rem-highlight">
                             <span className="label">Remaining Target</span>
-                            <span className="val">{card.remainingTarget}</span>
+                            <span className="val">{card.noTarget ? "No Target" : card.remainingTarget}</span>
                           </div>
                         </div>
 
@@ -456,12 +621,37 @@ const AdminLeadTrack = () => {
                         </div>
                       </div>
 
-                      <button
-                        className="alt-card-btn"
-                        onClick={() => setSelectedCardForModal({ ...card, userName: user.userName })}
-                      >
-                        <FaEye /> View Onboarded Leads ({card.onboardedCount})
-                      </button>
+                      <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
+                        <button
+                          className="alt-card-btn"
+                          style={{ flex: 1 }}
+                          onClick={() => setSelectedCardForModal({ ...card, userName: user.userName })}
+                        >
+                          <FaEye /> Leads ({card.onboardedCount})
+                        </button>
+                        {card.trackId && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditTrackById(card.trackId)}
+                            title="Edit this Lead Track & Products"
+                            style={{
+                              padding: "9px 12px",
+                              background: "#eff6ff",
+                              color: "#2563eb",
+                              border: "1px solid #bfdbfe",
+                              borderRadius: "8px",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "4px",
+                              fontSize: "13px",
+                              fontWeight: 600,
+                            }}
+                          >
+                            <FaEdit /> Edit
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -539,8 +729,8 @@ const AdminLeadTrack = () => {
             {/* PRODUCT SELECTION & TARGET SETUP */}
             <div className="alt-product-selection-box">
               <div className="alt-ps-header">
-                <h4>🎯 Products &amp; Target Leads</h4>
-                <div style={{ display: "flex", gap: "8px" }}>
+                <h4>🎯 Products &amp; Target Setup</h4>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                   <button
                     type="button"
                     className="alt-quick-btn"
@@ -555,36 +745,65 @@ const AdminLeadTrack = () => {
                   >
                     Set All to 50
                   </button>
+                  <button
+                    type="button"
+                    className="alt-quick-btn"
+                    style={{ background: "#fef3c7", color: "#b45309", borderColor: "#fde68a" }}
+                    onClick={setAllNoTarget}
+                  >
+                    ♾️ Set All to No Target
+                  </button>
                 </div>
               </div>
 
-              {STANDARD_PRODUCTS.map((prod) => (
-                <div key={prod} className="alt-product-row">
-                  <label className="alt-product-check-label">
-                    <input
-                      type="checkbox"
-                      checked={productSelections[prod].selected}
-                      onChange={() => handleProductToggle(prod)}
-                    />
-                    <span>{prod}</span>
-                  </label>
+              {STANDARD_PRODUCTS.map((prod) => {
+                const current = productSelections[prod] || { selected: false, target: 25, noTarget: false };
+                return (
+                  <div key={prod} className="alt-product-row">
+                    <label className="alt-product-check-label">
+                      <input
+                        type="checkbox"
+                        checked={current.selected}
+                        onChange={() => handleProductToggle(prod)}
+                      />
+                      <span>{prod}</span>
+                    </label>
 
-                  <div className="alt-target-input-box">
-                    <span>Target Leads:</span>
-                    <input
-                      type="number"
-                      min="1"
-                      className="alt-target-input"
-                      disabled={!productSelections[prod].selected}
-                      value={productSelections[prod].target}
-                      onChange={(e) => handleTargetChange(prod, e.target.value)}
-                      style={{
-                        opacity: productSelections[prod].selected ? 1 : 0.5,
-                      }}
-                    />
+                    <div className="alt-target-input-box" style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", cursor: "pointer", color: "#475569" }}>
+                        <input
+                          type="checkbox"
+                          checked={!!current.noTarget}
+                          disabled={!current.selected}
+                          onChange={() => handleNoTargetToggle(prod)}
+                        />
+                        <span>No Target (Unlimited Leads)</span>
+                      </label>
+
+                      {!current.noTarget ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <span>Target:</span>
+                          <input
+                            type="number"
+                            min="1"
+                            className="alt-target-input"
+                            disabled={!current.selected}
+                            value={current.target}
+                            onChange={(e) => handleTargetChange(prod, e.target.value)}
+                            style={{
+                              opacity: current.selected ? 1 : 0.5,
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <span style={{ fontSize: "12px", color: "#16a34a", fontWeight: 700, padding: "3px 8px", background: "#dcfce7", borderRadius: "6px" }}>
+                          ♾️ Unlimited Leads
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <button type="submit" className="alt-submit-btn" disabled={creating}>
@@ -658,7 +877,7 @@ const AdminLeadTrack = () => {
                         <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
                           {t.products.map((p, idx) => (
                             <span key={idx} className="alt-stage-chip">
-                              {p.productName}: <strong>{p.target}</strong>
+                              {p.productName}: <strong>{p.noTarget ? "No Target" : p.target}</strong>
                             </span>
                           ))}
                         </div>
@@ -672,7 +891,26 @@ const AdminLeadTrack = () => {
                           {t.status}
                         </span>
                       </td>
-                      <td>
+                      <td style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                        <button
+                          style={{
+                            background: "#eff6ff",
+                            border: "1px solid #bfdbfe",
+                            color: "#2563eb",
+                            padding: "6px 10px",
+                            borderRadius: "6px",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                            fontSize: "12px",
+                            fontWeight: 600,
+                          }}
+                          onClick={() => handleOpenEditTrack(t)}
+                          title="Edit Track & Products"
+                        >
+                          <FaEdit /> Edit
+                        </button>
                         <button
                           style={{
                             background: "#fee2e2",
@@ -743,6 +981,11 @@ const AdminLeadTrack = () => {
                             {lead.company && (
                               <div style={{ fontSize: "12px", color: "#64748b" }}>
                                 {lead.company}
+                              </div>
+                            )}
+                            {(lead.sparkName || lead.sparkNumber) && (
+                              <div style={{ fontSize: "11px", color: "#d97706", marginTop: "2px" }}>
+                                ⚡ Spark: {lead.sparkName || "-"} {lead.sparkNumber ? `(${lead.sparkNumber})` : ""}
                               </div>
                             )}
                           </td>
@@ -836,6 +1079,12 @@ const AdminLeadTrack = () => {
                   <div><strong>Phone:</strong> {selectedLeadForAdminDetails.phone || "-"}</div>
                   <div><strong>Email:</strong> {selectedLeadForAdminDetails.email || "-"}</div>
                   <div><strong>Location:</strong> {selectedLeadForAdminDetails.location || "-"}</div>
+                  {selectedLeadForAdminDetails.sparkName && (
+                    <div><strong>⚡ Spark Name:</strong> {selectedLeadForAdminDetails.sparkName}</div>
+                  )}
+                  {selectedLeadForAdminDetails.sparkNumber && (
+                    <div><strong>⚡ Spark Number:</strong> {selectedLeadForAdminDetails.sparkNumber}</div>
+                  )}
                   <div>
                     <strong>Onboarded:</strong>{" "}
                     {selectedLeadForAdminDetails.onboardedAt
@@ -912,6 +1161,248 @@ const AdminLeadTrack = () => {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: EDIT LEAD TRACK ================= */}
+      {editingTrack && (
+        <div className="alt-modal-overlay" onClick={() => setEditingTrack(null)}>
+          <div
+            className="alt-modal-card"
+            style={{ maxWidth: "750px" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="alt-modal-header">
+              <div>
+                <h3 style={{ margin: 0, fontSize: "18px" }}>
+                  ✏️ Edit Lead Track: {editingTrack.title || "Sales Target"}
+                </h3>
+                <span style={{ fontSize: "12px", color: "#64748b" }}>
+                  Assigned to: <strong>{editingTrack.assignedToName || editingTrack.assignedTo?.name || "User"}</strong>
+                </span>
+              </div>
+              <button
+                className="alt-close-btn"
+                onClick={() => setEditingTrack(null)}
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditTrack}>
+              <div className="alt-modal-body" style={{ maxHeight: "75vh", overflowY: "auto" }}>
+                {/* TRACK BASIC INFO */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "16px" }}>
+                  <div className="alt-form-group" style={{ gridColumn: "span 2" }}>
+                    <label>Track Title</label>
+                    <input
+                      type="text"
+                      className="alt-input"
+                      value={editTrackForm.title}
+                      placeholder="e.g. Q1 Sales Targets 2026"
+                      onChange={(e) =>
+                        setEditTrackForm({ ...editTrackForm, title: e.target.value })
+                      }
+                    />
+                  </div>
+
+                  <div className="alt-form-group">
+                    <label>Start Month</label>
+                    <input
+                      type="month"
+                      className="alt-input"
+                      value={editTrackForm.startMonth}
+                      onChange={(e) =>
+                        setEditTrackForm({ ...editTrackForm, startMonth: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+
+                  <div className="alt-form-group">
+                    <label>End Month</label>
+                    <input
+                      type="month"
+                      className="alt-input"
+                      value={editTrackForm.endMonth}
+                      onChange={(e) =>
+                        setEditTrackForm({ ...editTrackForm, endMonth: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* ASSIGNED PRODUCTS LIST */}
+                <div style={{ marginBottom: "20px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                    <h4 style={{ margin: 0, fontSize: "14px", color: "#0f172a" }}>
+                      🎯 Assigned Products ({editTrackForm.products.length})
+                    </h4>
+                    <span style={{ fontSize: "12px", color: "#64748b" }}>
+                      Admin can update target, toggle No Target, or remove products.
+                    </span>
+                  </div>
+
+                  {editTrackForm.products.length === 0 ? (
+                    <div style={{ padding: "16px", textAlign: "center", background: "#fef2f2", color: "#ef4444", borderRadius: "8px", fontSize: "13px" }}>
+                      No products assigned! Please add at least one product below.
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                      {editTrackForm.products.map((p, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            padding: "10px 14px",
+                            background: "#f8fafc",
+                            border: "1px solid #e2e8f0",
+                            borderRadius: "8px",
+                            flexWrap: "wrap",
+                            gap: "10px",
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: "160px" }}>
+                            <strong style={{ color: "#0f172a", fontSize: "14px" }}>{p.productName}</strong>
+                            {p.onboardedCount > 0 && (
+                              <span style={{ fontSize: "11px", padding: "2px 6px", background: "#dbeafe", color: "#1d4ed8", borderRadius: "4px" }}>
+                                👥 {p.onboardedCount} leads
+                              </span>
+                            )}
+                          </div>
+
+                          <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+                            <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", cursor: "pointer", color: "#475569" }}>
+                              <input
+                                type="checkbox"
+                                checked={!!p.noTarget}
+                                onChange={() => handleEditProductNoTargetToggle(idx)}
+                              />
+                              <span>No Target</span>
+                            </label>
+
+                            {!p.noTarget ? (
+                              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                <span style={{ fontSize: "12px", color: "#64748b" }}>Target:</span>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={p.target}
+                                  onChange={(e) => handleEditProductTargetChange(idx, e.target.value)}
+                                  className="alt-target-input"
+                                  style={{ width: "80px" }}
+                                />
+                              </div>
+                            ) : (
+                              <span style={{ fontSize: "12px", color: "#16a34a", fontWeight: 700, padding: "2px 8px", background: "#dcfce7", borderRadius: "6px" }}>
+                                ♾️ Unlimited Leads
+                              </span>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => handleEditRemoveProduct(idx)}
+                              title={`Remove ${p.productName} from track`}
+                              style={{
+                                background: "#fee2e2",
+                                color: "#ef4444",
+                                border: "1px solid #fecaca",
+                                padding: "6px 8px",
+                                borderRadius: "6px",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "4px",
+                                fontSize: "12px",
+                              }}
+                            >
+                              <FaTrash size={12} /> Remove
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* ADD NEW PRODUCT TO TRACK */}
+                <div style={{ background: "#f1f5f9", padding: "14px", borderRadius: "8px", border: "1px dashed #cbd5e1" }}>
+                  <h4 style={{ margin: "0 0 8px 0", fontSize: "13px", color: "#334155" }}>
+                    ➕ Add Product to this Track
+                  </h4>
+                  <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+                    <select
+                      className="alt-input"
+                      style={{ flex: 1, minWidth: "200px" }}
+                      value={newProductToAdd}
+                      onChange={(e) => setNewProductToAdd(e.target.value)}
+                    >
+                      <option value="">-- Select Product to Add --</option>
+                      {STANDARD_PRODUCTS.filter(
+                        (sp) => !editTrackForm.products.some((ep) => ep.productName === sp)
+                      ).map((sp) => (
+                        <option key={sp} value={sp}>
+                          {sp}
+                        </option>
+                      ))}
+                    </select>
+
+                    <button
+                      type="button"
+                      disabled={!newProductToAdd}
+                      onClick={handleEditAddProduct}
+                      style={{
+                        padding: "10px 16px",
+                        background: newProductToAdd ? "#2563eb" : "#94a3b8",
+                        color: "#ffffff",
+                        border: "none",
+                        borderRadius: "8px",
+                        fontWeight: 600,
+                        fontSize: "13px",
+                        cursor: newProductToAdd ? "pointer" : "not-allowed",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                      }}
+                    >
+                      <FaPlus /> Add Product
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ padding: "14px 24px", borderTop: "1px solid #e2e8f0", display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+                <button
+                  type="button"
+                  style={{
+                    padding: "9px 16px",
+                    background: "#f1f5f9",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    color: "#475569",
+                  }}
+                  onClick={() => setEditingTrack(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEditTrack || editTrackForm.products.length === 0}
+                  className="alt-submit-btn"
+                  style={{ width: "auto", padding: "9px 20px" }}
+                >
+                  <FaSave style={{ marginRight: "6px" }} />
+                  {savingEditTrack ? "Saving Changes..." : "Save Track Changes"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

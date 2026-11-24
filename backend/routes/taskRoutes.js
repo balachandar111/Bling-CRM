@@ -12,6 +12,9 @@ const {
   getAllReports,
   getAdminTaskSummary,
   getTodayCategorySummary,
+  getDepartmentOverview,
+  adminReviewTask,
+  triggerDailyReminders,
 } = require("../controllers/taskController");
 
 // ── User routes (requires any logged-in user) ──────────────────
@@ -28,6 +31,15 @@ router.get("/checklist", authMiddleware, getChecklistOptions);
 router.get("/report/my", authMiddleware, getMyReports);
 
 // ── Super admin routes ─────────────────────────────────────────
+// Department cards overview (IT, Sales, Operation/BD, General)
+router.get("/department-overview", authMiddleware, superAdmin, getDepartmentOverview);
+
+// Admin review & mark tasks completed / put in pending & notify
+router.post("/admin-review", authMiddleware, superAdmin, adminReviewTask);
+
+// Trigger daily 6:30 PM reminders (director + incomplete employee emails)
+router.post("/send-daily-reminders", authMiddleware, superAdmin, triggerDailyReminders);
+
 // Get all reports (optional ?from=&to=&userId=)
 router.get("/report/all", authMiddleware, superAdmin, getAllReports);
 

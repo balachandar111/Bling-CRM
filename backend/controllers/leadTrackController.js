@@ -151,15 +151,19 @@ exports.createLeadTrack = async (req, res) => {
       "CRM",
       "Custom-Website",
       "WhatsappAtuomation",
+      "Projects",
+      "QuickCommerce",
     ];
 
     const formattedProducts = products.map((p) => {
       if (!validProducts.includes(p.productName)) {
         throw new Error(`Invalid product name: ${p.productName}`);
       }
+      const isNoTarget = p.noTarget === true || p.noTarget === "true" || p.target === "no_target";
       return {
         productName: p.productName,
-        target: Math.max(0, parseInt(p.target, 10) || 0),
+        target: isNoTarget ? 0 : Math.max(0, parseInt(p.target, 10) || 0),
+        noTarget: isNoTarget,
         onboardedLeads: [],
       };
     });
@@ -252,13 +256,15 @@ exports.getLeadTracks = async (req, res) => {
 
       trackObj.products = trackObj.products.map((p) => {
         const quotedCount = p.onboardedLeads.filter((l) => l.stage === "Quote").length;
-        const remainingTarget = Math.max(0, p.target - quotedCount);
-        totalTarget += p.target;
+        const isNoTarget = !!p.noTarget;
+        const remainingTarget = isNoTarget ? "No Target" : Math.max(0, (p.target || 0) - quotedCount);
+        if (!isNoTarget) totalTarget += p.target || 0;
         totalOnboarded += p.onboardedLeads.length;
         totalQuoted += quotedCount;
 
         return {
           ...p,
+          noTarget: isNoTarget,
           onboardedCount: p.onboardedLeads.length,
           quotedCount,
           remainingTarget,
@@ -306,11 +312,13 @@ exports.getLeadTrackById = async (req, res) => {
     const trackObj = track.toObject();
     trackObj.products = trackObj.products.map((p) => {
       const quotedCount = p.onboardedLeads.filter((l) => l.stage === "Quote").length;
+      const isNoTarget = !!p.noTarget;
       return {
         ...p,
+        noTarget: isNoTarget,
         onboardedCount: p.onboardedLeads.length,
         quotedCount,
-        remainingTarget: Math.max(0, p.target - quotedCount),
+        remainingTarget: isNoTarget ? "No Target" : Math.max(0, (p.target || 0) - quotedCount),
         callCount: p.onboardedLeads.filter((l) => l.stage === "Call").length,
         whatsappCount: p.onboardedLeads.filter((l) => l.stage === "WhatsappMessage").length,
         demoCount: p.onboardedLeads.filter((l) => l.stage === "Demo").length,
@@ -337,24 +345,55 @@ exports.updateLeadTrack = async (req, res) => {
       return res.status(404).json({ success: false, message: "Lead Track not found" });
     }
 
+    const validProducts = [
+      "Genunitys",
+      "Rewards",
+      "CRM",
+      "Custom-Website",
+      "WhatsappAtuomation",
+      "Projects",
+      "QuickCommerce",
+    ];
+
     if (startMonth) track.startMonth = startMonth;
     if (endMonth) track.endMonth = endMonth;
-    if (title) track.title = title;
+    if (title !== undefined) track.title = title;
     if (status) track.status = status;
 
     if (products && Array.isArray(products)) {
+      // 1. Identify which product names were provided in the updated list
+      const desiredProductNames = products
+        .map((p) => p.productName)
+        .filter((name) => validProducts.includes(name));
+
+      // 2. Remove products that are no longer in the desired list
+      track.products = track.products.filter((p) =>
+        desiredProductNames.includes(p.productName)
+      );
+
+      // 3. Update existing products or push newly added ones
       products.forEach((updatedP) => {
+        if (!validProducts.includes(updatedP.productName)) return;
+
         const existingP = track.products.find(
-          (p) => String(p._id) === String(updatedP._id) || p.productName === updatedP.productName
+          (p) =>
+            (updatedP._id && String(p._id) === String(updatedP._id)) ||
+            p.productName === updatedP.productName
         );
+
+        const isNoTarget = !!updatedP.noTarget;
+        const targetVal = isNoTarget
+          ? 0
+          : Math.max(0, parseInt(updatedP.target, 10) || 0);
+
         if (existingP) {
-          if (updatedP.target !== undefined) {
-            existingP.target = Math.max(0, parseInt(updatedP.target, 10) || 0);
-          }
-        } else if (updatedP.productName) {
+          existingP.noTarget = isNoTarget;
+          existingP.target = targetVal;
+        } else {
           track.products.push({
             productName: updatedP.productName,
-            target: Math.max(0, parseInt(updatedP.target, 10) || 0),
+            target: targetVal,
+            noTarget: isNoTarget,
             onboardedLeads: [],
           });
         }
@@ -370,6 +409,38 @@ exports.updateLeadTrack = async (req, res) => {
     });
   } catch (error) {
     console.error("Update LeadTrack Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ================= REMOVE PRODUCT FROM TRACK (ADMIN ONLY) =================
+exports.removeProductFromTrack = async (req, res) => {
+  try {
+    const { id, productId } = req.params;
+    const track = await LeadTrack.findById(id);
+
+    if (!track) {
+      return res.status(404).json({ success: false, message: "Lead Track not found" });
+    }
+
+    const initialLength = track.products.length;
+    track.products = track.products.filter(
+      (p) => String(p._id) !== String(productId) && p.productName !== productId
+    );
+
+    if (track.products.length === initialLength) {
+      return res.status(404).json({ success: false, message: "Product not found in this track" });
+    }
+
+    await track.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Product removed from lead track successfully",
+      leadTrack: track,
+    });
+  } catch (error) {
+    console.error("Remove Product Error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -409,10 +480,11 @@ exports.onboardLeadsToProduct = async (req, res) => {
       return res.status(404).json({ success: false, message: "Product card not found in this track" });
     }
 
+    const isNoTarget = !!product.noTarget;
     const currentOnboarded = product.onboardedLeads.length;
-    const availableSlots = product.target - currentOnboarded;
+    const availableSlots = isNoTarget ? Infinity : (product.target - currentOnboarded);
 
-    if (availableSlots <= 0) {
+    if (!isNoTarget && availableSlots <= 0) {
       return res.status(400).json({
         success: false,
         message: `Target of ${product.target} leads already reached for ${product.productName}. Cannot onboard more.`,
@@ -429,7 +501,7 @@ exports.onboardLeadsToProduct = async (req, res) => {
       );
 
       for (const cust of customers) {
-        if (newLeadsToAdd.length >= availableSlots) break;
+        if (!isNoTarget && newLeadsToAdd.length >= availableSlots) break;
         if (existingCustomerIds.has(String(cust._id))) continue;
 
         const initialNote = (cust.remark || "").trim();
@@ -440,6 +512,8 @@ exports.onboardLeadsToProduct = async (req, res) => {
           phone: cust.phone || "",
           email: cust.email || "",
           location: cust.location || "",
+          sparkName: cust.sparkName || "",
+          sparkNumber: cust.sparkNumber || "",
           stage: "Call",
           stageHistory: [
             {
@@ -469,7 +543,7 @@ exports.onboardLeadsToProduct = async (req, res) => {
     // Case 2: manual lead objects provided
     if (leads && Array.isArray(leads) && leads.length > 0) {
       for (const item of leads) {
-        if (newLeadsToAdd.length >= availableSlots) break;
+        if (!isNoTarget && newLeadsToAdd.length >= availableSlots) break;
         const initialNote = (item.notes || "").trim();
         newLeadsToAdd.push({
           customerId: item.customerId || null,
@@ -478,6 +552,8 @@ exports.onboardLeadsToProduct = async (req, res) => {
           phone: item.phone || "",
           email: item.email || "",
           location: item.location || "",
+          sparkName: item.sparkName || "",
+          sparkNumber: item.sparkNumber || "",
           stage: item.stage || "Call",
           stageHistory: [
             {
@@ -515,7 +591,7 @@ exports.onboardLeadsToProduct = async (req, res) => {
     await track.save();
 
     const quotedCount = product.onboardedLeads.filter((l) => l.stage === "Quote").length;
-    const remainingTarget = Math.max(0, product.target - quotedCount);
+    const remainingTarget = isNoTarget ? "No Target" : Math.max(0, product.target - quotedCount);
 
     res.status(200).json({
       success: true,
@@ -595,7 +671,7 @@ exports.updateLeadStage = async (req, res) => {
     await track.save();
 
     const quotedCount = product.onboardedLeads.filter((l) => l.stage === "Quote").length;
-    const remainingTarget = Math.max(0, product.target - quotedCount);
+    const remainingTarget = product.noTarget ? "No Target" : Math.max(0, (product.target || 0) - quotedCount);
 
     res.status(200).json({
       success: true,
@@ -604,6 +680,7 @@ exports.updateLeadStage = async (req, res) => {
       productStats: {
         productName: product.productName,
         target: product.target,
+        noTarget: !!product.noTarget,
         onboardedCount: product.onboardedLeads.length,
         quotedCount,
         remainingTarget,
@@ -711,7 +788,7 @@ exports.removeLeadFromProduct = async (req, res) => {
     await track.save();
 
     const quotedCount = product.onboardedLeads.filter((l) => l.stage === "Quote").length;
-    const remainingTarget = Math.max(0, product.target - quotedCount);
+    const remainingTarget = product.noTarget ? "No Target" : Math.max(0, (product.target || 0) - quotedCount);
 
     res.status(200).json({
       success: true,
@@ -719,6 +796,7 @@ exports.removeLeadFromProduct = async (req, res) => {
       productStats: {
         productName: product.productName,
         target: product.target,
+        noTarget: !!product.noTarget,
         onboardedCount: product.onboardedLeads.length,
         quotedCount,
         remainingTarget,
@@ -810,7 +888,8 @@ exports.getAdminLeadTrackReport = async (req, res) => {
 
       const trackCards = track.products.map((p) => {
         const quotedCount = p.onboardedLeads.filter((l) => l.stage === "Quote").length;
-        const remainingTarget = Math.max(0, p.target - quotedCount);
+        const isNoTarget = !!p.noTarget;
+        const remainingTarget = isNoTarget ? "No Target" : Math.max(0, (p.target || 0) - quotedCount);
 
         let pCurrentMonthQuoted = 0;
         let pLastMonthQuoted = 0;
@@ -826,17 +905,19 @@ exports.getAdminLeadTrackReport = async (req, res) => {
           }
         });
 
-        trackTarget += p.target;
+        if (!isNoTarget) {
+          trackTarget += p.target || 0;
+          totalAllTarget += p.target || 0;
+          userData.totalTarget += p.target || 0;
+        }
         trackOnboarded += p.onboardedLeads.length;
         trackQuoted += quotedCount;
 
-        totalAllTarget += p.target;
         totalAllOnboarded += p.onboardedLeads.length;
         totalAllQuoted += quotedCount;
         totalCurrentMonthQuoted += pCurrentMonthQuoted;
         totalLastMonthQuoted += pLastMonthQuoted;
 
-        userData.totalTarget += p.target;
         userData.totalOnboarded += p.onboardedLeads.length;
         userData.totalQuoted += quotedCount;
         userData.currentMonthQuoted += pCurrentMonthQuoted;
@@ -849,7 +930,8 @@ exports.getAdminLeadTrackReport = async (req, res) => {
           startMonth: track.startMonth,
           endMonth: track.endMonth,
           productName: p.productName,
-          target: p.target,
+          target: p.target || 0,
+          noTarget: isNoTarget,
           onboardedCount: p.onboardedLeads.length,
           quotedCount,
           remainingTarget,

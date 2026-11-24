@@ -18,6 +18,8 @@ const onboardedLeadSchema = new mongoose.Schema({
   phone: { type: String, default: "" },
   email: { type: String, default: "" },
   location: { type: String, default: "" },
+  sparkName: { type: String, default: "" },
+  sparkNumber: { type: String, default: "" },
   stage: {
     type: String,
     enum: ["Call", "WhatsappMessage", "Demo", "Quote"],
@@ -47,13 +49,18 @@ const productTrackSchema = new mongoose.Schema({
       "CRM",
       "Custom-Website",
       "WhatsappAtuomation",
+      "Projects",
+      "QuickCommerce",
     ],
   },
   target: {
     type: Number,
-    required: true,
     min: 0,
     default: 0,
+  },
+  noTarget: {
+    type: Boolean,
+    default: false,
   },
   onboardedLeads: [onboardedLeadSchema],
 });
@@ -105,11 +112,12 @@ const leadTrackSchema = new mongoose.Schema(
 leadTrackSchema.methods.calculateStats = function () {
   return this.products.map((p) => {
     const quotedCount = p.onboardedLeads.filter((l) => l.stage === "Quote").length;
-    const remainingTarget = Math.max(0, p.target - quotedCount);
+    const remainingTarget = p.noTarget ? "No Target" : Math.max(0, (p.target || 0) - quotedCount);
     return {
       _id: p._id,
       productName: p.productName,
-      target: p.target,
+      target: p.target || 0,
+      noTarget: !!p.noTarget,
       onboardedCount: p.onboardedLeads.length,
       quotedCount,
       remainingTarget,

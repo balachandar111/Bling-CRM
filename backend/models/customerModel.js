@@ -27,6 +27,19 @@ new mongoose.Schema(
     default: "",
   },
 
+  // SPARK DETAILS
+  sparkName: {
+    type: String,
+    default: "",
+    trim: true,
+  },
+
+  sparkNumber: {
+    type: String,
+    default: "",
+    trim: true,
+  },
+
   // SERVICE OFFERED
   service: {
     type: String,

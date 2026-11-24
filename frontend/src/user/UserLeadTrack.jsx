@@ -33,6 +33,8 @@ const PRODUCT_ICONS = {
   CRM: "💼",
   "Custom-Website": "🌐",
   WhatsappAtuomation: "🤖",
+  Projects: "📁",
+  QuickCommerce: "⚡",
 };
 
 const STAGE_CONFIG = [
@@ -64,6 +66,8 @@ const UserLeadTrack = () => {
     phone: "",
     email: "",
     location: "",
+    sparkName: "",
+    sparkNumber: "",
     notes: "",
   });
 
@@ -148,14 +152,16 @@ const UserLeadTrack = () => {
   };
 
   const toggleSelectCustomer = (id) => {
-    const availableSlots =
-      (activeProductTrack?.target || 0) - (activeProductTrack?.onboardedLeads?.length || 0);
+    const isNoTarget = !!activeProductTrack?.noTarget;
+    const availableSlots = isNoTarget
+      ? Infinity
+      : (activeProductTrack?.target || 0) - (activeProductTrack?.onboardedLeads?.length || 0);
 
     setSelectedCustomerIds((prev) => {
       if (prev.includes(id)) {
         return prev.filter((cId) => cId !== id);
       } else {
-        if (prev.length >= availableSlots) {
+        if (!isNoTarget && prev.length >= availableSlots) {
           alert(`You can only onboard up to ${availableSlots} more lead(s) for this target.`);
           return prev;
         }
@@ -179,7 +185,7 @@ const UserLeadTrack = () => {
         );
         alert(res.data.message || "Lead onboarded successfully!");
         setShowOnboardModal(false);
-        setManualLead({ name: "", company: "", phone: "", email: "", location: "", notes: "" });
+        setManualLead({ name: "", company: "", phone: "", email: "", location: "", sparkName: "", sparkNumber: "", notes: "" });
         fetchMyLeadTracks();
       } catch (err) {
         console.error(err);
@@ -313,8 +319,10 @@ const UserLeadTrack = () => {
     );
   });
 
-  const availableSlots =
-    (activeProductTrack?.target || 0) - (activeProductTrack?.onboardedLeads?.length || 0);
+  const isNoTarget = !!activeProductTrack?.noTarget;
+  const availableSlots = isNoTarget
+    ? "Unlimited"
+    : Math.max(0, (activeProductTrack?.target || 0) - (activeProductTrack?.onboardedLeads?.length || 0));
 
   return (
     <div className="ult-container">
@@ -346,25 +354,25 @@ const UserLeadTrack = () => {
 
               <div className="ult-ob-stats">
                 <div className="ult-ob-stat-item">
-                  <span className="val">
+                  <span className="val" style={{ color: "#0f172a" }}>
                     {tracks.reduce((acc, t) => acc + (t.totalTarget || 0), 0)}
                   </span>
                   <span className="lbl">Total Target</span>
                 </div>
                 <div className="ult-ob-stat-item">
-                  <span className="val">
+                  <span className="val" style={{ color: "#2563eb" }}>
                     {tracks.reduce((acc, t) => acc + (t.totalOnboarded || 0), 0)}
                   </span>
                   <span className="lbl">Onboarded</span>
                 </div>
                 <div className="ult-ob-stat-item">
-                  <span className="val" style={{ color: "#86efac" }}>
+                  <span className="val" style={{ color: "#16a34a" }}>
                     {tracks.reduce((acc, t) => acc + (t.totalQuoted || 0), 0)}
                   </span>
                   <span className="lbl">Quoted Achieved</span>
                 </div>
                 <div className="ult-ob-stat-item">
-                  <span className="val" style={{ color: "#fde047" }}>
+                  <span className="val" style={{ color: "#d97706" }}>
                     {tracks.reduce((acc, t) => acc + (t.totalRemainingTarget || 0), 0)}
                   </span>
                   <span className="lbl">Remaining Target</span>
@@ -400,11 +408,13 @@ const UserLeadTrack = () => {
 
                 <div className="ult-cards-grid">
                   {track.products.map((product) => {
-                    const isCompleted = product.remainingTarget === 0 && product.target > 0;
-                    const progressPercent =
-                      product.target > 0
-                        ? Math.min(100, Math.round((product.quotedCount / product.target) * 100))
-                        : 0;
+                    const isNoTarget = !!product.noTarget;
+                    const isCompleted = !isNoTarget && product.remainingTarget === 0 && product.target > 0;
+                    const progressPercent = isNoTarget
+                      ? 100
+                      : product.target > 0
+                      ? Math.min(100, Math.round((product.quotedCount / product.target) * 100))
+                      : 0;
 
                     return (
                       <div
@@ -421,9 +431,11 @@ const UserLeadTrack = () => {
                             </span>
 
                             <span
-                              className={`ult-status-pill ${isCompleted ? "completed" : "active"}`}
+                              className={`ult-status-pill ${
+                                isCompleted ? "completed" : isNoTarget ? "notarget" : "active"
+                              }`}
                             >
-                              {isCompleted ? "Target Met 🎉" : "In Progress"}
+                              {isCompleted ? "Target Met 🎉" : isNoTarget ? "♾️ No Target" : "In Progress"}
                             </span>
                           </div>
 
@@ -431,12 +443,12 @@ const UserLeadTrack = () => {
                           <div className="ult-metrics-row">
                             <div className="ult-metric-box">
                               <span className="label">Target</span>
-                              <span className="val">{product.target}</span>
+                              <span className="val">{isNoTarget ? "No Target" : product.target}</span>
                             </div>
 
                             <div className="ult-metric-box remaining-box">
                               <span className="label">Remaining</span>
-                              <span className="val">{product.remainingTarget}</span>
+                              <span className="val">{isNoTarget ? "No Target" : product.remainingTarget}</span>
                             </div>
 
                             <div className="ult-metric-box">
@@ -455,7 +467,13 @@ const UserLeadTrack = () => {
                             <div className="ult-progress-labels">
                               <span>Quote Conversion</span>
                               <span>
-                                <strong>{progressPercent}%</strong> ({product.quotedCount}/{product.target})
+                                {isNoTarget ? (
+                                  <strong>{product.quotedCount} Quoted</strong>
+                                ) : (
+                                  <>
+                                    <strong>{progressPercent}%</strong> ({product.quotedCount}/{product.target})
+                                  </>
+                                )}
                               </span>
                             </div>
                             <div className="ult-progress-bar-bg">
@@ -491,13 +509,13 @@ const UserLeadTrack = () => {
               </button>
               <div>
                 <h2>
-                  {PRODUCT_ICONS[activeProductTrack.productName]} {activeProductTrack.productName} Workspace
+                  {PRODUCT_ICONS[activeProductTrack.productName] || "📦"} {activeProductTrack.productName} Workspace
                 </h2>
                 <div className="ult-ws-sub">
-                  Target: <strong>{activeProductTrack.target}</strong> | Onboarded:{" "}
+                  Target: <strong>{activeProductTrack.noTarget ? "No Target (Unlimited)" : activeProductTrack.target}</strong> | Onboarded:{" "}
                   <strong>{activeProductTrack.onboardedCount}</strong> | Quoted:{" "}
                   <strong style={{ color: "#16a34a" }}>{activeProductTrack.quotedCount}</strong> | Remaining:{" "}
-                  <strong style={{ color: "#d97706" }}>{activeProductTrack.remainingTarget}</strong>
+                  <strong style={{ color: "#d97706" }}>{activeProductTrack.noTarget ? "No Target" : activeProductTrack.remainingTarget}</strong>
                 </div>
               </div>
             </div>
@@ -505,10 +523,16 @@ const UserLeadTrack = () => {
             <div className="ult-ws-actions">
               <div
                 className={`ult-target-status-pill ${
-                  activeProductTrack.remainingTarget === 0 ? "complete" : "pending"
+                  activeProductTrack.noTarget
+                    ? "notarget"
+                    : activeProductTrack.remainingTarget === 0
+                    ? "complete"
+                    : "pending"
                 }`}
               >
-                {activeProductTrack.remainingTarget === 0
+                {activeProductTrack.noTarget
+                  ? "♾️ No Target (Unlimited Leads Allowed)"
+                  : activeProductTrack.remainingTarget === 0
                   ? "🎉 Target Complete (0 Remaining)"
                   : `Target Remaining: ${activeProductTrack.remainingTarget}`}
               </div>
@@ -516,10 +540,11 @@ const UserLeadTrack = () => {
               <button
                 className="ult-onboard-btn"
                 onClick={openOnboardModal}
-                disabled={activeProductTrack.onboardedLeads?.length >= activeProductTrack.target}
+                disabled={!activeProductTrack.noTarget && (activeProductTrack.onboardedLeads?.length >= activeProductTrack.target)}
               >
                 <FaPlus /> Onboard Leads (
-                {activeProductTrack.onboardedLeads?.length || 0}/{activeProductTrack.target})
+                {activeProductTrack.onboardedLeads?.length || 0}
+                {activeProductTrack.noTarget ? "" : `/${activeProductTrack.target}`})
               </button>
             </div>
           </div>
@@ -531,7 +556,7 @@ const UserLeadTrack = () => {
                 <div className="ult-empty-icon">👥</div>
                 <h3>No Leads Onboarded Yet</h3>
                 <p>
-                  Click &ldquo;Onboard Leads&rdquo; above to select up to {activeProductTrack.target} customer leads from the CRM pool into this product workspace.
+                  Click &ldquo;Onboard Leads&rdquo; above to onboard customer leads {activeProductTrack.noTarget ? "without target limits" : `(up to ${activeProductTrack.target})`} into this product workspace.
                 </p>
                 <button
                   className="ult-onboard-btn"
@@ -569,6 +594,11 @@ const UserLeadTrack = () => {
                               <div className="ult-lead-company">
                                 <FaBuilding size={11} style={{ marginRight: "4px" }} />
                                 {lead.company}
+                              </div>
+                            )}
+                            {(lead.sparkName || lead.sparkNumber) && (
+                              <div style={{ fontSize: "11px", color: "#d97706", marginTop: "3px", fontWeight: 600 }}>
+                                ⚡ Spark: {lead.sparkName || "-"} {lead.sparkNumber ? `(${lead.sparkNumber})` : ""}
                               </div>
                             )}
                           </td>
@@ -775,6 +805,18 @@ const UserLeadTrack = () => {
                     <span className="lbl">Location</span>
                     <span className="val">{selectedLeadForDetails.location || "-"}</span>
                   </div>
+                  {(selectedLeadForDetails.sparkName || selectedLeadForDetails.sparkNumber) && (
+                    <>
+                      <div className="ult-info-item">
+                        <span className="lbl">⚡ Spark Name</span>
+                        <span className="val">{selectedLeadForDetails.sparkName || "-"}</span>
+                      </div>
+                      <div className="ult-info-item">
+                        <span className="lbl">⚡ Spark Number</span>
+                        <span className="val">{selectedLeadForDetails.sparkNumber || "-"}</span>
+                      </div>
+                    </>
+                  )}
                   <div className="ult-info-item">
                     <span className="lbl">Onboarded At</span>
                     <span className="val">
@@ -993,7 +1035,7 @@ const UserLeadTrack = () => {
                   ➕ Onboard Leads to {activeProductTrack?.productName}
                 </h3>
                 <span style={{ fontSize: "13px", color: "#64748b" }}>
-                  Available slots: <strong>{availableSlots}</strong> (Target: {activeProductTrack?.target})
+                  Available slots: <strong>{availableSlots}</strong> {activeProductTrack?.noTarget ? "(Unlimited Leads)" : `(Target: ${activeProductTrack?.target})`}
                 </span>
               </div>
               <button className="ult-close-btn" onClick={() => setShowOnboardModal(false)}>
@@ -1174,6 +1216,33 @@ const UserLeadTrack = () => {
                         value={manualLead.notes}
                         onChange={(e) =>
                           setManualLead((prev) => ({ ...prev, notes: e.target.value }))
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="ult-form-row">
+                    <div className="ult-form-col">
+                      <label>⚡ Spark Name</label>
+                      <input
+                        type="text"
+                        className="ult-input"
+                        placeholder="e.g. Spark Agent / Ref Name"
+                        value={manualLead.sparkName}
+                        onChange={(e) =>
+                          setManualLead((prev) => ({ ...prev, sparkName: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <div className="ult-form-col">
+                      <label>⚡ Spark Number</label>
+                      <input
+                        type="text"
+                        className="ult-input"
+                        placeholder="e.g. SPK-1029 or Phone"
+                        value={manualLead.sparkNumber}
+                        onChange={(e) =>
+                          setManualLead((prev) => ({ ...prev, sparkNumber: e.target.value }))
                         }
                       />
                     </div>

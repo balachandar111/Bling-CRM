@@ -17,6 +17,7 @@ const {
   getAssignableUsers,
   updateLeadNotes,
   clearAllLeadTracks,
+  removeProductFromTrack,
 } = require("../controllers/leadTrackController");
 
 // ================= ANALYTICS REPORT (ADMIN ONLY) =================
@@ -101,6 +102,14 @@ router.delete(
   "/:id/products/:productId/leads/:leadId",
   protect,
   removeLeadFromProduct
+);
+
+// Admin remove product from lead track
+router.delete(
+  "/:id/products/:productId",
+  protect,
+  roleMiddleware("super_admin"),
+  removeProductFromTrack
 );
 
 module.exports = router;

@@ -1,6 +1,6 @@
 // 📁 frontend/src/user/Tasks.jsx
-// User: submit today's report + update it separately + browse own reports.
-// Admin (super_admin): read-only — browse ALL users' reports by calendar date.
+// User: submit today's report + manage pending rollover tasks + browse own reports.
+// Admin (super_admin): Department Cards, Employee To-Do review & pending rollover, 6:30 PM reminders, and Table View.
 
 import React, { useState, useEffect, useCallback } from "react";
 import Calendar from "react-calendar";
@@ -8,6 +8,7 @@ import "react-calendar/dist/Calendar.css";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import API from "../services/api";
+import "./Tasks.css";
 
 /* ─── helpers ─── */
 const toDateStr = (d) => {
@@ -27,15 +28,9 @@ const formatDate = (dateStr) =>
 
 const todayStr = toDateStr(new Date());
 
-/* ─── to-do list options, by department ───
-   Each department gets its own fixed checklist, plus a final "Other"
-   option where the employee types their own task text dynamically.
-   "general" is the fallback used when the employee has no department
-   set yet. Kept in sync with backend/controllers/taskController.js. */
+/* ─── to-do list options, by department ─── */
 const DEPARTMENT_TASK_PRESETS = {
   sales: ["Daily Followup", "New Leads", "Payment Followup", "Requirement"],
-  // Operation and Business Development Executive are the same role —
-  // both share this one checklist (kept in sync with the backend key).
   business_development: [
     "Application testing",
     "New module testing",
@@ -44,7 +39,7 @@ const DEPARTMENT_TASK_PRESETS = {
     "Calling",
     "Follow up",
   ],
-   it: ["Website", "CRM", "Rewards", "Modules", "Testing","Deployment","Custom Application"],
+  it: ["Website", "CRM", "Rewards", "Modules", "Testing", "Deployment", "Custom Application"],
   general: [
     "Follow-up with leads",
     "Client / Site visit",
@@ -54,23 +49,16 @@ const DEPARTMENT_TASK_PRESETS = {
 };
 const CUSTOM_OPTION = "__custom__";
 
-/* Display labels for the department badge on the Tasks page. */
 const DEPARTMENT_LABELS = {
   sales: "Sales",
   business_development: "Operation / Business Development",
   it: "IT",
 };
 
-/* "Payment" is not a default preset — it's appended to the dropdown
-   only for employees whose department qualifies (Sales / Business
-   Development Executive), per the backend's `showPayment` flag.
-   Selecting it reveals a payment-status sub-checklist. */
 const PAYMENT_OPTION = "Payment";
 const PAYMENT_PREFIX = "Payment: ";
 const DEFAULT_PAYMENT_STATUSES = ["Advance Payment", "Payment Pending", "Collected"];
 
-/* Buttons for the admin's "Today" quick filter — clicking one opens a
-   popup with every employee's task updates for today in that category. */
 const TODAY_CATEGORIES = [
   { key: "operation", label: "Operation" },
   { key: "sales", label: "Sales" },
@@ -82,50 +70,64 @@ const TODAY_CATEGORIES = [
 const Tasks = ({ role, setSidebarOpen }) => {
   const isAdmin = role === "super_admin";
 
+  /* ── view mode (admin only): "cards" | "table" ── */
+  const [viewMode, setViewMode] = useState("cards");
+
+  /* ── department overview state (admin cards view) ── */
+  const [departmentOverview, setDepartmentOverview] = useState([]);
+  const [loadingDeptOverview, setLoadingDeptOverview] = useState(false);
+  const [selectedDeptModal, setSelectedDeptModal] = useState(null);
+  const [adminSelections, setAdminSelections] = useState({}); // { [taskId]: [itemId, ...] }
+  const [adminRemarks, setAdminRemarks] = useState({});       // { [taskId]: string }
+  const [adminReviewing, setAdminReviewing] = useState({});   // { [taskId]: boolean }
+  const [reviewMsg, setReviewMsg] = useState({});             // { [taskId]: string }
+  const [triggeringReminders, setTriggeringReminders] = useState(false);
+
   /* ── today's to-do list state (user only) ── */
-  const [items, setItems]             = useState([]); // [{ text, completed }]
-  const [departmentKey, setDepartmentKey] = useState("general"); // sales | operation | it | general
-  const [showPayment, setShowPayment] = useState(false); // Sales / Business Development Executive only
+  const [items, setItems] = useState([]); // [{ text, note, completed, pendingReason }]
+  const [departmentKey, setDepartmentKey] = useState("general");
+  const [showPayment, setShowPayment] = useState(false);
   const [paymentStatuses, setPaymentStatuses] = useState(DEFAULT_PAYMENT_STATUSES);
   const basePresets = DEPARTMENT_TASK_PRESETS[departmentKey] || DEPARTMENT_TASK_PRESETS.general;
   const presets = showPayment ? [...basePresets, PAYMENT_OPTION] : basePresets;
   const [selectedPreset, setSelectedPreset] = useState(presets[0]);
-  const [customText, setCustomText]   = useState("");
+  const [customText, setCustomText] = useState("");
   const [selectedPaymentStatus, setSelectedPaymentStatus] = useState("");
-  const [noteText, setNoteText]       = useState(""); // optional note for whichever item is about to be added
-  const [todayTask, setTodayTask]     = useState(null);
-  const [submitting, setSubmitting]   = useState(false);
-  const [updating, setUpdating]       = useState(false);
-  const [savedMsg, setSavedMsg]       = useState("");   // "submitted" | "updated" | ""
+  const [noteText, setNoteText] = useState("");
+  const [pendingReasonText, setPendingReasonText] = useState("");
+  const [todayTask, setTodayTask] = useState(null);
+  const [pendingFromPast, setPendingFromPast] = useState([]); // [{ originalDate, text, note, adminRemark }]
+  const [submitting, setSubmitting] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [savedMsg, setSavedMsg] = useState("");
 
   /* ── calendar viewer state (both roles) ── */
-  const [selectedDate, setSelectedDate]           = useState(new Date());
-  const [dateReports, setDateReports]             = useState([]);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [dateReports, setDateReports] = useState([]);
   const [loadingDateReports, setLoadingDateReports] = useState(false);
-  const [markedDates, setMarkedDates]             = useState([]);
+  const [markedDates, setMarkedDates] = useState([]);
 
   /* ── admin: date x department task summary table ── */
-  const [summaryRows, setSummaryRows]         = useState([]);
-  const [loadingSummary, setLoadingSummary]   = useState(false);
-  const [summaryFrom, setSummaryFrom]         = useState(""); // "" = no filter
-  const [summaryTo, setSummaryTo]             = useState(""); // "" = no filter
+  const [summaryRows, setSummaryRows] = useState([]);
+  const [loadingSummary, setLoadingSummary] = useState(false);
+  const [summaryFrom, setSummaryFrom] = useState("");
+  const [summaryTo, setSummaryTo] = useState("");
 
-  /* ── admin: "Today" quick filter → category popup ── */
-  const [todayCategoryOpen, setTodayCategoryOpen] = useState(null); // "operation" | "sales" | "it" | "others" | "payment" | null
-  const [todayCategoryData, setTodayCategoryData] = useState([]);   // [{ employeeName, items: [{text, note, completed}] }]
+  /* ── admin: "Today" quick filter popup ── */
+  const [todayCategoryOpen, setTodayCategoryOpen] = useState(null);
+  const [todayCategoryData, setTodayCategoryData] = useState([]);
   const [loadingTodayCategory, setLoadingTodayCategory] = useState(false);
 
-  /* ── user: edit a PREVIOUS day's task list from the calendar viewer
-     below (not just today's, which has its own editor above). ── */
+  /* ── user: edit a PREVIOUS day's task list ── */
   const [isEditingDateReport, setIsEditingDateReport] = useState(false);
-  const [editDateItems, setEditDateItems] = useState([]); // [{ text, note, completed }]
+  const [editDateItems, setEditDateItems] = useState([]);
   const [editDatePreset, setEditDatePreset] = useState("");
   const [editDateCustomText, setEditDateCustomText] = useState("");
   const [editDatePaymentStatus, setEditDatePaymentStatus] = useState("");
   const [editDateNote, setEditDateNote] = useState("");
   const [savingDateEdit, setSavingDateEdit] = useState(false);
 
-  /* ── fetch today's saved task list ── */
+  /* ── fetch today's saved task list (user) ── */
   const fetchToday = useCallback(async () => {
     try {
       const { data } = await API.get("/tasks/report/today");
@@ -147,8 +149,39 @@ const Tasks = ({ role, setSidebarOpen }) => {
         setTodayTask(null);
         setItems([]);
       }
+      if (Array.isArray(data.pendingFromPast)) {
+        setPendingFromPast(data.pendingFromPast);
+      }
     } catch {}
   }, []);
+
+  /* ── fetch department overview (admin cards view) ── */
+  const fetchDeptOverview = useCallback(async () => {
+    if (!isAdmin) return;
+    setLoadingDeptOverview(true);
+    try {
+      const { data } = await API.get("/tasks/department-overview");
+      const depts = data.departments || [];
+      setDepartmentOverview(depts);
+
+      // Pre-select items that are already marked completed or adminCompleted
+      const initialSelections = {};
+      depts.forEach((dept) => {
+        (dept.employees || []).forEach((emp) => {
+          if (emp.taskId && Array.isArray(emp.items)) {
+            const completedIds = emp.items
+              .filter((it) => it.completed || it.adminCompleted)
+              .map((it) => it._id);
+            initialSelections[emp.taskId] = completedIds;
+          }
+        });
+      });
+      setAdminSelections((prev) => ({ ...initialSelections, ...prev }));
+    } catch (err) {
+      console.error("fetchDeptOverview error:", err);
+    }
+    setLoadingDeptOverview(false);
+  }, [isAdmin]);
 
   /* ── fetch reports for a specific date ── */
   const fetchForDate = useCallback(
@@ -169,10 +202,10 @@ const Tasks = ({ role, setSidebarOpen }) => {
   /* ── mark days that have a report ── */
   const fetchMonthMarks = useCallback(
     async (dateInMonth) => {
-      const year  = dateInMonth.getFullYear();
+      const year = dateInMonth.getFullYear();
       const month = dateInMonth.getMonth();
       const first = toDateStr(new Date(year, month, 1));
-      const last  = toDateStr(new Date(year, month + 1, 0));
+      const last = toDateStr(new Date(year, month + 1, 0));
       try {
         const endpoint = isAdmin ? "/tasks/report/all" : "/tasks/report/my";
         const { data } = await API.get(`${endpoint}?from=${first}&to=${last}`);
@@ -184,32 +217,49 @@ const Tasks = ({ role, setSidebarOpen }) => {
     [isAdmin]
   );
 
-  useEffect(() => { if (!isAdmin) fetchToday(); }, [isAdmin, fetchToday]);
-  useEffect(() => { fetchForDate(toDateStr(selectedDate)); }, [selectedDate, fetchForDate]);
-  useEffect(() => { fetchMonthMarks(selectedDate); }, []); // eslint-disable-line
-
-  /* ── admin: fetch the date x department task summary table ──
-     `from`/`to` (both "YYYY-MM-DD") narrow the table down to a date
-     range; passing the same value for both filters to a single day. */
-  const fetchSummary = useCallback(async (from = "", to = "") => {
-    if (!isAdmin) return;
-    setLoadingSummary(true);
-    try {
-      const params = new URLSearchParams();
-      if (from) params.set("from", from);
-      if (to) params.set("to", to);
-      const qs = params.toString();
-      const { data } = await API.get(`/tasks/report/summary${qs ? `?${qs}` : ""}`);
-      setSummaryRows(data.rows || []);
-    } catch {
-      setSummaryRows([]);
+  /* ── initial loads ── */
+  useEffect(() => {
+    if (!isAdmin) {
+      fetchToday();
+    } else {
+      fetchDeptOverview();
     }
-    setLoadingSummary(false);
-  }, [isAdmin]);
+  }, [isAdmin, fetchToday, fetchDeptOverview]);
 
-  useEffect(() => { if (isAdmin) fetchSummary(); }, [isAdmin, fetchSummary]);
+  useEffect(() => {
+    fetchForDate(toDateStr(selectedDate));
+  }, [selectedDate, fetchForDate]);
 
-  /* ── admin: apply / clear the date filter above the summary table ── */
+  useEffect(() => {
+    fetchMonthMarks(selectedDate);
+  }, [selectedDate, fetchMonthMarks]);
+
+  /* ── admin summary table ── */
+  const fetchSummary = useCallback(
+    async (from = "", to = "") => {
+      if (!isAdmin) return;
+      setLoadingSummary(true);
+      try {
+        const params = new URLSearchParams();
+        if (from) params.set("from", from);
+        if (to) params.set("to", to);
+        const qs = params.toString();
+        const { data } = await API.get(`/tasks/report/summary${qs ? `?${qs}` : ""}`);
+        setSummaryRows(data.rows || []);
+      } catch {
+        setSummaryRows([]);
+      }
+      setLoadingSummary(false);
+    },
+    [isAdmin]
+  );
+
+  useEffect(() => {
+    if (isAdmin && viewMode === "table") {
+      fetchSummary();
+    }
+  }, [isAdmin, viewMode, fetchSummary]);
+
   const handleApplySummaryFilter = () => {
     fetchSummary(summaryFrom, summaryTo);
   };
@@ -219,11 +269,7 @@ const Tasks = ({ role, setSidebarOpen }) => {
     fetchSummary();
   };
 
-  /* ── admin: "Today" quick filter — click a category (Operation /
-     Sales / IT / Others / Payment) to open a popup with every
-     employee's task updates for today in that category. Fetched
-     fresh on each click so the popup always reflects the latest
-     submissions. ── */
+  /* ── admin today filter category popup ── */
   const handleOpenTodayCategory = async (categoryKey) => {
     setTodayCategoryOpen(categoryKey);
     setLoadingTodayCategory(true);
@@ -240,7 +286,7 @@ const Tasks = ({ role, setSidebarOpen }) => {
     setTodayCategoryData([]);
   };
 
-  /* ── admin: download the summary table as an Excel file ── */
+  /* ── download summary Excel ── */
   const handleDownloadSummaryExcel = () => {
     const excelData = summaryRows.map((r) => ({
       "S.No": r.sno,
@@ -261,8 +307,6 @@ const Tasks = ({ role, setSidebarOpen }) => {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
 
-    // File name reflects whichever date filter is currently applied,
-    // so a download for a specific date is clearly labelled.
     let suffix = todayStr;
     if (summaryFrom && summaryTo && summaryFrom === summaryTo) {
       suffix = summaryFrom;
@@ -272,12 +316,91 @@ const Tasks = ({ role, setSidebarOpen }) => {
     saveAs(fileData, `Employee_Task_Summary_${suffix}.xlsx`);
   };
 
-  /* ─── ADD an item to today's to-do list ───
-     Uses whichever preset is selected, the typed custom text for
-     "Other", or — for "Payment" (Sales / Business Development only)
-     — the chosen payment status (Advance / Payment Pending / Collected).
-     An optional note (attached via the note box shown once a checklist
-     option is picked) is saved alongside every item type. */
+  /* ── admin review & selection handlers ── */
+  const toggleAdminItemCheck = (taskId, itemId) => {
+    setAdminSelections((prev) => {
+      const current = prev[taskId] || [];
+      const exists = current.includes(itemId);
+      const next = exists ? current.filter((id) => id !== itemId) : [...current, itemId];
+      return { ...prev, [taskId]: next };
+    });
+  };
+
+  const handleAdminReview = async (emp, forceAllPending = false) => {
+    if (!emp.taskId) return;
+    const taskId = emp.taskId;
+    const allIds = (emp.items || []).map((it) => it._id);
+    const selectedIds = forceAllPending ? [] : (adminSelections[taskId] || []);
+    const pendingIds = allIds.filter((id) => !selectedIds.includes(id));
+    const remark =
+      adminRemarks[taskId] ||
+      (pendingIds.length > 0
+        ? "Task marked incomplete by Admin; moved to pending for tomorrow."
+        : "");
+
+    setAdminReviewing((prev) => ({ ...prev, [taskId]: true }));
+    try {
+      const { data } = await API.post("/tasks/admin-review", {
+        taskId,
+        completedItemIds: selectedIds,
+        pendingItemIds: pendingIds,
+        pendingRemark: remark,
+      });
+
+      setReviewMsg((prev) => ({
+        ...prev,
+        [taskId]: data.message || "Tasks reviewed and updated successfully!",
+      }));
+
+      // Refresh overview & calendar reports
+      await fetchDeptOverview();
+      fetchForDate(toDateStr(selectedDate));
+
+      setTimeout(() => {
+        setReviewMsg((prev) => ({ ...prev, [taskId]: "" }));
+      }, 4000);
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to update review.");
+    }
+    setAdminReviewing((prev) => ({ ...prev, [taskId]: false }));
+  };
+
+  /* ── admin trigger 6:30 PM daily emails ── */
+  const handleTriggerDailyReminders = async () => {
+    if (
+      !window.confirm(
+        "Send today's daily 6:30 PM task report to director@blingreward.com and reminders to employees with incomplete tasks now?"
+      )
+    ) {
+      return;
+    }
+    setTriggeringReminders(true);
+    try {
+      const { data } = await API.post("/tasks/send-daily-reminders");
+      alert(data.message || "Daily reminders and reports dispatched successfully!");
+      fetchDeptOverview();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to dispatch reminders.");
+    }
+    setTriggeringReminders(false);
+  };
+
+  /* ── user: copy pending task from previous day into today's list ── */
+  const handleCopyPendingToToday = (pastItem) => {
+    const rolledOverItem = {
+      text: pastItem.text,
+      note: pastItem.note
+        ? `${pastItem.note} (Pending from ${pastItem.originalDate})`
+        : `Pending from ${pastItem.originalDate}`,
+      completed: false,
+      pendingReason: pastItem.adminRemark ? `Admin remark: ${pastItem.adminRemark}` : "",
+      isRolledOver: true,
+      rolledOverFromDate: pastItem.originalDate,
+    };
+    setItems((prev) => [...prev, rolledOverItem]);
+  };
+
+  /* ── user: add task item to today's list ── */
   const handleAddItem = () => {
     let text = "";
     if (selectedPreset === PAYMENT_OPTION) {
@@ -295,25 +418,38 @@ const Tasks = ({ role, setSidebarOpen }) => {
     } else {
       text = selectedPreset;
     }
-    setItems((prev) => [...prev, { text, note: noteText.trim(), completed: false }]);
+
+    setItems((prev) => [
+      ...prev,
+      {
+        text,
+        note: noteText.trim(),
+        completed: false,
+        pendingReason: pendingReasonText.trim(),
+      },
+    ]);
     setCustomText("");
     setSelectedPaymentStatus("");
     setNoteText("");
+    setPendingReasonText("");
   };
 
-  /* ─── TOGGLE an item's completed state (end of day) ─── */
   const toggleItemCompleted = (index) => {
     setItems((prev) =>
       prev.map((it, i) => (i === index ? { ...it, completed: !it.completed } : it))
     );
   };
 
-  /* ─── REMOVE an item before submitting ─── */
+  const updateItemPendingReason = (index, val) => {
+    setItems((prev) =>
+      prev.map((it, i) => (i === index ? { ...it, pendingReason: val } : it))
+    );
+  };
+
   const removeItem = (index) => {
     setItems((prev) => prev.filter((_, i) => i !== index));
   };
 
-  /* ─── SUBMIT (create new task list for today) ─── */
   const handleSubmit = async () => {
     if (items.length === 0) {
       alert("Please add at least one task to your list before submitting.");
@@ -333,8 +469,6 @@ const Tasks = ({ role, setSidebarOpen }) => {
     setTimeout(() => setSavedMsg(""), 3000);
   };
 
-  /* ─── UPDATE (overwrite today's existing task list, e.g. after
-     checking items off as "completed" at the end of the day) ─── */
   const handleUpdate = async () => {
     if (items.length === 0) {
       alert("Your task list can't be empty.");
@@ -342,7 +476,7 @@ const Tasks = ({ role, setSidebarOpen }) => {
     }
     setUpdating(true);
     try {
-      await API.post("/tasks/report", { items }); // backend upserts
+      await API.post("/tasks/report", { items });
       setSavedMsg("updated");
       await fetchToday();
       if (toDateStr(selectedDate) === todayStr) fetchForDate(todayStr);
@@ -355,11 +489,7 @@ const Tasks = ({ role, setSidebarOpen }) => {
 
   const selectedDateStr = toDateStr(selectedDate);
 
-  /* ─── EDIT a previous day's task list (calendar viewer, user only) ───
-     Opens an inline editor pre-filled with whatever the employee already
-     submitted for the selected date (or empty, if nothing was submitted
-     that day) so they can add/remove/tick items for any past date, not
-     just today. ─── */
+  /* ── user: edit previous day's report ── */
   const startEditingDateReport = () => {
     const existing = dateReports[0];
     setEditDateItems(existing?.items ? existing.items.map((it) => ({ ...it })) : []);
@@ -392,7 +522,10 @@ const Tasks = ({ role, setSidebarOpen }) => {
     } else {
       text = editDatePreset;
     }
-    setEditDateItems((prev) => [...prev, { text, note: editDateNote.trim(), completed: false }]);
+    setEditDateItems((prev) => [
+      ...prev,
+      { text, note: editDateNote.trim(), completed: false, pendingReason: "" },
+    ]);
     setEditDateCustomText("");
     setEditDatePaymentStatus("");
     setEditDateNote("");
@@ -426,13 +559,18 @@ const Tasks = ({ role, setSidebarOpen }) => {
     setSavingDateEdit(false);
   };
 
-  // Reset any open date-editor whenever the selected date changes.
-  useEffect(() => { setIsEditingDateReport(false); }, [selectedDateStr]);
+  useEffect(() => {
+    setIsEditingDateReport(false);
+  }, [selectedDateStr]);
+
+  // Keep modal in sync with refreshed department overview
+  const activeModalDept = selectedDeptModal
+    ? departmentOverview.find((d) => d.key === selectedDeptModal.key) || selectedDeptModal
+    : null;
 
   return (
     <div className="employee-page">
-
-      {/* ── PAGE HEADER ── */}
+      {/* ── TOP BAR HEADER ── */}
       <div className="employee-topbar">
         <div className="header-left">
           <button
@@ -443,169 +581,157 @@ const Tasks = ({ role, setSidebarOpen }) => {
             ☰
           </button>
           <div className="emp">
-            <h1>📝 {isAdmin ? "Employee Task Lists" : "Tasks & Daily To-Do List"}</h1>
+            <h1>📝 {isAdmin ? "Employee Tasks & Department Review" : "Tasks & Daily To-Do List"}</h1>
             <p>
               {isAdmin
-                ? "View every employee's daily task list and completion status"
-                : "Build your to-do list each morning, tick off completed tasks, and submit"}
+                ? "Track department tasks, review employee completions, and roll over pending items."
+                : "Build your to-do list each morning, tick off completed tasks, and submit updates."}
             </p>
           </div>
         </div>
+
+        {/* Admin Header Controls */}
+        {isAdmin && (
+          <div className="task-header-controls">
+            {/* View Mode Toggle: Department Cards vs Table View */}
+            <div className="task-view-toggle">
+              <button
+                type="button"
+                className={`task-toggle-btn ${viewMode === "cards" ? "is-active" : ""}`}
+                onClick={() => setViewMode("cards")}
+              >
+                🗂️ Department Cards
+              </button>
+              <button
+                type="button"
+                className={`task-toggle-btn ${viewMode === "table" ? "is-active" : ""}`}
+                onClick={() => setViewMode("table")}
+              >
+                📋 Table View
+              </button>
+            </div>
+
+            {/* Quick 6:30 PM Email Trigger */}
+            <button
+              type="button"
+              className="task-trigger-reminders-btn"
+              onClick={handleTriggerDailyReminders}
+              disabled={triggeringReminders}
+              title="Send summary to director@blingreward.com and reminders to employees with incomplete tasks"
+            >
+              {triggeringReminders ? "⏳ Sending Emails…" : "📧 Trigger 6:30 PM Reminders"}
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* ── TODAY'S REPORT CARD — USER ONLY ── */}
-      {!isAdmin && (
-        <div className="task-report-card">
-          {/* Header row */}
-          <div className="task-report-header">
+      {/* ── ADMIN: CARDS VIEW — DEPARTMENT CARDS GRID ── */}
+      {isAdmin && viewMode === "cards" && (
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
             <div>
-              <h3 style={{ margin: 0 }}>📅 Today's Task List</h3>
-              <p style={{ marginTop: 4 }}>
-                {todayStr}
-                {departmentKey !== "general" && (
-                  <span style={{ marginLeft: 8, color: "#4f46e5", fontWeight: 600 }}>
-                    · {DEPARTMENT_LABELS[departmentKey] || departmentKey} checklist
-                  </span>
-                )}
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#1e293b" }}>
+                🏢 Department Daily Task Overview
+              </h3>
+              <p style={{ margin: "2px 0 0 0", fontSize: 12, color: "#64748b" }}>
+                Click any department card to review employee to-do items and approve completions
               </p>
             </div>
-            {todayTask && (
-              <span className="task-submitted-badge">✅ Submitted</span>
-            )}
-          </div>
-
-          {/* To-do list builder */}
-          <div className="task-add-row task-add-row-mobile">
-            <select
-              className="task-preset-select"
-              value={selectedPreset}
-              onChange={(e) => setSelectedPreset(e.target.value)}
+            <button
+              type="button"
+              onClick={fetchDeptOverview}
+              disabled={loadingDeptOverview}
+              style={{
+                background: "#f1f5f9",
+                border: "1px solid #cbd5e1",
+                borderRadius: 8,
+                padding: "6px 12px",
+                fontSize: 12,
+                cursor: "pointer",
+                fontWeight: 600,
+                color: "#475569",
+              }}
             >
-              {presets.map((opt) => (
-                <option key={opt} value={opt}>{opt}</option>
-              ))}
-              <option value={CUSTOM_OPTION}>Other (type your own)…</option>
-            </select>
-
-            {selectedPreset === CUSTOM_OPTION && (
-              <input
-                type="text"
-                className="task-custom-input"
-                placeholder="Type your task…"
-                value={customText}
-                onChange={(e) => setCustomText(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAddItem()}
-              />
-            )}
-
-            {selectedPreset === PAYMENT_OPTION && (
-              <select
-                className="task-preset-select"
-                value={selectedPaymentStatus}
-                onChange={(e) => setSelectedPaymentStatus(e.target.value)}
-              >
-                <option value="" disabled>Select payment status…</option>
-                {paymentStatuses.map((status) => (
-                  <option key={status} value={status}>{status}</option>
-                ))}
-              </select>
-            )}
-
-            <button type="button" className="task-add-btn" onClick={handleAddItem}>
-              ➕ Add Task
+              {loadingDeptOverview ? "Refreshing…" : "🔄 Refresh"}
             </button>
           </div>
 
-          {/* Note box — shown once a checklist option is selected, so the
-              employee can attach a short note to whichever item (preset,
-              custom, or payment status) they're about to add. */}
-          {selectedPreset && (
-            <div className="task-add-row task-add-row-mobile" style={{ marginTop: 8 }}>
-              <input
-                type="text"
-                className="task-custom-input"
-                placeholder={`Add a note about "${selectedPreset === PAYMENT_OPTION ? (selectedPaymentStatus || "Payment") : selectedPreset === CUSTOM_OPTION ? "this task" : selectedPreset}" (optional)…`}
-                value={noteText}
-                onChange={(e) => setNoteText(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAddItem()}
-                style={{ flex: 1 }}
-              />
-            </div>
-          )}
+          <div className="task-dept-grid">
+            {departmentOverview.map((dept) => {
+              const totalItems = dept.totalTasksCount || 0;
+              const completedItems = dept.completedCount || 0;
+              const pct = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
 
-          {/* Today's checklist */}
-          {items.length === 0 ? (
-            <p className="task-empty-hint">
-              No tasks added yet — pick an option above and click "Add Task" to build today's list.
-            </p>
-          ) : (
-            <ul className="task-item-checklist">
-              {items.map((it, idx) => (
-                <li key={idx} className={`task-item-row ${it.completed ? "is-done" : ""}`}>
-                  <label className="task-item-checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={it.completed}
-                      onChange={() => toggleItemCompleted(idx)}
-                    />
-                    <span>
-                      {it.text}
-                      {it.note && (
-                        <span style={{ display: "block", fontSize: 12, color: "#64748b", fontWeight: 400 }}>
-                          📝 {it.note}
+              return (
+                <div
+                  key={dept.key}
+                  className="task-dept-card"
+                  style={{ "--dept-color": dept.color, "--dept-bg": dept.bg }}
+                  onClick={() => setSelectedDeptModal(dept)}
+                >
+                  <div>
+                    <div className="task-dept-card-header">
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <div className="task-dept-icon-wrapper">{dept.icon}</div>
+                        <div className="task-dept-title-group">
+                          <h4>{dept.name}</h4>
+                          <span className="task-dept-emp-badge">
+                            👥 {dept.employeeCount} {dept.employeeCount === 1 ? "Employee" : "Employees"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 3-Column Metrics */}
+                    <div className="task-dept-metrics-row">
+                      <div className="task-dept-metric">
+                        <span className="task-dept-metric-value updated">
+                          {dept.updatedTodayCount}
                         </span>
-                      )}
-                    </span>
-                  </label>
-                  <button
-                    type="button"
-                    className="task-item-remove"
-                    onClick={() => removeItem(idx)}
-                    title="Remove task"
-                  >
-                    ✕
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+                        <span className="task-dept-metric-label">Updated Today</span>
+                      </div>
+                      <div className="task-dept-metric">
+                        <span className="task-dept-metric-value completed">
+                          {dept.completedCount}
+                        </span>
+                        <span className="task-dept-metric-label">Completed</span>
+                      </div>
+                      <div className="task-dept-metric">
+                        <span className="task-dept-metric-value incomplete">
+                          {dept.notCompletedCount}
+                        </span>
+                        <span className="task-dept-metric-label">Pending</span>
+                      </div>
+                    </div>
 
-          {/* Button row */}
-          <div className="task-btn-row">
-            {savedMsg && (
-              <span className="task-saved-msg">
-                {savedMsg === "updated" ? "✅ Task list updated!" : "✅ Task list submitted!"}
-              </span>
-            )}
+                    {/* Progress Bar */}
+                    <div className="task-dept-progress-wrap">
+                      <div className="task-dept-progress-text">
+                        <span>Task Completion</span>
+                        <span style={{ fontWeight: 700, color: dept.color }}>{pct}%</span>
+                      </div>
+                      <div className="task-dept-progress-bar-bg">
+                        <div
+                          className="task-dept-progress-fill"
+                          style={{ width: `${pct}%`, background: dept.color }}
+                        />
+                      </div>
+                    </div>
+                  </div>
 
-            {/* SUBMIT — shown only when no task list exists yet today */}
-            {!todayTask && (
-              <button
-                className="task-submit-btn"
-                onClick={handleSubmit}
-                disabled={submitting}
-              >
-                {submitting ? "Saving…" : "Submit Task List"}
-              </button>
-            )}
-
-            {/* UPDATE — shown after a list exists; used to check items off
-                as "completed" through the day and re-save at the end of the day */}
-            {todayTask && (
-              <button
-                className="task-update-btn"
-                onClick={handleUpdate}
-                disabled={updating}
-              >
-                {updating ? "Updating…" : "✏️ Update Task List"}
-              </button>
-            )}
+                  <div className="task-dept-card-footer">
+                    <span>View Employee Tasks ({dept.employees?.length || 0})</span>
+                    <span>→</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
 
-      {/* ── DEPARTMENT TASK SUMMARY TABLE — ADMIN ONLY ── */}
-      {isAdmin && (
+      {/* ── ADMIN: TABLE VIEW — TASK SUMMARY BY DEPARTMENT ── */}
+      {isAdmin && viewMode === "table" && (
         <div className="task-calendar-card" style={{ marginBottom: 20 }}>
           <div
             className="task-summary-header-row"
@@ -675,8 +801,7 @@ const Tasks = ({ role, setSidebarOpen }) => {
             </div>
           </div>
 
-          {/* ── "Today" quick filter — click a category to pop up
-              today's task updates for that department ── */}
+          {/* "Today" quick filter */}
           <div className="task-today-filter-row" style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <span style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}>📌 Today's Filter:</span>
             {TODAY_CATEGORIES.map((cat) => (
@@ -757,7 +882,227 @@ const Tasks = ({ role, setSidebarOpen }) => {
         </div>
       )}
 
-      {/* ── CALENDAR REPORT VIEWER — BOTH ROLES ── */}
+      {/* ── USER MODE: PENDING TASKS FROM PREVIOUS DAYS BANNER ── */}
+      {!isAdmin && pendingFromPast.length > 0 && (
+        <div className="task-past-pending-card">
+          <div className="task-past-pending-header">
+            <div className="task-past-pending-title">
+              <span>⏳</span>
+              <span>Pending Tasks from Previous Days ({pendingFromPast.length})</span>
+            </div>
+            <span style={{ fontSize: 12, color: "#9a3412" }}>
+              Carried over by Admin review or not completed
+            </span>
+          </div>
+          <div className="task-past-pending-list">
+            {pendingFromPast.map((pTask, pIdx) => (
+              <div key={pIdx} className="task-past-pending-item">
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                    <span style={{ fontWeight: 700, fontSize: 13, color: "#1e293b" }}>
+                      {pTask.text}
+                    </span>
+                    <span style={{ fontSize: 11, background: "#ffedd5", color: "#c2410c", padding: "2px 6px", borderRadius: 4, fontWeight: 600 }}>
+                      📅 {pTask.originalDate}
+                    </span>
+                  </div>
+                  {pTask.note && (
+                    <p style={{ margin: "0 0 4px 0", fontSize: 12, color: "#64748b" }}>
+                      📝 {pTask.note}
+                    </p>
+                  )}
+                  {pTask.adminRemark && (
+                    <div className="task-remark-box" style={{ marginTop: 4 }}>
+                      💬 <strong>Admin:</strong> {pTask.adminRemark}
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="task-past-copy-btn"
+                  onClick={() => handleCopyPendingToToday(pTask)}
+                  title="Copy this task into today's list"
+                >
+                  ➕ Carry Over to Today
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── USER MODE: TODAY'S REPORT CARD ── */}
+      {!isAdmin && (
+        <div className="task-report-card">
+          <div className="task-report-header">
+            <div>
+              <h3 style={{ margin: 0 }}>📅 Today's Task List</h3>
+              <p style={{ marginTop: 4 }}>
+                {todayStr}
+                {departmentKey !== "general" && (
+                  <span style={{ marginLeft: 8, color: "#4f46e5", fontWeight: 600 }}>
+                    · {DEPARTMENT_LABELS[departmentKey] || departmentKey} checklist
+                  </span>
+                )}
+              </p>
+            </div>
+            {todayTask && (
+              <span className="task-submitted-badge">✅ Submitted</span>
+            )}
+          </div>
+
+          {/* To-do list builder */}
+          <div className="task-add-row task-add-row-mobile">
+            <select
+              className="task-preset-select"
+              value={selectedPreset}
+              onChange={(e) => setSelectedPreset(e.target.value)}
+            >
+              {presets.map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+              <option value={CUSTOM_OPTION}>Other (type your own)…</option>
+            </select>
+
+            {selectedPreset === CUSTOM_OPTION && (
+              <input
+                type="text"
+                className="task-custom-input"
+                placeholder="Type your task…"
+                value={customText}
+                onChange={(e) => setCustomText(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAddItem()}
+              />
+            )}
+
+            {selectedPreset === PAYMENT_OPTION && (
+              <select
+                className="task-preset-select"
+                value={selectedPaymentStatus}
+                onChange={(e) => setSelectedPaymentStatus(e.target.value)}
+              >
+                <option value="" disabled>Select payment status…</option>
+                {paymentStatuses.map((status) => (
+                  <option key={status} value={status}>{status}</option>
+                ))}
+              </select>
+            )}
+
+            <button type="button" className="task-add-btn" onClick={handleAddItem}>
+              ➕ Add Task
+            </button>
+          </div>
+
+          {/* Optional Note and Problem Note Inputs */}
+          {selectedPreset && (
+            <div className="task-add-row task-add-row-mobile" style={{ marginTop: 8 }}>
+              <input
+                type="text"
+                className="task-custom-input"
+                placeholder={`Add note about "${selectedPreset === PAYMENT_OPTION ? (selectedPaymentStatus || "Payment") : selectedPreset === CUSTOM_OPTION ? "this task" : selectedPreset}" (optional)…`}
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAddItem()}
+                style={{ flex: 1 }}
+              />
+              <input
+                type="text"
+                className="task-custom-input"
+                placeholder="If blocked/problematic, note why (e.g. Due to waiting on API credentials)…"
+                value={pendingReasonText}
+                onChange={(e) => setPendingReasonText(e.target.value)}
+                style={{ flex: 1 }}
+              />
+            </div>
+          )}
+
+          {/* Today's checklist */}
+          {items.length === 0 ? (
+            <p className="task-empty-hint">
+              No tasks added yet — pick an option above and click "Add Task" to build today's list.
+            </p>
+          ) : (
+            <ul className="task-item-checklist">
+              {items.map((it, idx) => (
+                <li key={idx} className={`task-item-row ${it.completed ? "is-done" : ""}`} style={{ flexDirection: "column", alignItems: "stretch" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <label className="task-item-checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={it.completed}
+                        onChange={() => toggleItemCompleted(idx)}
+                      />
+                      <span>
+                        {it.text}
+                        {it.isRolledOver && (
+                          <span style={{ marginLeft: 6, fontSize: 11, color: "#ea580c", fontWeight: 600 }}>
+                            [Rolled Over]
+                          </span>
+                        )}
+                        {it.note && (
+                          <span style={{ display: "block", fontSize: 12, color: "#64748b", fontWeight: 400 }}>
+                            📝 {it.note}
+                          </span>
+                        )}
+                      </span>
+                    </label>
+                    <button
+                      type="button"
+                      className="task-item-remove"
+                      onClick={() => removeItem(idx)}
+                      title="Remove task"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  {/* Problem Reason Input (Visible when item is pending or user has notes) */}
+                  <div className="task-user-reason-row">
+                    <input
+                      type="text"
+                      className="task-user-reason-input"
+                      placeholder="Problem / Pending reason (e.g., due to this this task is pending)…"
+                      value={it.pendingReason || ""}
+                      onChange={(e) => updateItemPendingReason(idx, e.target.value)}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {/* Button row */}
+          <div className="task-btn-row">
+            {savedMsg && (
+              <span className="task-saved-msg">
+                {savedMsg === "updated" ? "✅ Task list updated!" : "✅ Task list submitted!"}
+              </span>
+            )}
+
+            {!todayTask && (
+              <button
+                className="task-submit-btn"
+                onClick={handleSubmit}
+                disabled={submitting}
+              >
+                {submitting ? "Saving…" : "Submit Task List"}
+              </button>
+            )}
+
+            {todayTask && (
+              <button
+                className="task-update-btn"
+                onClick={handleUpdate}
+                disabled={updating}
+              >
+                {updating ? "Updating…" : "✏️ Update Task List"}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── CALENDAR REPORT VIEWER (PLACED DIRECTLY BELOW DEPARTMENT CARDS) ── */}
       <div className="task-calendar-card">
         <h3 style={{ margin: "0 0 2px" }}>
           {isAdmin ? "👥 Employee Task Calendar" : "📊 My Task Calendar"}
@@ -784,7 +1129,8 @@ const Tasks = ({ role, setSidebarOpen }) => {
                 return (
                   <div
                     style={{
-                      width: 6, height: 6,
+                      width: 6,
+                      height: 6,
                       borderRadius: "50%",
                       background: "#4f46e5",
                       margin: "3px auto 0",
@@ -797,7 +1143,6 @@ const Tasks = ({ role, setSidebarOpen }) => {
 
           {/* Report list for selected date */}
           <div style={{ flex: "1 1 300px", minWidth: 0 }}>
-            {/* Date label */}
             <div
               style={{
                 display: "flex",
@@ -815,10 +1160,6 @@ const Tasks = ({ role, setSidebarOpen }) => {
                 {selectedDateStr === todayStr && (
                   <span style={{ color: "#94a3b8", fontSize: 11 }}>Today</span>
                 )}
-                {/* EDIT — user only. Lets an employee correct/build out their
-                    own task list for the selected day, whether that's today
-                    or a previous day, not just the "Today's Task List" card
-                    above. Admins keep the read-only view. */}
                 {!isAdmin && !loadingDateReports && !isEditingDateReport && (
                   <button
                     type="button"
@@ -838,7 +1179,6 @@ const Tasks = ({ role, setSidebarOpen }) => {
               </p>
             ) : !isAdmin && isEditingDateReport ? (
               <div className="task-report-card" style={{ padding: 0, border: "none", boxShadow: "none" }}>
-                {/* To-do list builder for the selected date */}
                 <div className="task-add-row task-add-row-mobile">
                   <select
                     className="task-preset-select"
@@ -885,7 +1225,7 @@ const Tasks = ({ role, setSidebarOpen }) => {
                     <input
                       type="text"
                       className="task-custom-input"
-                      placeholder={`Add a note about "${editDatePreset === PAYMENT_OPTION ? (editDatePaymentStatus || "Payment") : editDatePreset === CUSTOM_OPTION ? "this task" : editDatePreset}" (optional)…`}
+                      placeholder={`Add note about "${editDatePreset === PAYMENT_OPTION ? (editDatePaymentStatus || "Payment") : editDatePreset === CUSTOM_OPTION ? "this task" : editDatePreset}" (optional)…`}
                       value={editDateNote}
                       onChange={(e) => setEditDateNote(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && addEditDateItem()}
@@ -968,7 +1308,9 @@ const Tasks = ({ role, setSidebarOpen }) => {
               <div className="task-report-list">
                 {dateReports.map((t) => {
                   const hasItems = Array.isArray(t.items) && t.items.length > 0;
-                  const doneCount = hasItems ? t.items.filter((it) => it.completed).length : 0;
+                  const doneCount = hasItems
+                    ? t.items.filter((it) => it.completed || it.adminCompleted).length
+                    : 0;
                   return (
                     <div key={t._id} className="task-report-item">
                       {isAdmin && (
@@ -995,21 +1337,36 @@ const Tasks = ({ role, setSidebarOpen }) => {
                         <>
                           <div className="task-progress-label">
                             ✅ {doneCount} / {t.items.length} completed
+                            {t.adminReviewed && (
+                              <span style={{ marginLeft: 8, color: "#16a34a", fontWeight: 700 }}>
+                                (Admin Reviewed)
+                              </span>
+                            )}
                           </div>
                           <ul className="task-item-checklist task-item-checklist-readonly">
                             {t.items.map((it, idx) => (
                               <li
                                 key={idx}
-                                className={`task-item-row ${it.completed ? "is-done" : ""}`}
+                                className={`task-item-row ${it.completed || it.adminCompleted ? "is-done" : ""}`}
                               >
                                 <span className="task-item-check-icon">
-                                  {it.completed ? "✅" : "⬜"}
+                                  {it.completed || it.adminCompleted ? "✅" : "⬜"}
                                 </span>
-                                <span>
+                                <span style={{ flex: 1 }}>
                                   {it.text}
                                   {it.note && (
                                     <span style={{ display: "block", fontSize: 12, color: "#64748b" }}>
                                       📝 {it.note}
+                                    </span>
+                                  )}
+                                  {it.pendingReason && (
+                                    <span style={{ display: "block", fontSize: 12, color: "#b45309", marginTop: 2 }}>
+                                      ⚠️ <strong>Problem:</strong> {it.pendingReason}
+                                    </span>
+                                  )}
+                                  {it.adminRemark && (
+                                    <span style={{ display: "block", fontSize: 12, color: "#e11d48", marginTop: 2 }}>
+                                      💬 <strong>Admin remark:</strong> {it.adminRemark}
                                     </span>
                                   )}
                                 </span>
@@ -1029,7 +1386,206 @@ const Tasks = ({ role, setSidebarOpen }) => {
         </div>
       </div>
 
-      {/* ── "TODAY" CATEGORY POPUP — ADMIN ONLY ── */}
+      {/* ── ADMIN: DEPARTMENT EMPLOYEE REVIEW MODAL ── */}
+      {isAdmin && activeModalDept && (
+        <div className="task-modal-backdrop" onClick={() => setSelectedDeptModal(null)}>
+          <div className="task-dept-modal" onClick={(e) => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div className="task-dept-modal-header">
+              <div className="task-dept-modal-title-wrap">
+                <span style={{ fontSize: 26 }}>{activeModalDept.icon}</span>
+                <div>
+                  <h3>{activeModalDept.name} — Employee To-Do Review</h3>
+                  <p style={{ margin: "2px 0 0 0", fontSize: 12, color: "#64748b" }}>
+                    📅 Today: {formatDate(todayStr)} • {activeModalDept.employeeCount} Members
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="task-dept-modal-close"
+                onClick={() => setSelectedDeptModal(null)}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="task-dept-modal-body">
+              {activeModalDept.employees.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "30px", color: "#94a3b8" }}>
+                  <p>No employees registered in this department yet.</p>
+                </div>
+              ) : (
+                activeModalDept.employees.map((emp) => {
+                  const hasTasks = emp.submitted && Array.isArray(emp.items) && emp.items.length > 0;
+                  const currentSelections = (emp.taskId && adminSelections[emp.taskId]) || [];
+                  const isReviewing = emp.taskId && adminReviewing[emp.taskId];
+                  const feedback = emp.taskId && reviewMsg[emp.taskId];
+
+                  return (
+                    <div
+                      key={emp.employeeId || emp.name}
+                      className={`task-emp-review-card ${emp.submitted ? "has-submitted" : ""}`}
+                    >
+                      {/* Employee Header */}
+                      <div className="task-emp-review-header">
+                        <div className="task-emp-identity">
+                          <div className="task-emp-avatar">
+                            {emp.name ? emp.name.charAt(0).toUpperCase() : "👤"}
+                          </div>
+                          <div>
+                            <div className="task-emp-name-text">{emp.name}</div>
+                            <div className="task-emp-meta-text">
+                              {emp.designation} {emp.email ? `• ${emp.email}` : ""}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          {emp.submitted ? (
+                            <div style={{ display: "flex", gap: 6 }}>
+                              <span className="task-emp-status-badge submitted">
+                                ✅ Submitted Today
+                              </span>
+                              {emp.adminReviewed && (
+                                <span className="task-emp-status-badge reviewed">
+                                  ⭐ Admin Reviewed
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="task-emp-status-badge unsubmitted">
+                              ⚠️ Not Submitted Today
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Employee Tasks Checklist */}
+                      {hasTasks ? (
+                        <>
+                          <ul className="task-review-item-list">
+                            {emp.items.map((it) => {
+                              const isChecked = currentSelections.includes(it._id);
+                              return (
+                                <li
+                                  key={it._id}
+                                  className={`task-review-item-row ${isChecked ? "is-selected" : ""} ${it.adminPending ? "is-pending" : ""}`}
+                                >
+                                  <div className="task-review-item-main">
+                                    <label className="task-review-checkbox-label">
+                                      <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        onChange={() => toggleAdminItemCheck(emp.taskId, it._id)}
+                                      />
+                                      <span style={{ fontWeight: 600 }}>{it.text}</span>
+                                    </label>
+
+                                    <div className="task-review-tags-wrap">
+                                      {it.completed ? (
+                                        <span className="task-tag user-done">User Done</span>
+                                      ) : (
+                                        <span className="task-tag user-undone">User Incomplete</span>
+                                      )}
+
+                                      {it.adminCompleted && (
+                                        <span className="task-tag admin-done">Admin Approved</span>
+                                      )}
+
+                                      {it.adminPending && (
+                                        <span className="task-tag admin-pending">Pending Rollover</span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* User problem / pending note */}
+                                  {it.pendingReason && (
+                                    <div className="task-problem-box">
+                                      <span>⚠️</span>
+                                      <div>
+                                        <strong>Employee Problem Note:</strong> "{it.pendingReason}"
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* User general note */}
+                                  {it.note && (
+                                    <div style={{ fontSize: 12, color: "#64748b", paddingLeft: 27 }}>
+                                      📝 {it.note}
+                                    </div>
+                                  )}
+
+                                  {/* Admin remark if rolled over */}
+                                  {it.adminRemark && (
+                                    <div className="task-remark-box" style={{ marginLeft: 27 }}>
+                                      💬 <strong>Admin remark:</strong> {it.adminRemark}
+                                    </div>
+                                  )}
+                                </li>
+                              );
+                            })}
+                          </ul>
+
+                          {/* Admin Review Action Toolbar */}
+                          <div className="task-admin-actions-bar">
+                            <input
+                              type="text"
+                              className="task-remark-input"
+                              placeholder="Admin pending remark (e.g. This task is incomplete, carrying over)…"
+                              value={adminRemarks[emp.taskId] || ""}
+                              onChange={(e) =>
+                                setAdminRemarks((prev) => ({
+                                  ...prev,
+                                  [emp.taskId]: e.target.value,
+                                }))
+                              }
+                            />
+
+                            <div className="task-btn-group-review">
+                              <button
+                                type="button"
+                                className="task-btn-approve"
+                                onClick={() => handleAdminReview(emp, false)}
+                                disabled={isReviewing}
+                              >
+                                {isReviewing ? "Saving…" : "✅ Mark Selected as Completed"}
+                              </button>
+
+                              <button
+                                type="button"
+                                className="task-btn-pending"
+                                onClick={() => handleAdminReview(emp, true)}
+                                disabled={isReviewing}
+                                title="Move all uncompleted tasks to pending and send email to employee"
+                              >
+                                ⏳ Put Incomplete in Pending & Email
+                              </button>
+                            </div>
+                          </div>
+
+                          {feedback && (
+                            <div style={{ marginTop: 8, fontSize: 12, color: "#16a34a", fontWeight: 600 }}>
+                              {feedback}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <p style={{ margin: "6px 0 0 0", fontSize: 13, color: "#94a3b8" }}>
+                          No tasks submitted by this employee for today yet.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── ADMIN: "TODAY" CATEGORY POPUP ── */}
       {isAdmin && todayCategoryOpen && (
         <div className="modal-overlay" onClick={handleCloseTodayCategory}>
           <div

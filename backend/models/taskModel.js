@@ -1,11 +1,12 @@
 const mongoose = require("mongoose");
 
-// A single to-do item on an employee's daily task list. `text` is
-// whichever checklist option the employee picked (department preset,
-// "Payment: <status>", or their own typed "Other" text). `note` is an
-// optional free-text note the employee can attach to explain/expand
-// on that specific item. `completed` is ticked by the employee at the
-// end of the day, before submitting.
+// A single to-do item on an employee's daily task list.
+// `text` is the task title / preset or custom text.
+// `note` is user-provided explanation, problem remarks, or sub-task details.
+// `completed` is checked by employee.
+// `adminCompleted` is verified and marked by admin.
+// `adminPending` is set when admin marks uncompleted task as pending for next day.
+// `adminRemark` is feedback from admin when moving to pending.
 const taskItemSchema = new mongoose.Schema(
   {
     text: {
@@ -22,8 +23,34 @@ const taskItemSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    adminCompleted: {
+      type: Boolean,
+      default: false,
+    },
+    adminPending: {
+      type: Boolean,
+      default: false,
+    },
+    adminRemark: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    pendingReason: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    isRolledOver: {
+      type: Boolean,
+      default: false,
+    },
+    rolledOverFromDate: {
+      type: String,
+      default: "",
+    },
   },
-  { _id: false }
+  { _id: true }
 );
 
 const taskSchema = new mongoose.Schema(
@@ -39,24 +66,44 @@ const taskSchema = new mongoose.Schema(
       default: "",
     },
 
+    department: {
+      type: String,
+      default: "",
+    },
+
+    departmentKey: {
+      type: String,
+      default: "",
+    },
+
     date: {
       type: String, // "YYYY-MM-DD"
       required: true,
     },
 
-    // The employee's daily to-do list. Built in the morning (items added
-    // one at a time from 4 preset options or a custom 5th option), then
-    // each item is checked off as "completed" through the day.
+    // Daily to-do list items
     items: {
       type: [taskItemSchema],
       default: [],
     },
 
-    // Auto-generated plain-text summary of `items` (kept in sync on every
-    // save) so any older code/reporting that reads `report` still works.
+    // Plain-text summary of `items`
     report: {
       type: String,
       default: "",
+    },
+
+    // Admin review fields
+    adminReviewed: {
+      type: Boolean,
+      default: false,
+    },
+    adminReviewedAt: {
+      type: Date,
+    },
+    adminReviewedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "UserDetails",
     },
   },
   {

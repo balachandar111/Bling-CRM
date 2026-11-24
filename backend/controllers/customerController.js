@@ -36,6 +36,8 @@ const createCustomer =
         location,
         service,
         aidaStage,
+        sparkName,
+        sparkNumber,
 
       } = req.body;
 
@@ -54,6 +56,11 @@ const createCustomer =
           followUpDate,
           priority,
           source,
+          location,
+          service,
+          aidaStage,
+          sparkName: sparkName || "",
+          sparkNumber: sparkNumber || "",
 
           // ================= ASSIGNED TO =================
           // If no user is explicitly assigned, fall back to the

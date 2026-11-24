@@ -2,6 +2,7 @@ require("dotenv").config();
 
 const app = require("./app");
 const connectDB = require("./config/db");
+const { initTaskScheduler } = require("./utils/taskScheduler");
 
 const PORT = process.env.PORT || 5000;
 
@@ -9,6 +10,9 @@ const PORT = process.env.PORT || 5000;
 if (require.main === module) {
   connectDB()
     .then(() => {
+      // Start 6:30 PM cron scheduler
+      initTaskScheduler();
+
       app.listen(PORT, () => {
         console.log(`Server running on port ${PORT}`);
       });
