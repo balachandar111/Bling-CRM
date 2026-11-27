@@ -619,6 +619,12 @@
   color: #b91c1c;
 }
 
+.alt-stage-pill.Closure {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
 .alt-clear-all-btn {
   background: #fee2e2;
   color: #ef4444;

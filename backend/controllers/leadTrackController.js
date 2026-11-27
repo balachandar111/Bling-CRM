@@ -253,21 +253,41 @@ exports.getLeadTracks = async (req, res) => {
       let totalTarget = 0;
       let totalOnboarded = 0;
       let totalQuoted = 0;
+      let totalClosure = 0;
+      let totalPayment = 0;
+      let totalAdvancePayment = 0;
+      let totalRemainingPayment = 0;
 
       trackObj.products = trackObj.products.map((p) => {
         const quotedCount = p.onboardedLeads.filter((l) => l.stage === "Quote").length;
+        const closureCount = p.onboardedLeads.filter((l) => l.stage === "Closure").length;
         const isNoTarget = !!p.noTarget;
-        const remainingTarget = isNoTarget ? "No Target" : Math.max(0, (p.target || 0) - quotedCount);
+        // Target is reduced only when lead reaches "Closure" stage
+        const remainingTarget = isNoTarget ? "No Target" : Math.max(0, (p.target || 0) - closureCount);
+
+        const closedLeads = p.onboardedLeads.filter((l) => l.stage === "Closure");
+        const prodTotalPayment = closedLeads.reduce((sum, l) => sum + (l.totalValue || 0), 0);
+        const prodAdvancePayment = closedLeads.reduce((sum, l) => sum + (l.advancePayment || 0), 0);
+        const prodRemainingPayment = closedLeads.reduce((sum, l) => sum + (l.remainingPayment !== undefined ? l.remainingPayment : Math.max(0, (l.totalValue || 0) - (l.advancePayment || 0))), 0);
+
         if (!isNoTarget) totalTarget += p.target || 0;
         totalOnboarded += p.onboardedLeads.length;
         totalQuoted += quotedCount;
+        totalClosure += closureCount;
+        totalPayment += prodTotalPayment;
+        totalAdvancePayment += prodAdvancePayment;
+        totalRemainingPayment += prodRemainingPayment;
 
         return {
           ...p,
           noTarget: isNoTarget,
           onboardedCount: p.onboardedLeads.length,
           quotedCount,
+          closureCount,
           remainingTarget,
+          totalPayment: prodTotalPayment,
+          advancePayment: prodAdvancePayment,
+          remainingPayment: prodRemainingPayment,
           callCount: p.onboardedLeads.filter((l) => l.stage === "Call").length,
           whatsappCount: p.onboardedLeads.filter((l) => l.stage === "WhatsappMessage").length,
           demoCount: p.onboardedLeads.filter((l) => l.stage === "Demo").length,
@@ -277,7 +297,11 @@ exports.getLeadTracks = async (req, res) => {
       trackObj.totalTarget = totalTarget;
       trackObj.totalOnboarded = totalOnboarded;
       trackObj.totalQuoted = totalQuoted;
-      trackObj.totalRemainingTarget = Math.max(0, totalTarget - totalQuoted);
+      trackObj.totalClosure = totalClosure;
+      trackObj.totalPayment = totalPayment;
+      trackObj.totalAdvancePayment = totalAdvancePayment;
+      trackObj.totalRemainingPayment = totalRemainingPayment;
+      trackObj.totalRemainingTarget = Math.max(0, totalTarget - totalClosure);
 
       return trackObj;
     });
@@ -312,13 +336,25 @@ exports.getLeadTrackById = async (req, res) => {
     const trackObj = track.toObject();
     trackObj.products = trackObj.products.map((p) => {
       const quotedCount = p.onboardedLeads.filter((l) => l.stage === "Quote").length;
+      const closureCount = p.onboardedLeads.filter((l) => l.stage === "Closure").length;
       const isNoTarget = !!p.noTarget;
+      const remainingTarget = isNoTarget ? "No Target" : Math.max(0, (p.target || 0) - closureCount);
+
+      const closedLeads = p.onboardedLeads.filter((l) => l.stage === "Closure");
+      const prodTotalPayment = closedLeads.reduce((sum, l) => sum + (l.totalValue || 0), 0);
+      const prodAdvancePayment = closedLeads.reduce((sum, l) => sum + (l.advancePayment || 0), 0);
+      const prodRemainingPayment = closedLeads.reduce((sum, l) => sum + (l.remainingPayment !== undefined ? l.remainingPayment : Math.max(0, (l.totalValue || 0) - (l.advancePayment || 0))), 0);
+
       return {
         ...p,
         noTarget: isNoTarget,
         onboardedCount: p.onboardedLeads.length,
         quotedCount,
-        remainingTarget: isNoTarget ? "No Target" : Math.max(0, (p.target || 0) - quotedCount),
+        closureCount,
+        remainingTarget,
+        totalPayment: prodTotalPayment,
+        advancePayment: prodAdvancePayment,
+        remainingPayment: prodRemainingPayment,
         callCount: p.onboardedLeads.filter((l) => l.stage === "Call").length,
         whatsappCount: p.onboardedLeads.filter((l) => l.stage === "WhatsappMessage").length,
         demoCount: p.onboardedLeads.filter((l) => l.stage === "Demo").length,
@@ -591,13 +627,15 @@ exports.onboardLeadsToProduct = async (req, res) => {
     await track.save();
 
     const quotedCount = product.onboardedLeads.filter((l) => l.stage === "Quote").length;
-    const remainingTarget = isNoTarget ? "No Target" : Math.max(0, product.target - quotedCount);
+    const closureCount = product.onboardedLeads.filter((l) => l.stage === "Closure").length;
+    const remainingTarget = isNoTarget ? "No Target" : Math.max(0, product.target - closureCount);
 
     res.status(200).json({
       success: true,
       message: `${newLeadsToAdd.length} lead(s) onboarded successfully into ${product.productName}`,
       onboardedCount: product.onboardedLeads.length,
       quotedCount,
+      closureCount,
       remainingTarget,
       product,
     });
@@ -607,13 +645,13 @@ exports.onboardLeadsToProduct = async (req, res) => {
   }
 };
 
-// ================= UPDATE LEAD STAGE (Call -> WhatsappMessage -> Demo -> Quote) =================
+// ================= UPDATE LEAD STAGE (Call -> WhatsappMessage -> Demo -> Quote -> Closure) =================
 exports.updateLeadStage = async (req, res) => {
   try {
     const { id, productId, leadId } = req.params;
-    const { stage, notes } = req.body;
+    const { stage, notes, totalValue, advancePayment, paymentMode, paymentReference, paymentNotes } = req.body;
 
-    const validStages = ["Call", "WhatsappMessage", "Demo", "Quote"];
+    const validStages = ["Call", "WhatsappMessage", "Demo", "Quote", "Closure"];
     if (!validStages.includes(stage)) {
       return res.status(400).json({
         success: false,
@@ -657,7 +695,33 @@ exports.updateLeadStage = async (req, res) => {
 
     // Track timestamp when moved into Quote
     if (stage === "Quote") {
-      lead.quotedAt = new Date();
+      lead.quotedAt = lead.quotedAt || new Date();
+    }
+
+    // Handle Closure stage with payment details
+    if (stage === "Closure") {
+      lead.closedAt = lead.closedAt || new Date();
+      if (totalValue !== undefined) {
+        lead.totalValue = Math.max(0, Number(totalValue) || 0);
+      }
+      if (advancePayment !== undefined) {
+        lead.advancePayment = Math.max(0, Number(advancePayment) || 0);
+      }
+      lead.remainingPayment = Math.max(0, (lead.totalValue || 0) - (lead.advancePayment || 0));
+
+      if (lead.advancePayment > 0 && (!lead.payments || lead.payments.length === 0)) {
+        lead.payments = [
+          {
+            amount: lead.advancePayment,
+            date: new Date(),
+            mode: paymentMode || "Advance",
+            reference: paymentReference || "",
+            notes: paymentNotes || "Initial advance on Closure",
+            recordedBy: req.user._id,
+            recordedByName: req.user.name || "User",
+          },
+        ];
+      }
     }
 
     if (!lead.stageHistory) lead.stageHistory = [];
@@ -671,7 +735,14 @@ exports.updateLeadStage = async (req, res) => {
     await track.save();
 
     const quotedCount = product.onboardedLeads.filter((l) => l.stage === "Quote").length;
-    const remainingTarget = product.noTarget ? "No Target" : Math.max(0, (product.target || 0) - quotedCount);
+    const closureCount = product.onboardedLeads.filter((l) => l.stage === "Closure").length;
+    // Target is reduced only when lead reaches "Closure" stage
+    const remainingTarget = product.noTarget ? "No Target" : Math.max(0, (product.target || 0) - closureCount);
+
+    const closedLeads = product.onboardedLeads.filter((l) => l.stage === "Closure");
+    const prodTotalPayment = closedLeads.reduce((sum, l) => sum + (l.totalValue || 0), 0);
+    const prodAdvancePayment = closedLeads.reduce((sum, l) => sum + (l.advancePayment || 0), 0);
+    const prodRemainingPayment = closedLeads.reduce((sum, l) => sum + (l.remainingPayment !== undefined ? l.remainingPayment : Math.max(0, (l.totalValue || 0) - (l.advancePayment || 0))), 0);
 
     res.status(200).json({
       success: true,
@@ -683,11 +754,71 @@ exports.updateLeadStage = async (req, res) => {
         noTarget: !!product.noTarget,
         onboardedCount: product.onboardedLeads.length,
         quotedCount,
+        closureCount,
         remainingTarget,
+        totalPayment: prodTotalPayment,
+        advancePayment: prodAdvancePayment,
+        remainingPayment: prodRemainingPayment,
       },
     });
   } catch (error) {
     console.error("Update Lead Stage Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ================= RECORD / UPDATE LEAD PAYMENT (CLOSURE LEADS) =================
+exports.recordLeadPayment = async (req, res) => {
+  try {
+    const { id, productId, leadId } = req.params;
+    const { amount, mode, reference, notes, totalValue, advancePayment } = req.body;
+
+    const track = await LeadTrack.findById(id);
+    if (!track) return res.status(404).json({ success: false, message: "Lead Track not found" });
+
+    const candidateIds = await getCandidateUserIds(req.user);
+    if (!hasTrackAccess(track, req.user, candidateIds)) {
+      return res.status(403).json({ success: false, message: "Access denied" });
+    }
+
+    const product = track.products.id(productId);
+    if (!product) return res.status(404).json({ success: false, message: "Product not found" });
+
+    const lead = product.onboardedLeads.id(leadId);
+    if (!lead) return res.status(404).json({ success: false, message: "Lead not found" });
+
+    if (totalValue !== undefined) {
+      lead.totalValue = Math.max(0, Number(totalValue) || 0);
+    }
+
+    if (amount !== undefined && Number(amount) > 0) {
+      const numAmount = Number(amount);
+      if (!lead.payments) lead.payments = [];
+      lead.payments.push({
+        amount: numAmount,
+        date: new Date(),
+        mode: mode || "Cash",
+        reference: reference || "",
+        notes: notes || "",
+        recordedBy: req.user._id,
+        recordedByName: req.user.name || "User",
+      });
+      lead.advancePayment = (lead.advancePayment || 0) + numAmount;
+    } else if (advancePayment !== undefined) {
+      lead.advancePayment = Math.max(0, Number(advancePayment) || 0);
+    }
+
+    lead.remainingPayment = Math.max(0, (lead.totalValue || 0) - (lead.advancePayment || 0));
+
+    await track.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Payment details updated successfully",
+      lead,
+    });
+  } catch (error) {
+    console.error("Record Lead Payment Error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -788,7 +919,8 @@ exports.removeLeadFromProduct = async (req, res) => {
     await track.save();
 
     const quotedCount = product.onboardedLeads.filter((l) => l.stage === "Quote").length;
-    const remainingTarget = product.noTarget ? "No Target" : Math.max(0, (product.target || 0) - quotedCount);
+    const closureCount = product.onboardedLeads.filter((l) => l.stage === "Closure").length;
+    const remainingTarget = product.noTarget ? "No Target" : Math.max(0, (product.target || 0) - closureCount);
 
     res.status(200).json({
       success: true,
@@ -799,6 +931,7 @@ exports.removeLeadFromProduct = async (req, res) => {
         noTarget: !!product.noTarget,
         onboardedCount: product.onboardedLeads.length,
         quotedCount,
+        closureCount,
         remainingTarget,
       },
     });
@@ -830,6 +963,10 @@ exports.getAdminLeadTrackReport = async (req, res) => {
     let totalAllTarget = 0;
     let totalAllOnboarded = 0;
     let totalAllQuoted = 0;
+    let totalAllClosure = 0;
+    let totalAllPayment = 0;
+    let totalAllAdvancePayment = 0;
+    let totalAllRemainingPayment = 0;
     let totalCurrentMonthQuoted = 0;
     let totalLastMonthQuoted = 0;
 
@@ -871,6 +1008,10 @@ exports.getAdminLeadTrackReport = async (req, res) => {
           totalTarget: 0,
           totalOnboarded: 0,
           totalQuoted: 0,
+          totalClosure: 0,
+          totalPayment: 0,
+          advancePayment: 0,
+          remainingPayment: 0,
           remainingTarget: 0,
           currentMonthQuoted: 0,
           lastMonthQuoted: 0,
@@ -885,11 +1026,22 @@ exports.getAdminLeadTrackReport = async (req, res) => {
       let trackTarget = 0;
       let trackOnboarded = 0;
       let trackQuoted = 0;
+      let trackClosure = 0;
+      let trackPayment = 0;
+      let trackAdvance = 0;
+      let trackRemaining = 0;
 
       const trackCards = track.products.map((p) => {
         const quotedCount = p.onboardedLeads.filter((l) => l.stage === "Quote").length;
+        const closureCount = p.onboardedLeads.filter((l) => l.stage === "Closure").length;
         const isNoTarget = !!p.noTarget;
-        const remainingTarget = isNoTarget ? "No Target" : Math.max(0, (p.target || 0) - quotedCount);
+        // Target is reduced only when lead reaches "Closure" stage
+        const remainingTarget = isNoTarget ? "No Target" : Math.max(0, (p.target || 0) - closureCount);
+
+        const closedLeads = p.onboardedLeads.filter((l) => l.stage === "Closure");
+        const prodTotalPayment = closedLeads.reduce((sum, l) => sum + (l.totalValue || 0), 0);
+        const prodAdvancePayment = closedLeads.reduce((sum, l) => sum + (l.advancePayment || 0), 0);
+        const prodRemainingPayment = closedLeads.reduce((sum, l) => sum + (l.remainingPayment !== undefined ? l.remainingPayment : Math.max(0, (l.totalValue || 0) - (l.advancePayment || 0))), 0);
 
         let pCurrentMonthQuoted = 0;
         let pLastMonthQuoted = 0;
@@ -912,14 +1064,26 @@ exports.getAdminLeadTrackReport = async (req, res) => {
         }
         trackOnboarded += p.onboardedLeads.length;
         trackQuoted += quotedCount;
+        trackClosure += closureCount;
+        trackPayment += prodTotalPayment;
+        trackAdvance += prodAdvancePayment;
+        trackRemaining += prodRemainingPayment;
 
         totalAllOnboarded += p.onboardedLeads.length;
         totalAllQuoted += quotedCount;
+        totalAllClosure += closureCount;
+        totalAllPayment += prodTotalPayment;
+        totalAllAdvancePayment += prodAdvancePayment;
+        totalAllRemainingPayment += prodRemainingPayment;
         totalCurrentMonthQuoted += pCurrentMonthQuoted;
         totalLastMonthQuoted += pLastMonthQuoted;
 
         userData.totalOnboarded += p.onboardedLeads.length;
         userData.totalQuoted += quotedCount;
+        userData.totalClosure += closureCount;
+        userData.totalPayment += prodTotalPayment;
+        userData.advancePayment += prodAdvancePayment;
+        userData.remainingPayment += prodRemainingPayment;
         userData.currentMonthQuoted += pCurrentMonthQuoted;
         userData.lastMonthQuoted += pLastMonthQuoted;
         userData.cardsCount += 1;
@@ -934,7 +1098,11 @@ exports.getAdminLeadTrackReport = async (req, res) => {
           noTarget: isNoTarget,
           onboardedCount: p.onboardedLeads.length,
           quotedCount,
+          closureCount,
           remainingTarget,
+          totalPayment: prodTotalPayment,
+          advancePayment: prodAdvancePayment,
+          remainingPayment: prodRemainingPayment,
           currentMonthQuoted: pCurrentMonthQuoted,
           lastMonthQuoted: pLastMonthQuoted,
           leads: p.onboardedLeads,
@@ -944,7 +1112,7 @@ exports.getAdminLeadTrackReport = async (req, res) => {
         return cardData;
       });
 
-      userData.remainingTarget = Math.max(0, userData.totalTarget - userData.totalQuoted);
+      userData.remainingTarget = Math.max(0, userData.totalTarget - userData.totalClosure);
       userData.tracks.push({
         _id: track._id,
         title: track.title,
@@ -954,7 +1122,11 @@ exports.getAdminLeadTrackReport = async (req, res) => {
         target: trackTarget,
         onboarded: trackOnboarded,
         quoted: trackQuoted,
-        remaining: Math.max(0, trackTarget - trackQuoted),
+        closure: trackClosure,
+        totalPayment: trackPayment,
+        advancePayment: trackAdvance,
+        remainingPayment: trackRemaining,
+        remaining: Math.max(0, trackTarget - trackClosure),
         products: trackCards,
       });
     }
@@ -969,7 +1141,11 @@ exports.getAdminLeadTrackReport = async (req, res) => {
         totalTarget: totalAllTarget,
         totalOnboarded: totalAllOnboarded,
         totalQuoted: totalAllQuoted,
-        totalRemainingTarget: Math.max(0, totalAllTarget - totalAllQuoted),
+        totalClosure: totalAllClosure,
+        totalPayment: totalAllPayment,
+        advancePayment: totalAllAdvancePayment,
+        remainingPayment: totalAllRemainingPayment,
+        totalRemainingTarget: Math.max(0, totalAllTarget - totalAllClosure),
         currentMonthQuoted: totalCurrentMonthQuoted,
         lastMonthQuoted: totalLastMonthQuoted,
         currentMonthName: currentMonthStart.toLocaleString("default", {

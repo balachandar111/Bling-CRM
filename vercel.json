@@ -10,6 +10,12 @@
       "framework": "vite"
     }
   },
+  "crons": [
+    {
+      "path": "/api/tasks/cron-daily-reminders",
+      "schedule": "0 13 * * *"
+    }
+  ],
   "rewrites": [
     {
       "source": "/api",

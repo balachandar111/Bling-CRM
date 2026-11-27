@@ -42,6 +42,7 @@ const STAGE_CONFIG = [
   { key: "WhatsappMessage", label: "WhatsApp", icon: FaWhatsapp, color: "#10b981", bg: "#ecfdf5" },
   { key: "Demo", label: "Demo", icon: FaLaptopCode, color: "#9333ea", bg: "#faf5ff" },
   { key: "Quote", label: "Quote", icon: FaFileInvoice, color: "#e11d48", bg: "#fff1f2" },
+  { key: "Closure", label: "Closure", icon: FaCheckCircle, color: "#16a34a", bg: "#f0fdf4" },
 ];
 
 const UserLeadTrack = () => {
@@ -49,6 +50,32 @@ const UserLeadTrack = () => {
   const [loading, setLoading] = useState(false);
   const [activeProductTrack, setActiveProductTrack] = useState(null);
   const [parentTrackId, setParentTrackId] = useState(null);
+
+  // Closure modal state (when shifting lead to Closure)
+  const [closureLeadModal, setClosureLeadModal] = useState(null);
+  const [closureForm, setClosureForm] = useState({
+    totalValue: "",
+    advancePayment: "",
+    paymentMode: "Cash",
+    paymentReference: "",
+    paymentNotes: "",
+    notes: "",
+  });
+  const [savingClosure, setSavingClosure] = useState(false);
+
+  // Product-wise Closure List Modal (when clicking status cards)
+  const [showClosureSummaryModal, setShowClosureSummaryModal] = useState(false);
+
+  // Customer Payment Details Modal
+  const [selectedLeadForPayment, setSelectedLeadForPayment] = useState(null);
+  const [paymentInstallmentForm, setPaymentInstallmentForm] = useState({
+    amount: "",
+    mode: "Cash",
+    reference: "",
+    notes: "",
+    totalValue: "",
+  });
+  const [savingPayment, setSavingPayment] = useState(false);
 
   // Onboard modal state
   const [showOnboardModal, setShowOnboardModal] = useState(false);
@@ -218,8 +245,29 @@ const UserLeadTrack = () => {
     }
   };
 
-  // Pipeline Stage Action: call -> WhatsappMessage -> demo -> Quote
-  const handleStageChange = async (leadId, newStage, phone) => {
+  // Pipeline Stage Action: call -> WhatsappMessage -> demo -> Quote -> Closure
+  const handleStageChange = async (leadId, newStage, phone, currentLead = null) => {
+    const lead = currentLead || activeProductTrack?.onboardedLeads?.find((l) => l._id === leadId);
+
+    if (newStage === "Closure") {
+      // Prompt modal to enter Total Value, Advance Payment, and Remaining Payment
+      setClosureLeadModal({
+        lead,
+        leadId,
+        parentTrackId,
+        productId: activeProductTrack?._id,
+      });
+      setClosureForm({
+        totalValue: lead?.totalValue || "",
+        advancePayment: lead?.advancePayment || "",
+        paymentMode: "Cash",
+        paymentReference: "",
+        paymentNotes: "",
+        notes: lead?.notes || "",
+      });
+      return;
+    }
+
     try {
       await API.patch(
         `/lead-tracks/${parentTrackId}/products/${activeProductTrack._id}/leads/${leadId}/stage`,
@@ -238,6 +286,117 @@ const UserLeadTrack = () => {
     } catch (err) {
       console.error(err);
       alert(err.response?.data?.message || "Failed to update lead stage");
+    }
+  };
+
+  // Submit Closure modal
+  const handleConfirmClosure = async (e) => {
+    if (e) e.preventDefault();
+    if (!closureLeadModal) return;
+    const { leadId, parentTrackId: tId, productId: pId } = closureLeadModal;
+    const totalValNum = parseFloat(closureForm.totalValue) || 0;
+    const advValNum = parseFloat(closureForm.advancePayment) || 0;
+
+    if (totalValNum <= 0) {
+      alert("Please enter a valid Total Value for this deal closure.");
+      return;
+    }
+    if (advValNum > totalValNum) {
+      alert("Advance payment cannot exceed the Total Value.");
+      return;
+    }
+
+    try {
+      setSavingClosure(true);
+      await API.patch(
+        `/lead-tracks/${tId}/products/${pId}/leads/${leadId}/stage`,
+        {
+          stage: "Closure",
+          totalValue: totalValNum,
+          advancePayment: advValNum,
+          paymentMode: closureForm.paymentMode,
+          paymentReference: closureForm.paymentReference,
+          paymentNotes: closureForm.paymentNotes,
+          notes: closureForm.notes,
+        }
+      );
+
+      alert("🎉 Deal shifted to Closure! Target lead count reduced by 1.");
+      setClosureLeadModal(null);
+      fetchMyLeadTracks();
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || "Failed to update lead to Closure");
+    } finally {
+      setSavingClosure(false);
+    }
+  };
+
+  // Open Payment Details Modal for any closed lead
+  const openPaymentModalForLead = (lead, trackId = null, prodId = null, prodName = null) => {
+    setSelectedLeadForPayment({
+      lead,
+      parentTrackId: trackId || parentTrackId,
+      productId: prodId || activeProductTrack?._id,
+      productName: prodName || activeProductTrack?.productName || "Product",
+    });
+    setPaymentInstallmentForm({
+      amount: "",
+      mode: "Cash",
+      reference: "",
+      notes: "",
+      totalValue: lead.totalValue || "",
+    });
+  };
+
+  // Record an installment or update payment for a closed lead
+  const handleRecordPayment = async (e) => {
+    if (e) e.preventDefault();
+    if (!selectedLeadForPayment) return;
+    const { lead, parentTrackId: tId, productId: pId } = selectedLeadForPayment;
+    const amt = parseFloat(paymentInstallmentForm.amount) || 0;
+    const newTotal = paymentInstallmentForm.totalValue !== "" ? parseFloat(paymentInstallmentForm.totalValue) : undefined;
+
+    if (amt <= 0 && newTotal === undefined) {
+      alert("Please enter a payment amount or update the total value.");
+      return;
+    }
+
+    try {
+      setSavingPayment(true);
+      const res = await API.post(
+        `/lead-tracks/${tId}/products/${pId}/leads/${lead._id}/payment`,
+        {
+          amount: amt > 0 ? amt : undefined,
+          mode: paymentInstallmentForm.mode,
+          reference: paymentInstallmentForm.reference,
+          notes: paymentInstallmentForm.notes,
+          totalValue: newTotal,
+        }
+      );
+
+      alert("Payment recorded successfully!");
+      setPaymentInstallmentForm({
+        amount: "",
+        mode: "Cash",
+        reference: "",
+        notes: "",
+        totalValue: res.data.lead?.totalValue || "",
+      });
+
+      if (res.data.lead) {
+        setSelectedLeadForPayment((prev) => ({
+          ...prev,
+          lead: res.data.lead,
+        }));
+      }
+
+      fetchMyLeadTracks();
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || "Failed to record payment");
+    } finally {
+      setSavingPayment(false);
     }
   };
 
@@ -350,6 +509,9 @@ const UserLeadTrack = () => {
                   Duration: {tracks[0]?.startMonth} to {tracks[0]?.endMonth} | Total Products:{" "}
                   {tracks.reduce((acc, t) => acc + t.products.length, 0)} cards
                 </p>
+                <span style={{ fontSize: "12px", color: "#64748b", marginTop: "4px", display: "inline-block" }}>
+                  💡 Click any Closure or Payment card below to inspect closed customer leads &amp; payments product-wise
+                </span>
               </div>
 
               <div className="ult-ob-stats">
@@ -359,20 +521,64 @@ const UserLeadTrack = () => {
                   </span>
                   <span className="lbl">Total Target</span>
                 </div>
+
                 <div className="ult-ob-stat-item">
                   <span className="val" style={{ color: "#2563eb" }}>
                     {tracks.reduce((acc, t) => acc + (t.totalOnboarded || 0), 0)}
                   </span>
                   <span className="lbl">Onboarded</span>
                 </div>
-                <div className="ult-ob-stat-item">
+
+                {/* 🏆 TOTAL CLOSURE CARD */}
+                <div
+                  className="ult-ob-stat-item clickable-card closure-highlight"
+                  onClick={() => setShowClosureSummaryModal(true)}
+                  title="Click to view all closed leads product-wise"
+                >
                   <span className="val" style={{ color: "#16a34a" }}>
-                    {tracks.reduce((acc, t) => acc + (t.totalQuoted || 0), 0)}
+                    🏆 {tracks.reduce((acc, t) => acc + (t.totalClosure || 0), 0)}
                   </span>
-                  <span className="lbl">Quoted Achieved</span>
+                  <span className="lbl">Total Closure ↗</span>
                 </div>
-                <div className="ult-ob-stat-item">
+
+                {/* 💰 TOTAL PAYMENT CARD */}
+                <div
+                  className="ult-ob-stat-item clickable-card payment-highlight"
+                  onClick={() => setShowClosureSummaryModal(true)}
+                  title="Click to view payment breakdown product-wise"
+                >
+                  <span className="val" style={{ color: "#4f46e5" }}>
+                    ₹{tracks.reduce((acc, t) => acc + (t.totalPayment || 0), 0).toLocaleString("en-IN")}
+                  </span>
+                  <span className="lbl">Total Payment ↗</span>
+                </div>
+
+                {/* 💵 ADVANCE PAYMENT CARD */}
+                <div
+                  className="ult-ob-stat-item clickable-card advance-highlight"
+                  onClick={() => setShowClosureSummaryModal(true)}
+                  title="Click to view advance payment details product-wise"
+                >
+                  <span className="val" style={{ color: "#059669" }}>
+                    ₹{tracks.reduce((acc, t) => acc + (t.totalAdvancePayment || 0), 0).toLocaleString("en-IN")}
+                  </span>
+                  <span className="lbl">Advance Payment ↗</span>
+                </div>
+
+                {/* ⏳ REMAINING PAYMENT CARD */}
+                <div
+                  className="ult-ob-stat-item clickable-card remaining-highlight"
+                  onClick={() => setShowClosureSummaryModal(true)}
+                  title="Click to view pending remaining payments product-wise"
+                >
                   <span className="val" style={{ color: "#d97706" }}>
+                    ₹{tracks.reduce((acc, t) => acc + (t.totalRemainingPayment || 0), 0).toLocaleString("en-IN")}
+                  </span>
+                  <span className="lbl">Remaining Payment ↗</span>
+                </div>
+
+                <div className="ult-ob-stat-item">
+                  <span className="val" style={{ color: "#dc2626" }}>
                     {tracks.reduce((acc, t) => acc + (t.totalRemainingTarget || 0), 0)}
                   </span>
                   <span className="lbl">Remaining Target</span>
@@ -410,10 +616,11 @@ const UserLeadTrack = () => {
                   {track.products.map((product) => {
                     const isNoTarget = !!product.noTarget;
                     const isCompleted = !isNoTarget && product.remainingTarget === 0 && product.target > 0;
+                    // Target is reduced only when lead reaches "Closure" stage
                     const progressPercent = isNoTarget
                       ? 100
                       : product.target > 0
-                      ? Math.min(100, Math.round((product.quotedCount / product.target) * 100))
+                      ? Math.min(100, Math.round(((product.closureCount || 0) / product.target) * 100))
                       : 0;
 
                     return (
@@ -435,7 +642,7 @@ const UserLeadTrack = () => {
                                 isCompleted ? "completed" : isNoTarget ? "notarget" : "active"
                               }`}
                             >
-                              {isCompleted ? "Target Met 🎉" : isNoTarget ? "♾️ No Target" : "In Progress"}
+                              {isCompleted ? "Closure Met 🎉" : isNoTarget ? "♾️ No Target" : "In Progress"}
                             </span>
                           </div>
 
@@ -456,22 +663,29 @@ const UserLeadTrack = () => {
                               <span className="val">{product.onboardedCount}</span>
                             </div>
 
-                            <div className="ult-metric-box quoted-box">
-                              <span className="label">Quoted</span>
-                              <span className="val">{product.quotedCount}</span>
+                            <div className="ult-metric-box" style={{ background: "#f0fdf4", borderColor: "#bbf7d0" }}>
+                              <span className="label" style={{ color: "#16a34a" }}>Closure</span>
+                              <span className="val" style={{ color: "#16a34a" }}>{product.closureCount || 0}</span>
+                            </div>
+
+                            <div className="ult-metric-box payment-mini-box" style={{ background: "#f5f3ff", borderColor: "#ddd6fe" }}>
+                              <span className="label" style={{ color: "#7c3aed" }}>Payment</span>
+                              <span className="val" style={{ color: "#7c3aed", fontSize: "14px" }}>
+                                ₹{(product.totalPayment || 0).toLocaleString("en-IN")}
+                              </span>
                             </div>
                           </div>
 
                           {/* PROGRESS BAR */}
                           <div className="ult-progress-wrapper">
                             <div className="ult-progress-labels">
-                              <span>Quote Conversion</span>
+                              <span>Closure Conversion</span>
                               <span>
                                 {isNoTarget ? (
-                                  <strong>{product.quotedCount} Quoted</strong>
+                                  <strong>{product.closureCount || 0} Closures</strong>
                                 ) : (
                                   <>
-                                    <strong>{progressPercent}%</strong> ({product.quotedCount}/{product.target})
+                                    <strong>{progressPercent}%</strong> ({product.closureCount || 0}/{product.target})
                                   </>
                                 )}
                               </span>
@@ -479,7 +693,7 @@ const UserLeadTrack = () => {
                             <div className="ult-progress-bar-bg">
                               <div
                                 className="ult-progress-bar-fill"
-                                style={{ width: `${progressPercent}%` }}
+                                style={{ width: `${progressPercent}%`, background: "#16a34a" }}
                               />
                             </div>
                           </div>
@@ -513,9 +727,10 @@ const UserLeadTrack = () => {
                 </h2>
                 <div className="ult-ws-sub">
                   Target: <strong>{activeProductTrack.noTarget ? "No Target (Unlimited)" : activeProductTrack.target}</strong> | Onboarded:{" "}
-                  <strong>{activeProductTrack.onboardedCount}</strong> | Quoted:{" "}
-                  <strong style={{ color: "#16a34a" }}>{activeProductTrack.quotedCount}</strong> | Remaining:{" "}
-                  <strong style={{ color: "#d97706" }}>{activeProductTrack.noTarget ? "No Target" : activeProductTrack.remainingTarget}</strong>
+                  <strong>{activeProductTrack.onboardedCount}</strong> | Closures:{" "}
+                  <strong style={{ color: "#16a34a" }}>{activeProductTrack.closureCount || 0}</strong> | Remaining:{" "}
+                  <strong style={{ color: "#d97706" }}>{activeProductTrack.noTarget ? "No Target" : activeProductTrack.remainingTarget}</strong> | Total Value:{" "}
+                  <strong style={{ color: "#4f46e5" }}>₹{(activeProductTrack.totalPayment || 0).toLocaleString("en-IN")}</strong>
                 </div>
               </div>
             </div>
@@ -583,6 +798,7 @@ const UserLeadTrack = () => {
                   <tbody>
                     {activeProductTrack.onboardedLeads.map((lead, idx) => {
                       const isQuoted = lead.stage === "Quote";
+                      const isClosed = lead.stage === "Closure";
                       const notesCount = lead.notesHistory?.length || (lead.notes ? 1 : 0);
 
                       return (
@@ -644,7 +860,7 @@ const UserLeadTrack = () => {
                             )}
                           </td>
 
-                          {/* ACTION BUTTONS (Call -> WhatsappMessage -> Demo -> Quote) */}
+                          {/* ACTION BUTTONS (Call -> WhatsappMessage -> Demo -> Quote -> Closure) */}
                           <td>
                             <div className="ult-pipeline-buttons">
                               {STAGE_CONFIG.map((stg) => {
@@ -654,21 +870,33 @@ const UserLeadTrack = () => {
                                   <button
                                     key={stg.key}
                                     className={`ult-stage-btn ${isActive ? `active ${stg.key}` : ""}`}
-                                    onClick={() => handleStageChange(lead._id, stg.key, lead.phone)}
+                                    onClick={() => handleStageChange(lead._id, stg.key, lead.phone, lead)}
                                     title={`Move to ${stg.label}`}
                                   >
                                     <StgIcon size={12} /> {stg.label}
+                                    {stg.key === "Closure" && isClosed && " 🏆"}
                                     {stg.key === "Quote" && isQuoted && " ✓"}
                                   </button>
                                 );
                               })}
                             </div>
 
-                            {isQuoted && (
-                              <div className="ult-quoted-badge-text">
-                                <FaCheckCircle size={11} /> Quote Sent (Remaining Target Reduced by 1)
+                            {isClosed ? (
+                              <div className="ult-closure-badge-text" style={{ marginTop: "6px" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#16a34a" }}>
+                                  <FaCheckCircle size={11} /> Deal Closed (Target Reduced by 1)
+                                </div>
+                                <div style={{ fontSize: "12px", color: "#334155", marginTop: "3px", display: "flex", gap: "10px", flexWrap: "wrap", background: "#f0fdf4", padding: "4px 8px", borderRadius: "6px", border: "1px solid #bbf7d0" }}>
+                                  <span>Total: <strong>₹{(lead.totalValue || 0).toLocaleString("en-IN")}</strong></span>
+                                  <span>Adv: <strong style={{ color: "#16a34a" }}>₹{(lead.advancePayment || 0).toLocaleString("en-IN")}</strong></span>
+                                  <span>Rem: <strong style={{ color: "#d97706" }}>₹{(lead.remainingPayment !== undefined ? lead.remainingPayment : Math.max(0, (lead.totalValue || 0) - (lead.advancePayment || 0))).toLocaleString("en-IN")}</strong></span>
+                                </div>
                               </div>
-                            )}
+                            ) : isQuoted ? (
+                              <div className="ult-quoted-badge-text">
+                                <FaCheckCircle size={11} /> Quote Sent
+                              </div>
+                            ) : null}
                           </td>
 
                           {/* NOTES COLUMN */}
@@ -692,9 +920,33 @@ const UserLeadTrack = () => {
                             </div>
                           </td>
 
-                          {/* DETAILS & REMOVE BUTTONS */}
+                          {/* DETAILS, PAYMENT & REMOVE BUTTONS */}
                           <td>
                             <div className="ult-action-cell">
+                              {isClosed && (
+                                <button
+                                  type="button"
+                                  className="ult-payment-btn"
+                                  onClick={() => openPaymentModalForLead(lead)}
+                                  title="View and update payment details"
+                                  style={{
+                                    padding: "6px 12px",
+                                    background: "#f5f3ff",
+                                    color: "#7c3aed",
+                                    border: "1px solid #ddd6fe",
+                                    borderRadius: "6px",
+                                    cursor: "pointer",
+                                    fontSize: "12px",
+                                    fontWeight: 700,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "4px",
+                                  }}
+                                >
+                                  💳 Payment
+                                </button>
+                              )}
+
                               <button
                                 className="ult-details-btn"
                                 onClick={() => openLeadDetailsModal(lead)}
@@ -1272,6 +1524,594 @@ const UserLeadTrack = () => {
                   : manualMode
                   ? "Onboard Manual Lead"
                   : `Onboard Selected (${selectedCustomerIds.length})`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ================= MODAL: CLOSURE STAGE SETUP (TOTAL VALUE, ADVANCE, REMAINING) ================= */}
+      {closureLeadModal && (
+        <div className="ult-modal-overlay" onClick={() => setClosureLeadModal(null)}>
+          <div className="ult-modal-card" style={{ maxWidth: "560px" }} onClick={(e) => e.stopPropagation()}>
+            <div className="ult-modal-header" style={{ background: "linear-gradient(135deg, #15803d 0%, #16a34a 100%)", color: "#ffffff" }}>
+              <div>
+                <h3 style={{ color: "#ffffff", margin: 0, fontSize: "18px" }}>
+                  🏆 Shift Lead to Closure Stage
+                </h3>
+                <span style={{ fontSize: "12px", opacity: 0.9 }}>
+                  {closureLeadModal.lead?.name || "Customer Lead"} {closureLeadModal.lead?.company ? `(${closureLeadModal.lead.company})` : ""}
+                </span>
+              </div>
+              <button
+                className="ult-close-btn"
+                style={{ color: "#ffffff" }}
+                onClick={() => setClosureLeadModal(null)}
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmClosure}>
+              <div className="ult-modal-body" style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "12px 14px", borderRadius: "8px", fontSize: "13px", color: "#166534" }}>
+                  ✅ Shifting this lead to <strong>Closure</strong> will reduce your remaining product target by <strong>1</strong>. Please provide the financial closure details below:
+                </div>
+
+                <div className="ult-form-row">
+                  <div className="ult-form-col">
+                    <label style={{ fontWeight: 700, color: "#0f172a", fontSize: "13px" }}>
+                      Total Deal Value (₹) *
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      className="ult-input"
+                      placeholder="e.g. 50000"
+                      value={closureForm.totalValue}
+                      onChange={(e) => setClosureForm({ ...closureForm, totalValue: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div className="ult-form-col">
+                    <label style={{ fontWeight: 700, color: "#0f172a", fontSize: "13px" }}>
+                      Advance Payment (₹)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="ult-input"
+                      placeholder="e.g. 15000"
+                      value={closureForm.advancePayment}
+                      onChange={(e) => setClosureForm({ ...closureForm, advancePayment: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                {/* CALCULATED REMAINING PAYMENT */}
+                <div style={{ background: "#fffbeb", border: "1px solid #fef3c7", padding: "12px 14px", borderRadius: "8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <span style={{ fontSize: "12px", color: "#b45309", fontWeight: 700, display: "block" }}>
+                      Remaining Payment Balance (Total - Advance):
+                    </span>
+                    <span style={{ fontSize: "11px", color: "#78350f" }}>
+                      Auto-calculated balance to be collected later
+                    </span>
+                  </div>
+                  <span style={{ fontSize: "20px", fontWeight: 800, color: "#b45309" }}>
+                    ₹
+                    {Math.max(
+                      0,
+                      (parseFloat(closureForm.totalValue) || 0) - (parseFloat(closureForm.advancePayment) || 0)
+                    ).toLocaleString("en-IN")}
+                  </span>
+                </div>
+
+                <div className="ult-form-row">
+                  <div className="ult-form-col">
+                    <label style={{ fontSize: "13px", color: "#475569" }}>Payment Mode</label>
+                    <select
+                      className="ult-input"
+                      value={closureForm.paymentMode}
+                      onChange={(e) => setClosureForm({ ...closureForm, paymentMode: e.target.value })}
+                    >
+                      <option value="Cash">Cash</option>
+                      <option value="UPI / GPay / PhonePe">UPI / GPay / PhonePe</option>
+                      <option value="Bank Transfer (NEFT / IMPS)">Bank Transfer (NEFT / IMPS)</option>
+                      <option value="Cheque">Cheque</option>
+                      <option value="Online Gateway">Online Gateway</option>
+                    </select>
+                  </div>
+
+                  <div className="ult-form-col">
+                    <label style={{ fontSize: "13px", color: "#475569" }}>Payment Reference / Txn ID</label>
+                    <input
+                      type="text"
+                      className="ult-input"
+                      placeholder="e.g. UPI-998822 / Cheque #1029"
+                      value={closureForm.paymentReference}
+                      onChange={(e) => setClosureForm({ ...closureForm, paymentReference: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="ult-form-col">
+                  <label style={{ fontSize: "13px", color: "#475569" }}>Payment Notes / Installment Terms</label>
+                  <input
+                    type="text"
+                    className="ult-input"
+                    placeholder="e.g. 30% advance received, balance on delivery"
+                    value={closureForm.paymentNotes}
+                    onChange={(e) => setClosureForm({ ...closureForm, paymentNotes: e.target.value })}
+                  />
+                </div>
+
+                <div className="ult-form-col">
+                  <label style={{ fontSize: "13px", color: "#475569" }}>Closure Notes</label>
+                  <textarea
+                    className="ult-note-textarea"
+                    placeholder="Add final closure note or client specifications..."
+                    rows={2}
+                    value={closureForm.notes}
+                    onChange={(e) => setClosureForm({ ...closureForm, notes: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="ult-modal-footer">
+                <button
+                  type="button"
+                  className="ult-cancel-btn"
+                  onClick={() => setClosureLeadModal(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingClosure || !closureForm.totalValue}
+                  style={{
+                    padding: "10px 24px",
+                    background: "#16a34a",
+                    color: "#ffffff",
+                    border: "none",
+                    borderRadius: "8px",
+                    fontWeight: 700,
+                    fontSize: "13px",
+                    cursor: "pointer",
+                  }}
+                >
+                  {savingClosure ? "Saving Closure..." : "✓ Confirm Closure & Reduce Target"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: PRODUCT-WISE CLOSURE LEADS & PAYMENTS ================= */}
+      {showClosureSummaryModal && (
+        <div className="ult-modal-overlay" onClick={() => setShowClosureSummaryModal(false)}>
+          <div className="ult-modal-card" style={{ maxWidth: "980px" }} onClick={(e) => e.stopPropagation()}>
+            <div className="ult-modal-header" style={{ background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)", color: "#ffffff" }}>
+              <div>
+                <h3 style={{ color: "#ffffff", margin: 0, fontSize: "18px" }}>
+                  🏆 Closed Leads &amp; Payment Summary (Product-Wise)
+                </h3>
+                <span style={{ fontSize: "12px", opacity: 0.85 }}>
+                  Review all customer leads shifted to Closure stage with their payment breakdown
+                </span>
+              </div>
+              <button
+                className="ult-close-btn"
+                style={{ color: "#ffffff" }}
+                onClick={() => setShowClosureSummaryModal(false)}
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            <div className="ult-modal-body" style={{ maxHeight: "78vh", overflowY: "auto", display: "flex", flexDirection: "column", gap: "20px" }}>
+              {/* TOP SUMMARY CARDS */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px" }}>
+                <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "12px", borderRadius: "10px", textAlign: "center" }}>
+                  <span style={{ fontSize: "11px", fontWeight: 700, color: "#166534", textTransform: "uppercase" }}>Total Closures</span>
+                  <div style={{ fontSize: "22px", fontWeight: 800, color: "#16a34a", marginTop: "4px" }}>
+                    {tracks.reduce((acc, t) => acc + (t.totalClosure || 0), 0)}
+                  </div>
+                </div>
+                <div style={{ background: "#eef2ff", border: "1px solid #c7d2fe", padding: "12px", borderRadius: "10px", textAlign: "center" }}>
+                  <span style={{ fontSize: "11px", fontWeight: 700, color: "#3730a3", textTransform: "uppercase" }}>Total Value</span>
+                  <div style={{ fontSize: "22px", fontWeight: 800, color: "#4f46e5", marginTop: "4px" }}>
+                    ₹{tracks.reduce((acc, t) => acc + (t.totalPayment || 0), 0).toLocaleString("en-IN")}
+                  </div>
+                </div>
+                <div style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", padding: "12px", borderRadius: "10px", textAlign: "center" }}>
+                  <span style={{ fontSize: "11px", fontWeight: 700, color: "#065f46", textTransform: "uppercase" }}>Advance Received</span>
+                  <div style={{ fontSize: "22px", fontWeight: 800, color: "#059669", marginTop: "4px" }}>
+                    ₹{tracks.reduce((acc, t) => acc + (t.totalAdvancePayment || 0), 0).toLocaleString("en-IN")}
+                  </div>
+                </div>
+                <div style={{ background: "#fffbeb", border: "1px solid #fde68a", padding: "12px", borderRadius: "10px", textAlign: "center" }}>
+                  <span style={{ fontSize: "11px", fontWeight: 700, color: "#92400e", textTransform: "uppercase" }}>Remaining Payment</span>
+                  <div style={{ fontSize: "22px", fontWeight: 800, color: "#d97706", marginTop: "4px" }}>
+                    ₹{tracks.reduce((acc, t) => acc + (t.totalRemainingPayment || 0), 0).toLocaleString("en-IN")}
+                  </div>
+                </div>
+              </div>
+
+              {/* PRODUCT-WISE BREAKDOWN */}
+              {(() => {
+                const closedByProduct = {};
+                tracks.forEach((t) => {
+                  t.products.forEach((p) => {
+                    const closedLeads = (p.onboardedLeads || []).filter((l) => l.stage === "Closure");
+                    if (closedLeads.length > 0) {
+                      if (!closedByProduct[p.productName]) {
+                        closedByProduct[p.productName] = {
+                          productName: p.productName,
+                          target: p.target,
+                          noTarget: !!p.noTarget,
+                          leads: [],
+                        };
+                      }
+                      closedLeads.forEach((l) => {
+                        closedByProduct[p.productName].leads.push({
+                          ...l,
+                          parentTrackId: t._id,
+                          productId: p._id,
+                          productName: p.productName,
+                        });
+                      });
+                    }
+                  });
+                });
+
+                const productKeys = Object.keys(closedByProduct);
+
+                if (productKeys.length === 0) {
+                  return (
+                    <div style={{ padding: "40px", textAlign: "center", color: "#94a3b8", background: "#f8fafc", borderRadius: "12px", border: "1px dashed #cbd5e1" }}>
+                      <div style={{ fontSize: "32px", marginBottom: "8px" }}>🏆</div>
+                      <h4 style={{ margin: "0 0 4px 0", color: "#334155" }}>No Deals Shifted to Closure Yet</h4>
+                      <p style={{ margin: 0, fontSize: "13px" }}>
+                        Advance leads to the <strong>Closure</strong> stage in your workspace to view them and manage payments here.
+                      </p>
+                    </div>
+                  );
+                }
+
+                return productKeys.map((pName) => {
+                  const pData = closedByProduct[pName];
+                  const pTotalVal = pData.leads.reduce((s, l) => s + (l.totalValue || 0), 0);
+                  const pAdvVal = pData.leads.reduce((s, l) => s + (l.advancePayment || 0), 0);
+                  const pRemVal = pData.leads.reduce(
+                    (s, l) =>
+                      s +
+                      (l.remainingPayment !== undefined
+                        ? l.remainingPayment
+                        : Math.max(0, (l.totalValue || 0) - (l.advancePayment || 0))),
+                    0
+                  );
+
+                  return (
+                    <div key={pName} style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "12px", overflow: "hidden" }}>
+                      <div style={{ background: "#f8fafc", padding: "12px 18px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <span style={{ fontSize: "18px" }}>{PRODUCT_ICONS[pName] || "📦"}</span>
+                          <strong style={{ fontSize: "15px", color: "#0f172a" }}>{pName}</strong>
+                          <span style={{ fontSize: "12px", background: "#dcfce7", color: "#166534", padding: "2px 8px", borderRadius: "12px", fontWeight: 700 }}>
+                            {pData.leads.length} Closed
+                          </span>
+                        </div>
+                        <div style={{ fontSize: "12px", color: "#475569", display: "flex", gap: "12px" }}>
+                          <span>Total: <strong>₹{pTotalVal.toLocaleString("en-IN")}</strong></span>
+                          <span>Adv: <strong style={{ color: "#16a34a" }}>₹{pAdvVal.toLocaleString("en-IN")}</strong></span>
+                          <span>Rem: <strong style={{ color: "#d97706" }}>₹{pRemVal.toLocaleString("en-IN")}</strong></span>
+                        </div>
+                      </div>
+
+                      <div style={{ overflowX: "auto" }}>
+                        <table className="ult-table" style={{ margin: 0 }}>
+                          <thead>
+                            <tr>
+                              <th style={{ width: "35px" }}>#</th>
+                              <th>Customer &amp; Company</th>
+                              <th>Contact</th>
+                              <th>Closure Date</th>
+                              <th>Total Value</th>
+                              <th>Advance Paid</th>
+                              <th>Remaining Balance</th>
+                              <th style={{ textAlign: "center" }}>Payment Action</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {pData.leads.map((lead, lIdx) => {
+                              const remAmt =
+                                lead.remainingPayment !== undefined
+                                  ? lead.remainingPayment
+                                  : Math.max(0, (lead.totalValue || 0) - (lead.advancePayment || 0));
+
+                              return (
+                                <tr key={lead._id || lIdx}>
+                                  <td><strong>{lIdx + 1}</strong></td>
+                                  <td>
+                                    <strong>{lead.name || "Customer Lead"}</strong>
+                                    {lead.company && (
+                                      <div style={{ fontSize: "12px", color: "#64748b" }}>
+                                        {lead.company}
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td>{lead.phone || lead.email || "-"}</td>
+                                  <td>
+                                    {lead.closedAt
+                                      ? new Date(lead.closedAt).toLocaleDateString()
+                                      : lead.quotedAt
+                                      ? new Date(lead.quotedAt).toLocaleDateString()
+                                      : "-"}
+                                  </td>
+                                  <td>
+                                    <strong style={{ color: "#0f172a" }}>
+                                      ₹{(lead.totalValue || 0).toLocaleString("en-IN")}
+                                    </strong>
+                                  </td>
+                                  <td>
+                                    <strong style={{ color: "#16a34a" }}>
+                                      ₹{(lead.advancePayment || 0).toLocaleString("en-IN")}
+                                    </strong>
+                                  </td>
+                                  <td>
+                                    <strong style={{ color: remAmt > 0 ? "#d97706" : "#16a34a" }}>
+                                      ₹{remAmt.toLocaleString("en-IN")}
+                                    </strong>
+                                    {remAmt === 0 && (
+                                      <span style={{ marginLeft: "4px", fontSize: "10px", background: "#dcfce7", color: "#15803d", padding: "1px 5px", borderRadius: "4px" }}>
+                                        Paid
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td style={{ textAlign: "center" }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => openPaymentModalForLead(lead, lead.parentTrackId, lead.productId, pName)}
+                                      style={{
+                                        padding: "6px 14px",
+                                        background: "#2563eb",
+                                        color: "#ffffff",
+                                        border: "none",
+                                        borderRadius: "6px",
+                                        fontWeight: 700,
+                                        fontSize: "12px",
+                                        cursor: "pointer",
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: "4px",
+                                      }}
+                                    >
+                                      💳 Payment
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+
+            <div className="ult-modal-footer">
+              <button
+                type="button"
+                className="ult-cancel-btn"
+                onClick={() => setShowClosureSummaryModal(false)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: CUSTOMER PAYMENT DETAILS & RECORDING ================= */}
+      {selectedLeadForPayment && (
+        <div className="ult-modal-overlay" onClick={() => setSelectedLeadForPayment(null)}>
+          <div className="ult-modal-card" style={{ maxWidth: "680px" }} onClick={(e) => e.stopPropagation()}>
+            <div className="ult-modal-header" style={{ background: "linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)", color: "#ffffff" }}>
+              <div>
+                <h3 style={{ color: "#ffffff", margin: 0, fontSize: "18px" }}>
+                  💳 Customer Payment Details
+                </h3>
+                <span style={{ fontSize: "12px", opacity: 0.9 }}>
+                  {selectedLeadForPayment.lead?.name || "Customer Lead"} • Product: <strong>{selectedLeadForPayment.productName}</strong>
+                </span>
+              </div>
+              <button
+                className="ult-close-btn"
+                style={{ color: "#ffffff" }}
+                onClick={() => setSelectedLeadForPayment(null)}
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            <div className="ult-modal-body" style={{ maxHeight: "75vh", overflowY: "auto", display: "flex", flexDirection: "column", gap: "18px" }}>
+              {/* PAYMENT SUMMARY CHIPS */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
+                <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", padding: "12px", borderRadius: "8px", textAlign: "center" }}>
+                  <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>Total Deal Value</span>
+                  <div style={{ fontSize: "20px", fontWeight: 800, color: "#0f172a", marginTop: "2px" }}>
+                    ₹{(selectedLeadForPayment.lead?.totalValue || 0).toLocaleString("en-IN")}
+                  </div>
+                </div>
+
+                <div style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", padding: "12px", borderRadius: "8px", textAlign: "center" }}>
+                  <span style={{ fontSize: "11px", color: "#065f46", fontWeight: 700, textTransform: "uppercase" }}>Advance / Paid</span>
+                  <div style={{ fontSize: "20px", fontWeight: 800, color: "#059669", marginTop: "2px" }}>
+                    ₹{(selectedLeadForPayment.lead?.advancePayment || 0).toLocaleString("en-IN")}
+                  </div>
+                </div>
+
+                <div style={{ background: "#fffbeb", border: "1px solid #fde68a", padding: "12px", borderRadius: "8px", textAlign: "center" }}>
+                  <span style={{ fontSize: "11px", color: "#92400e", fontWeight: 700, textTransform: "uppercase" }}>Remaining Due</span>
+                  <div style={{ fontSize: "20px", fontWeight: 800, color: "#d97706", marginTop: "2px" }}>
+                    ₹
+                    {(
+                      selectedLeadForPayment.lead?.remainingPayment !== undefined
+                        ? selectedLeadForPayment.lead?.remainingPayment
+                        : Math.max(0, (selectedLeadForPayment.lead?.totalValue || 0) - (selectedLeadForPayment.lead?.advancePayment || 0))
+                    ).toLocaleString("en-IN")}
+                  </div>
+                </div>
+              </div>
+
+              {/* RECORD NEW INSTALLMENT / UPDATE PAYMENT FORM */}
+              <form onSubmit={handleRecordPayment} style={{ background: "#f8fafc", padding: "16px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+                <h4 style={{ margin: "0 0 12px 0", fontSize: "14px", color: "#0f172a" }}>
+                  ➕ Record Payment Installment
+                </h4>
+
+                <div className="ult-form-row">
+                  <div className="ult-form-col">
+                    <label style={{ fontSize: "12px", fontWeight: 700, color: "#334155" }}>
+                      Amount Received (₹) *
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      className="ult-input"
+                      placeholder="e.g. 10000"
+                      value={paymentInstallmentForm.amount}
+                      onChange={(e) => setPaymentInstallmentForm({ ...paymentInstallmentForm, amount: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="ult-form-col">
+                    <label style={{ fontSize: "12px", fontWeight: 700, color: "#334155" }}>Payment Mode</label>
+                    <select
+                      className="ult-input"
+                      value={paymentInstallmentForm.mode}
+                      onChange={(e) => setPaymentInstallmentForm({ ...paymentInstallmentForm, mode: e.target.value })}
+                    >
+                      <option value="UPI / GPay / PhonePe">UPI / GPay / PhonePe</option>
+                      <option value="Cash">Cash</option>
+                      <option value="Bank Transfer (NEFT / IMPS)">Bank Transfer (NEFT / IMPS)</option>
+                      <option value="Cheque">Cheque</option>
+                      <option value="Online Gateway">Online Gateway</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="ult-form-row">
+                  <div className="ult-form-col">
+                    <label style={{ fontSize: "12px", color: "#475569" }}>Reference / Transaction ID</label>
+                    <input
+                      type="text"
+                      className="ult-input"
+                      placeholder="e.g. UPI-123456 / Chq #8877"
+                      value={paymentInstallmentForm.reference}
+                      onChange={(e) => setPaymentInstallmentForm({ ...paymentInstallmentForm, reference: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="ult-form-col">
+                    <label style={{ fontSize: "12px", color: "#475569" }}>Update Total Deal Value (₹) (Optional)</label>
+                    <input
+                      type="number"
+                      className="ult-input"
+                      placeholder={`Current: ${selectedLeadForPayment.lead?.totalValue || 0}`}
+                      value={paymentInstallmentForm.totalValue}
+                      onChange={(e) => setPaymentInstallmentForm({ ...paymentInstallmentForm, totalValue: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="ult-form-col">
+                  <label style={{ fontSize: "12px", color: "#475569" }}>Payment Notes / Installment Remarks</label>
+                  <input
+                    type="text"
+                    className="ult-input"
+                    placeholder="e.g. 2nd installment received via UPI"
+                    value={paymentInstallmentForm.notes}
+                    onChange={(e) => setPaymentInstallmentForm({ ...paymentInstallmentForm, notes: e.target.value })}
+                  />
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "12px" }}>
+                  <button
+                    type="submit"
+                    disabled={savingPayment || (!paymentInstallmentForm.amount && !paymentInstallmentForm.totalValue)}
+                    style={{
+                      padding: "8px 20px",
+                      background: "#2563eb",
+                      color: "#ffffff",
+                      border: "none",
+                      borderRadius: "6px",
+                      fontWeight: 700,
+                      fontSize: "13px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {savingPayment ? "Saving..." : "✓ Save Payment"}
+                  </button>
+                </div>
+              </form>
+
+              {/* PAYMENT TRANSACTION HISTORY */}
+              <div>
+                <h4 style={{ margin: "0 0 10px 0", fontSize: "14px", color: "#0f172a" }}>
+                  📜 Payment Transactions History ({selectedLeadForPayment.lead?.payments?.length || 0})
+                </h4>
+
+                {(!selectedLeadForPayment.lead?.payments || selectedLeadForPayment.lead.payments.length === 0) ? (
+                  <div style={{ padding: "16px", background: "#f8fafc", borderRadius: "8px", textAlign: "center", color: "#94a3b8", fontSize: "13px" }}>
+                    No recorded transaction records yet. (Initial advance: ₹{(selectedLeadForPayment.lead?.advancePayment || 0).toLocaleString("en-IN")})
+                  </div>
+                ) : (
+                  <div style={{ overflowX: "auto" }}>
+                    <table className="ult-table" style={{ margin: 0, fontSize: "13px" }}>
+                      <thead>
+                        <tr>
+                          <th>Date</th>
+                          <th>Amount</th>
+                          <th>Mode</th>
+                          <th>Reference</th>
+                          <th>Notes</th>
+                          <th>Recorded By</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[...selectedLeadForPayment.lead.payments].reverse().map((pay, pIdx) => (
+                          <tr key={pIdx}>
+                            <td>{pay.date ? new Date(pay.date).toLocaleString() : "-"}</td>
+                            <td>
+                              <strong style={{ color: "#16a34a" }}>
+                                ₹{(pay.amount || 0).toLocaleString("en-IN")}
+                              </strong>
+                            </td>
+                            <td>{pay.mode || "Cash"}</td>
+                            <td>{pay.reference || "-"}</td>
+                            <td>{pay.notes || "-"}</td>
+                            <td>{pay.recordedByName || "User"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="ult-modal-footer">
+              <button
+                type="button"
+                className="ult-cancel-btn"
+                onClick={() => setSelectedLeadForPayment(null)}
+              >
+                Close
               </button>
             </div>
           </div>

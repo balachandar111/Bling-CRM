@@ -30,6 +30,16 @@ const STANDARD_PRODUCTS = [
   "QuickCommerce",
 ];
 
+const PRODUCT_ICONS = {
+  Genunitys: "🛡️",
+  Rewards: "🎁",
+  CRM: "💼",
+  "Custom-Website": "🌐",
+  WhatsappAtuomation: "🤖",
+  Projects: "📁",
+  QuickCommerce: "⚡",
+};
+
 const AdminLeadTrack = () => {
   const [activeTab, setActiveTab] = useState("report"); // "report" | "create" | "allTracks"
   const [loading, setLoading] = useState(false);
@@ -64,6 +74,18 @@ const AdminLeadTrack = () => {
   // Modal State for inspecting leads of a specific card
   const [selectedCardForModal, setSelectedCardForModal] = useState(null);
   const [selectedLeadForAdminDetails, setSelectedLeadForAdminDetails] = useState(null);
+
+  // Closure & Payment Modals
+  const [showAdminClosureSummaryModal, setShowAdminClosureSummaryModal] = useState(false);
+  const [selectedPaymentLeadForAdmin, setSelectedPaymentLeadForAdmin] = useState(null);
+  const [adminPaymentInstallmentForm, setAdminPaymentInstallmentForm] = useState({
+    amount: "",
+    mode: "Cash",
+    reference: "",
+    notes: "",
+    totalValue: "",
+  });
+  const [savingAdminPayment, setSavingAdminPayment] = useState(false);
 
   // Edit Track Modal State
   const [editingTrack, setEditingTrack] = useState(null);
@@ -381,6 +403,71 @@ const AdminLeadTrack = () => {
     }
   };
 
+  const openAdminPaymentModal = (lead, trackId, productId, productName, userName) => {
+    setSelectedPaymentLeadForAdmin({
+      lead,
+      trackId,
+      productId,
+      productName,
+      userName,
+    });
+    setAdminPaymentInstallmentForm({
+      amount: "",
+      mode: "Cash",
+      reference: "",
+      notes: "",
+      totalValue: lead.totalValue || "",
+    });
+  };
+
+  const handleSaveAdminPayment = async (e) => {
+    if (e) e.preventDefault();
+    if (!selectedPaymentLeadForAdmin) return;
+    const { lead, trackId, productId } = selectedPaymentLeadForAdmin;
+    const amt = parseFloat(adminPaymentInstallmentForm.amount) || 0;
+    const newTotal = adminPaymentInstallmentForm.totalValue !== "" ? parseFloat(adminPaymentInstallmentForm.totalValue) : undefined;
+
+    if (amt <= 0 && newTotal === undefined) {
+      alert("Please enter a payment amount or update total deal value.");
+      return;
+    }
+
+    try {
+      setSavingAdminPayment(true);
+      const res = await API.post(
+        `/lead-tracks/${trackId}/products/${productId}/leads/${lead._id}/payment`,
+        {
+          amount: amt > 0 ? amt : undefined,
+          mode: adminPaymentInstallmentForm.mode,
+          reference: adminPaymentInstallmentForm.reference,
+          notes: adminPaymentInstallmentForm.notes,
+          totalValue: newTotal,
+        }
+      );
+      alert("Payment details updated successfully!");
+      setAdminPaymentInstallmentForm({
+        amount: "",
+        mode: "Cash",
+        reference: "",
+        notes: "",
+        totalValue: res.data.lead?.totalValue || "",
+      });
+      if (res.data.lead) {
+        setSelectedPaymentLeadForAdmin((prev) => ({
+          ...prev,
+          lead: res.data.lead,
+        }));
+      }
+      fetchReport();
+      fetchAllTracks();
+    } catch (err) {
+      console.error("Failed to save payment:", err);
+      alert(err.response?.data?.message || "Failed to update payment");
+    } finally {
+      setSavingAdminPayment(false);
+    }
+  };
+
   // Filtered users for the report view
   const usersToDisplay =
     reportData?.usersReport?.filter((u) => {
@@ -445,32 +532,72 @@ const AdminLeadTrack = () => {
                 <span className="alt-kpi-sub">In tracking workspace</span>
               </div>
 
-              <div className="alt-kpi-card alt-kpi-highlight-green">
-                <span className="alt-kpi-label">Total Quoted Leads</span>
-                <span className="alt-kpi-value">{reportData.summary.totalQuoted}</span>
-                <span className="alt-kpi-sub">Reached Quote stage</span>
+              {/* 🏆 TOTAL CLOSURE CARD */}
+              <div
+                className="alt-kpi-card"
+                style={{ borderLeft: "4px solid #16a34a", cursor: "pointer", background: "#f0fdf4" }}
+                onClick={() => setShowAdminClosureSummaryModal(true)}
+                title="Click to view all closed leads product-wise"
+              >
+                <span className="alt-kpi-label" style={{ color: "#166534" }}>🏆 Total Closure ↗</span>
+                <span className="alt-kpi-value" style={{ color: "#16a34a" }}>
+                  {reportData.summary.totalClosure || 0}
+                </span>
+                <span className="alt-kpi-sub" style={{ color: "#15803d" }}>Deals successfully closed</span>
+              </div>
+
+              {/* 💰 TOTAL PAYMENT CARD */}
+              <div
+                className="alt-kpi-card"
+                style={{ borderLeft: "4px solid #4f46e5", cursor: "pointer", background: "#eef2ff" }}
+                onClick={() => setShowAdminClosureSummaryModal(true)}
+                title="Click to view payment breakdown product-wise"
+              >
+                <span className="alt-kpi-label" style={{ color: "#3730a3" }}>💰 Total Payment ↗</span>
+                <span className="alt-kpi-value" style={{ color: "#4f46e5" }}>
+                  ₹{(reportData.summary.totalPayment || 0).toLocaleString("en-IN")}
+                </span>
+                <span className="alt-kpi-sub" style={{ color: "#4338ca" }}>Cumulative closure deal value</span>
+              </div>
+
+              {/* 💵 ADVANCE PAYMENT CARD */}
+              <div
+                className="alt-kpi-card"
+                style={{ borderLeft: "4px solid #059669", cursor: "pointer", background: "#ecfdf5" }}
+                onClick={() => setShowAdminClosureSummaryModal(true)}
+                title="Click to view advance payment details product-wise"
+              >
+                <span className="alt-kpi-label" style={{ color: "#065f46" }}>💵 Advance Payment ↗</span>
+                <span className="alt-kpi-value" style={{ color: "#059669" }}>
+                  ₹{(reportData.summary.totalAdvancePayment || 0).toLocaleString("en-IN")}
+                </span>
+                <span className="alt-kpi-sub" style={{ color: "#047857" }}>Collected advances</span>
+              </div>
+
+              {/* ⏳ REMAINING PAYMENT CARD */}
+              <div
+                className="alt-kpi-card"
+                style={{ borderLeft: "4px solid #d97706", cursor: "pointer", background: "#fffbeb" }}
+                onClick={() => setShowAdminClosureSummaryModal(true)}
+                title="Click to view remaining payments product-wise"
+              >
+                <span className="alt-kpi-label" style={{ color: "#92400e" }}>⏳ Remaining Payment ↗</span>
+                <span className="alt-kpi-value" style={{ color: "#d97706" }}>
+                  ₹{(reportData.summary.totalRemainingPayment || 0).toLocaleString("en-IN")}
+                </span>
+                <span className="alt-kpi-sub" style={{ color: "#b45309" }}>Pending collections</span>
               </div>
 
               <div className="alt-kpi-card alt-kpi-highlight-amber">
                 <span className="alt-kpi-label">Remaining Target</span>
                 <span className="alt-kpi-value">{reportData.summary.totalRemainingTarget}</span>
-                <span className="alt-kpi-sub">Leads left to Quote</span>
+                <span className="alt-kpi-sub">Leads left to Close</span>
               </div>
 
-              <div className="alt-kpi-card" style={{ borderLeft: "4px solid #0284c7" }}>
-                <span className="alt-kpi-label">{reportData.summary.currentMonthName || "This Month"} Quotes</span>
-                <span className="alt-kpi-value" style={{ color: "#0284c7" }}>
-                  {reportData.summary.currentMonthQuoted}
-                </span>
-                <span className="alt-kpi-sub">Converted this month</span>
-              </div>
-
-              <div className="alt-kpi-card" style={{ borderLeft: "4px solid #e11d48" }}>
-                <span className="alt-kpi-label">{reportData.summary.lastMonthName || "Last Month"} Quotes</span>
-                <span className="alt-kpi-value" style={{ color: "#e11d48" }}>
-                  {reportData.summary.lastMonthQuoted}
-                </span>
-                <span className="alt-kpi-sub">Converted last month</span>
+              <div className="alt-kpi-card alt-kpi-highlight-green">
+                <span className="alt-kpi-label">Total Quoted Leads</span>
+                <span className="alt-kpi-value">{reportData.summary.totalQuoted}</span>
+                <span className="alt-kpi-sub">Reached Quote stage</span>
               </div>
             </div>
           )}
@@ -590,9 +717,11 @@ const AdminLeadTrack = () => {
                             <span className="label">Target Lead</span>
                             <span className="val">{card.noTarget ? "No Target" : card.target}</span>
                           </div>
-                          <div className="alt-count-box highlight">
-                            <span className="label">Quoted Achieved</span>
-                            <span className="val">{card.quotedCount}</span>
+                          <div className="alt-count-box highlight" style={{ background: "#f0fdf4", borderColor: "#bbf7d0" }}>
+                            <span className="label" style={{ color: "#166534" }}>🏆 Closures</span>
+                            <span className="val" style={{ color: "#16a34a" }}>
+                              {card.closureCount !== undefined ? card.closureCount : card.leads.filter((l) => l.stage === "Closure").length}
+                            </span>
                           </div>
                           <div className="alt-count-box">
                             <span className="label">Onboarded Leads</span>
@@ -617,6 +746,9 @@ const AdminLeadTrack = () => {
                           </span>
                           <span className="alt-stage-chip quote">
                             📝 Quote: {card.quotedCount}
+                          </span>
+                          <span className="alt-stage-chip" style={{ background: "#dcfce7", color: "#166534", border: "1px solid #bbf7d0", fontWeight: 700 }}>
+                            🏆 Closure: {card.closureCount !== undefined ? card.closureCount : card.leads.filter((l) => l.stage === "Closure").length}
                           </span>
                         </div>
                       </div>
@@ -945,7 +1077,7 @@ const AdminLeadTrack = () => {
                   {selectedCardForModal.productName} - Lead Tracking
                 </h3>
                 <span style={{ fontSize: "13px", color: "#64748b" }}>
-                  Assigned User: <strong>{selectedCardForModal.userName}</strong> | Target: {selectedCardForModal.target} | Quoted: {selectedCardForModal.quotedCount} | Remaining: {selectedCardForModal.remainingTarget}
+                  Assigned User: <strong>{selectedCardForModal.userName}</strong> | Target: {selectedCardForModal.target} | Closures: {selectedCardForModal.closureCount !== undefined ? selectedCardForModal.closureCount : selectedCardForModal.leads.filter((l) => l.stage === "Closure").length} | Quoted: {selectedCardForModal.quotedCount} | Remaining: {selectedCardForModal.remainingTarget}
                 </span>
               </div>
               <button className="alt-close-btn" onClick={() => setSelectedCardForModal(null)}>
@@ -967,9 +1099,10 @@ const AdminLeadTrack = () => {
                         <th>Contact</th>
                         <th>Location</th>
                         <th>Current Stage</th>
+                        <th>Deal / Payment</th>
                         <th>Latest Note</th>
                         <th>Stage History</th>
-                        <th>Quoted Date</th>
+                        <th>Quoted / Closed</th>
                         <th style={{ textAlign: "center" }}>Actions</th>
                       </tr>
                     </thead>
@@ -1002,6 +1135,23 @@ const AdminLeadTrack = () => {
                             </span>
                           </td>
                           <td>
+                            {lead.stage === "Closure" ? (
+                              <div style={{ fontSize: "11px" }}>
+                                <div style={{ color: "#0f172a" }}>
+                                  Total: <strong>₹{(lead.totalValue || 0).toLocaleString("en-IN")}</strong>
+                                </div>
+                                <div style={{ color: "#16a34a" }}>
+                                  Adv: ₹{(lead.advancePayment || 0).toLocaleString("en-IN")}
+                                </div>
+                                <div style={{ color: (lead.remainingPayment !== undefined ? lead.remainingPayment : Math.max(0, (lead.totalValue || 0) - (lead.advancePayment || 0))) > 0 ? "#d97706" : "#16a34a", fontWeight: 600 }}>
+                                  Rem: ₹{(lead.remainingPayment !== undefined ? lead.remainingPayment : Math.max(0, (lead.totalValue || 0) - (lead.advancePayment || 0))).toLocaleString("en-IN")}
+                                </div>
+                              </div>
+                            ) : (
+                              <span style={{ color: "#94a3b8", fontSize: "12px" }}>—</span>
+                            )}
+                          </td>
+                          <td>
                             <div style={{ fontSize: "12px", color: "#334155", maxWidth: "160px", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
                               {lead.notes || <span style={{ color: "#94a3b8" }}>No notes</span>}
                             </div>
@@ -1023,23 +1173,58 @@ const AdminLeadTrack = () => {
                             </div>
                           </td>
                           <td>
-                            {lead.quotedAt ? (
-                              <span style={{ color: "#16a34a", fontWeight: 600 }}>
-                                {new Date(lead.quotedAt).toLocaleDateString()}
+                            {lead.stage === "Closure" && lead.closedAt ? (
+                              <span style={{ color: "#16a34a", fontWeight: 700, fontSize: "12px" }}>
+                                🏆 {new Date(lead.closedAt).toLocaleDateString()}
+                              </span>
+                            ) : lead.quotedAt ? (
+                              <span style={{ color: "#2563eb", fontWeight: 600, fontSize: "12px" }}>
+                                📝 {new Date(lead.quotedAt).toLocaleDateString()}
                               </span>
                             ) : (
-                              <span style={{ color: "#94a3b8" }}>Not Quoted</span>
+                              <span style={{ color: "#94a3b8", fontSize: "12px" }}>In Progress</span>
                             )}
                           </td>
                           <td style={{ textAlign: "center" }}>
-                            <button
-                              type="button"
-                              className="alt-card-btn"
-                              style={{ padding: "6px 12px", fontSize: "12px", display: "inline-flex", alignItems: "center", gap: "4px" }}
-                              onClick={() => setSelectedLeadForAdminDetails(lead)}
-                            >
-                              <FaEye /> Details
-                            </button>
+                            <div style={{ display: "flex", gap: "6px", justifyContent: "center" }}>
+                              <button
+                                type="button"
+                                className="alt-card-btn"
+                                style={{ padding: "6px 10px", fontSize: "12px", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                                onClick={() => setSelectedLeadForAdminDetails({ ...lead, parentTrackId: selectedCardForModal.trackId, productId: selectedCardForModal.productId || selectedCardForModal._id, productName: selectedCardForModal.productName, userName: selectedCardForModal.userName })}
+                              >
+                                <FaEye /> Details
+                              </button>
+                              {lead.stage === "Closure" && (
+                                <button
+                                  type="button"
+                                  style={{
+                                    padding: "6px 10px",
+                                    fontSize: "12px",
+                                    background: "#2563eb",
+                                    color: "#ffffff",
+                                    border: "none",
+                                    borderRadius: "6px",
+                                    fontWeight: 700,
+                                    cursor: "pointer",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "4px",
+                                  }}
+                                  onClick={() =>
+                                    openAdminPaymentModal(
+                                      lead,
+                                      selectedCardForModal.trackId,
+                                      selectedCardForModal.productId || selectedCardForModal._id,
+                                      selectedCardForModal.productName,
+                                      selectedCardForModal.userName
+                                    )
+                                  }
+                                >
+                                  💳 Payment
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -1092,13 +1277,111 @@ const AdminLeadTrack = () => {
                       : "-"}
                   </div>
                   {selectedLeadForAdminDetails.quotedAt && (
-                    <div style={{ gridColumn: "span 2", color: "#16a34a" }}>
+                    <div style={{ color: "#2563eb" }}>
                       <strong>Quoted Date:</strong>{" "}
                       {new Date(selectedLeadForAdminDetails.quotedAt).toLocaleString()}
                     </div>
                   )}
+                  {selectedLeadForAdminDetails.closedAt && (
+                    <div style={{ color: "#16a34a" }}>
+                      <strong>Closure Date:</strong>{" "}
+                      {new Date(selectedLeadForAdminDetails.closedAt).toLocaleString()}
+                    </div>
+                  )}
                 </div>
               </div>
+
+              {/* Closure & Payment Financial Details */}
+              {selectedLeadForAdminDetails.stage === "Closure" && (
+                <div style={{ background: "#f0fdf4", padding: "16px", borderRadius: "10px", border: "1px solid #bbf7d0" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                    <h4 style={{ margin: 0, fontSize: "14px", color: "#166534" }}>🏆 Closure &amp; Payment Status</h4>
+                    <button
+                      type="button"
+                      style={{
+                        padding: "5px 12px",
+                        background: "#2563eb",
+                        color: "#ffffff",
+                        border: "none",
+                        borderRadius: "6px",
+                        fontSize: "12px",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                      }}
+                      onClick={() =>
+                        openAdminPaymentModal(
+                          selectedLeadForAdminDetails,
+                          selectedLeadForAdminDetails.parentTrackId,
+                          selectedLeadForAdminDetails.productId,
+                          selectedLeadForAdminDetails.productName,
+                          selectedLeadForAdminDetails.userName
+                        )
+                      }
+                    >
+                      💳 Manage Payments
+                    </button>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px", fontSize: "13px" }}>
+                    <div style={{ background: "#ffffff", padding: "10px", borderRadius: "8px", border: "1px solid #dcfce7" }}>
+                      <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>Total Value</span>
+                      <div style={{ fontSize: "16px", fontWeight: 800, color: "#0f172a", marginTop: "2px" }}>
+                        ₹{(selectedLeadForAdminDetails.totalValue || 0).toLocaleString("en-IN")}
+                      </div>
+                    </div>
+                    <div style={{ background: "#ffffff", padding: "10px", borderRadius: "8px", border: "1px solid #dcfce7" }}>
+                      <span style={{ fontSize: "11px", color: "#166534", fontWeight: 600 }}>Advance Received</span>
+                      <div style={{ fontSize: "16px", fontWeight: 800, color: "#16a34a", marginTop: "2px" }}>
+                        ₹{(selectedLeadForAdminDetails.advancePayment || 0).toLocaleString("en-IN")}
+                      </div>
+                    </div>
+                    <div style={{ background: "#ffffff", padding: "10px", borderRadius: "8px", border: "1px solid #dcfce7" }}>
+                      <span style={{ fontSize: "11px", color: "#92400e", fontWeight: 600 }}>Remaining Due</span>
+                      <div style={{ fontSize: "16px", fontWeight: 800, color: "#d97706", marginTop: "2px" }}>
+                        ₹{(
+                          selectedLeadForAdminDetails.remainingPayment !== undefined
+                            ? selectedLeadForAdminDetails.remainingPayment
+                            : Math.max(0, (selectedLeadForAdminDetails.totalValue || 0) - (selectedLeadForAdminDetails.advancePayment || 0))
+                        ).toLocaleString("en-IN")}
+                      </div>
+                    </div>
+                  </div>
+
+                  {selectedLeadForAdminDetails.payments && selectedLeadForAdminDetails.payments.length > 0 && (
+                    <div style={{ marginTop: "14px" }}>
+                      <span style={{ fontSize: "12px", fontWeight: 700, color: "#166534" }}>
+                        Transaction History ({selectedLeadForAdminDetails.payments.length})
+                      </span>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "6px" }}>
+                        {selectedLeadForAdminDetails.payments.map((p, pIdx) => (
+                          <div
+                            key={pIdx}
+                            style={{
+                              background: "#ffffff",
+                              padding: "8px 12px",
+                              borderRadius: "6px",
+                              border: "1px solid #dcfce7",
+                              fontSize: "12px",
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                            }}
+                          >
+                            <div>
+                              <strong>₹{(p.amount || 0).toLocaleString("en-IN")}</strong> via{" "}
+                              <span style={{ color: "#2563eb" }}>{p.mode || "Cash"}</span>
+                              {p.reference && <span style={{ color: "#64748b" }}> ({p.reference})</span>}
+                              {p.notes && <div style={{ fontSize: "11px", color: "#475569" }}>Note: {p.notes}</div>}
+                            </div>
+                            <span style={{ color: "#94a3b8", fontSize: "11px" }}>
+                              {p.recordedAt ? new Date(p.recordedAt).toLocaleString() : ""}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Stage History */}
               <div style={{ background: "#f8fafc", padding: "16px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
@@ -1403,6 +1686,472 @@ const AdminLeadTrack = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: PRODUCT-WISE CLOSURE LEADS & PAYMENTS (ADMIN) ================= */}
+      {showAdminClosureSummaryModal && (
+        <div className="alt-modal-overlay" onClick={() => setShowAdminClosureSummaryModal(false)}>
+          <div className="alt-modal-card" style={{ maxWidth: "1050px" }} onClick={(e) => e.stopPropagation()}>
+            <div
+              className="alt-modal-header"
+              style={{ background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)", color: "#ffffff" }}
+            >
+              <div>
+                <h3 style={{ color: "#ffffff", margin: 0, fontSize: "18px" }}>
+                  🏆 Closed Deals &amp; Payment Breakdown (Product-Wise)
+                </h3>
+                <span style={{ fontSize: "12px", opacity: 0.85 }}>
+                  Review all customer leads shifted to Closure stage across team members with contract values &amp; payment status
+                </span>
+              </div>
+              <button
+                className="alt-close-btn"
+                style={{ color: "#ffffff" }}
+                onClick={() => setShowAdminClosureSummaryModal(false)}
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            <div
+              className="alt-modal-body"
+              style={{ maxHeight: "78vh", overflowY: "auto", display: "flex", flexDirection: "column", gap: "20px" }}
+            >
+              {/* TOP SUMMARY CARDS */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px" }}>
+                <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "12px", borderRadius: "10px", textAlign: "center" }}>
+                  <span style={{ fontSize: "11px", fontWeight: 700, color: "#166534", textTransform: "uppercase" }}>Total Closures</span>
+                  <div style={{ fontSize: "22px", fontWeight: 800, color: "#16a34a", marginTop: "4px" }}>
+                    {reportData?.summary?.totalClosure || 0}
+                  </div>
+                </div>
+                <div style={{ background: "#eef2ff", border: "1px solid #c7d2fe", padding: "12px", borderRadius: "10px", textAlign: "center" }}>
+                  <span style={{ fontSize: "11px", fontWeight: 700, color: "#3730a3", textTransform: "uppercase" }}>Total Deal Value</span>
+                  <div style={{ fontSize: "22px", fontWeight: 800, color: "#4f46e5", marginTop: "4px" }}>
+                    ₹{(reportData?.summary?.totalPayment || 0).toLocaleString("en-IN")}
+                  </div>
+                </div>
+                <div style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", padding: "12px", borderRadius: "10px", textAlign: "center" }}>
+                  <span style={{ fontSize: "11px", fontWeight: 700, color: "#065f46", textTransform: "uppercase" }}>Advance Collected</span>
+                  <div style={{ fontSize: "22px", fontWeight: 800, color: "#059669", marginTop: "4px" }}>
+                    ₹{(reportData?.summary?.totalAdvancePayment || 0).toLocaleString("en-IN")}
+                  </div>
+                </div>
+                <div style={{ background: "#fffbeb", border: "1px solid #fde68a", padding: "12px", borderRadius: "10px", textAlign: "center" }}>
+                  <span style={{ fontSize: "11px", fontWeight: 700, color: "#92400e", textTransform: "uppercase" }}>Remaining Due</span>
+                  <div style={{ fontSize: "22px", fontWeight: 800, color: "#d97706", marginTop: "4px" }}>
+                    ₹{(reportData?.summary?.totalRemainingPayment || 0).toLocaleString("en-IN")}
+                  </div>
+                </div>
+              </div>
+
+              {/* PRODUCT-WISE GROUPED LIST */}
+              {(() => {
+                const closedByProduct = {};
+                const tracksToUse =
+                  selectedUserFilter && selectedUserFilter !== "all"
+                    ? allTracks.filter(
+                        (t) =>
+                          String(t.assignedTo?._id || t.assignedTo) === String(selectedUserFilter) ||
+                          (t.assignedToName && t.assignedToName.toLowerCase() === selectedUserFilter.toLowerCase())
+                      )
+                    : allTracks;
+
+                tracksToUse.forEach((t) => {
+                  const userName = t.assignedToName || t.assignedTo?.name || "Assigned User";
+                  (t.products || []).forEach((p) => {
+                    const closedLeads = (p.onboardedLeads || []).filter((l) => l.stage === "Closure");
+                    if (closedLeads.length > 0) {
+                      if (!closedByProduct[p.productName]) {
+                        closedByProduct[p.productName] = {
+                          productName: p.productName,
+                          leads: [],
+                        };
+                      }
+                      closedLeads.forEach((l) => {
+                        closedByProduct[p.productName].leads.push({
+                          ...l,
+                          parentTrackId: t._id,
+                          productId: p._id,
+                          productName: p.productName,
+                          userName: userName,
+                        });
+                      });
+                    }
+                  });
+                });
+
+                const productKeys = Object.keys(closedByProduct);
+
+                if (productKeys.length === 0) {
+                  return (
+                    <div style={{ padding: "40px", textAlign: "center", color: "#94a3b8", background: "#f8fafc", borderRadius: "12px", border: "1px dashed #cbd5e1" }}>
+                      <div style={{ fontSize: "32px", marginBottom: "8px" }}>🏆</div>
+                      <h4 style={{ margin: "0 0 4px 0", color: "#334155" }}>No Deals Shifted to Closure Yet</h4>
+                      <p style={{ margin: 0, fontSize: "13px" }}>
+                        When team members move leads to the <strong>Closure</strong> stage, they will appear here grouped by product.
+                      </p>
+                    </div>
+                  );
+                }
+
+                return productKeys.map((pName) => {
+                  const pData = closedByProduct[pName];
+                  const pTotalVal = pData.leads.reduce((s, l) => s + (l.totalValue || 0), 0);
+                  const pAdvVal = pData.leads.reduce((s, l) => s + (l.advancePayment || 0), 0);
+                  const pRemVal = pData.leads.reduce(
+                    (s, l) =>
+                      s +
+                      (l.remainingPayment !== undefined
+                        ? l.remainingPayment
+                        : Math.max(0, (l.totalValue || 0) - (l.advancePayment || 0))),
+                    0
+                  );
+
+                  return (
+                    <div key={pName} style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "12px", overflow: "hidden" }}>
+                      <div
+                        style={{
+                          background: "#f8fafc",
+                          padding: "12px 18px",
+                          borderBottom: "1px solid #e2e8f0",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          flexWrap: "wrap",
+                          gap: "10px",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <span style={{ fontSize: "18px" }}>{PRODUCT_ICONS[pName] || "📦"}</span>
+                          <strong style={{ fontSize: "15px", color: "#0f172a" }}>{pName}</strong>
+                          <span style={{ fontSize: "12px", background: "#dcfce7", color: "#166534", padding: "2px 8px", borderRadius: "12px", fontWeight: 700 }}>
+                            {pData.leads.length} Closed
+                          </span>
+                        </div>
+                        <div style={{ fontSize: "12px", color: "#475569", display: "flex", gap: "12px" }}>
+                          <span>Total: <strong>₹{pTotalVal.toLocaleString("en-IN")}</strong></span>
+                          <span>Adv: <strong style={{ color: "#16a34a" }}>₹{pAdvVal.toLocaleString("en-IN")}</strong></span>
+                          <span>Rem: <strong style={{ color: "#d97706" }}>₹{pRemVal.toLocaleString("en-IN")}</strong></span>
+                        </div>
+                      </div>
+
+                      <div style={{ overflowX: "auto" }}>
+                        <table className="alt-leads-table" style={{ margin: 0 }}>
+                          <thead>
+                            <tr>
+                              <th style={{ width: "35px" }}>#</th>
+                              <th>Customer &amp; Company</th>
+                              <th>Assigned Employee</th>
+                              <th>Contact</th>
+                              <th>Closure Date</th>
+                              <th>Total Value</th>
+                              <th>Advance Paid</th>
+                              <th>Remaining Balance</th>
+                              <th style={{ textAlign: "center" }}>Payment Action</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {pData.leads.map((lead, lIdx) => {
+                              const remAmt =
+                                lead.remainingPayment !== undefined
+                                  ? lead.remainingPayment
+                                  : Math.max(0, (lead.totalValue || 0) - (lead.advancePayment || 0));
+
+                              return (
+                                <tr key={lead._id || lIdx}>
+                                  <td><strong>{lIdx + 1}</strong></td>
+                                  <td>
+                                    <strong>{lead.name || "Customer Lead"}</strong>
+                                    {lead.company && (
+                                      <div style={{ fontSize: "12px", color: "#64748b" }}>
+                                        {lead.company}
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td>
+                                    <span style={{ background: "#e2e8f0", padding: "2px 8px", borderRadius: "10px", fontSize: "12px", fontWeight: 600, color: "#334155" }}>
+                                      {lead.userName}
+                                    </span>
+                                  </td>
+                                  <td>{lead.phone || lead.email || "-"}</td>
+                                  <td>
+                                    {lead.closedAt
+                                      ? new Date(lead.closedAt).toLocaleDateString()
+                                      : lead.quotedAt
+                                      ? new Date(lead.quotedAt).toLocaleDateString()
+                                      : "-"}
+                                  </td>
+                                  <td>
+                                    <strong style={{ color: "#0f172a" }}>
+                                      ₹{(lead.totalValue || 0).toLocaleString("en-IN")}
+                                    </strong>
+                                  </td>
+                                  <td>
+                                    <strong style={{ color: "#16a34a" }}>
+                                      ₹{(lead.advancePayment || 0).toLocaleString("en-IN")}
+                                    </strong>
+                                  </td>
+                                  <td>
+                                    <strong style={{ color: remAmt > 0 ? "#d97706" : "#16a34a" }}>
+                                      ₹{remAmt.toLocaleString("en-IN")}
+                                    </strong>
+                                    {remAmt === 0 && (
+                                      <span style={{ marginLeft: "4px", fontSize: "10px", background: "#dcfce7", color: "#15803d", padding: "1px 5px", borderRadius: "4px" }}>
+                                        Paid
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td style={{ textAlign: "center" }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => openAdminPaymentModal(lead, lead.parentTrackId, lead.productId, pName, lead.userName)}
+                                      style={{
+                                        padding: "6px 14px",
+                                        background: "#2563eb",
+                                        color: "#ffffff",
+                                        border: "none",
+                                        borderRadius: "6px",
+                                        fontWeight: 700,
+                                        fontSize: "12px",
+                                        cursor: "pointer",
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: "4px",
+                                      }}
+                                    >
+                                      💳 Payment
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+
+            <div style={{ padding: "14px 20px", borderTop: "1px solid #e2e8f0", display: "flex", justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                className="alt-card-btn"
+                style={{ width: "auto" }}
+                onClick={() => setShowAdminClosureSummaryModal(false)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: ADMIN CUSTOMER PAYMENT DETAILS & RECORDING ================= */}
+      {selectedPaymentLeadForAdmin && (
+        <div className="alt-modal-overlay" onClick={() => setSelectedPaymentLeadForAdmin(null)}>
+          <div className="alt-modal-card" style={{ maxWidth: "680px" }} onClick={(e) => e.stopPropagation()}>
+            <div
+              className="alt-modal-header"
+              style={{ background: "linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)", color: "#ffffff" }}
+            >
+              <div>
+                <h3 style={{ color: "#ffffff", margin: 0, fontSize: "18px" }}>
+                  💳 Customer Payment Details &amp; History
+                </h3>
+                <span style={{ fontSize: "12px", opacity: 0.9 }}>
+                  {selectedPaymentLeadForAdmin.lead?.name || "Customer Lead"} • Product: <strong>{selectedPaymentLeadForAdmin.productName}</strong> • Employee: <strong>{selectedPaymentLeadForAdmin.userName}</strong>
+                </span>
+              </div>
+              <button
+                className="alt-close-btn"
+                style={{ color: "#ffffff" }}
+                onClick={() => setSelectedPaymentLeadForAdmin(null)}
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            <div
+              className="alt-modal-body"
+              style={{ maxHeight: "75vh", overflowY: "auto", display: "flex", flexDirection: "column", gap: "18px" }}
+            >
+              {/* PAYMENT SUMMARY CHIPS */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
+                <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", padding: "12px", borderRadius: "8px", textAlign: "center" }}>
+                  <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>Total Deal Value</span>
+                  <div style={{ fontSize: "20px", fontWeight: 800, color: "#0f172a", marginTop: "2px" }}>
+                    ₹{(selectedPaymentLeadForAdmin.lead?.totalValue || 0).toLocaleString("en-IN")}
+                  </div>
+                </div>
+
+                <div style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", padding: "12px", borderRadius: "8px", textAlign: "center" }}>
+                  <span style={{ fontSize: "11px", color: "#065f46", fontWeight: 700, textTransform: "uppercase" }}>Advance / Paid</span>
+                  <div style={{ fontSize: "20px", fontWeight: 800, color: "#059669", marginTop: "2px" }}>
+                    ₹{(selectedPaymentLeadForAdmin.lead?.advancePayment || 0).toLocaleString("en-IN")}
+                  </div>
+                </div>
+
+                <div style={{ background: "#fffbeb", border: "1px solid #fde68a", padding: "12px", borderRadius: "8px", textAlign: "center" }}>
+                  <span style={{ fontSize: "11px", color: "#92400e", fontWeight: 700, textTransform: "uppercase" }}>Remaining Due</span>
+                  <div style={{ fontSize: "20px", fontWeight: 800, color: "#d97706", marginTop: "2px" }}>
+                    ₹
+                    {(
+                      selectedPaymentLeadForAdmin.lead?.remainingPayment !== undefined
+                        ? selectedPaymentLeadForAdmin.lead?.remainingPayment
+                        : Math.max(0, (selectedPaymentLeadForAdmin.lead?.totalValue || 0) - (selectedPaymentLeadForAdmin.lead?.advancePayment || 0))
+                    ).toLocaleString("en-IN")}
+                  </div>
+                </div>
+              </div>
+
+              {/* RECORD NEW INSTALLMENT / UPDATE PAYMENT FORM */}
+              <form onSubmit={handleSaveAdminPayment} style={{ background: "#f8fafc", padding: "16px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+                <h4 style={{ margin: "0 0 12px 0", fontSize: "14px", color: "#0f172a" }}>
+                  ➕ Record Payment Installment
+                </h4>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
+                  <div>
+                    <label style={{ fontSize: "12px", fontWeight: 700, color: "#334155" }}>
+                      Amount Received (₹) *
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      className="alt-input"
+                      placeholder="e.g. 10000"
+                      value={adminPaymentInstallmentForm.amount}
+                      onChange={(e) => setAdminPaymentInstallmentForm({ ...adminPaymentInstallmentForm, amount: e.target.value })}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: "12px", fontWeight: 700, color: "#334155" }}>Payment Mode</label>
+                    <select
+                      className="alt-input"
+                      value={adminPaymentInstallmentForm.mode}
+                      onChange={(e) => setAdminPaymentInstallmentForm({ ...adminPaymentInstallmentForm, mode: e.target.value })}
+                    >
+                      <option value="UPI / GPay / PhonePe">UPI / GPay / PhonePe</option>
+                      <option value="Cash">Cash</option>
+                      <option value="Bank Transfer (NEFT / IMPS)">Bank Transfer (NEFT / IMPS)</option>
+                      <option value="Cheque">Cheque</option>
+                      <option value="Online Gateway">Online Gateway</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
+                  <div>
+                    <label style={{ fontSize: "12px", color: "#475569" }}>Reference / Transaction ID</label>
+                    <input
+                      type="text"
+                      className="alt-input"
+                      placeholder="e.g. UPI-123456 / Chq #8877"
+                      value={adminPaymentInstallmentForm.reference}
+                      onChange={(e) => setAdminPaymentInstallmentForm({ ...adminPaymentInstallmentForm, reference: e.target.value })}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: "12px", color: "#475569" }}>Update Total Deal Value (₹) (Optional)</label>
+                    <input
+                      type="number"
+                      className="alt-input"
+                      placeholder={`Current: ${selectedPaymentLeadForAdmin.lead?.totalValue || 0}`}
+                      value={adminPaymentInstallmentForm.totalValue}
+                      onChange={(e) => setAdminPaymentInstallmentForm({ ...adminPaymentInstallmentForm, totalValue: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: "12px" }}>
+                  <label style={{ fontSize: "12px", color: "#475569" }}>Payment Notes / Installment Remarks</label>
+                  <input
+                    type="text"
+                    className="alt-input"
+                    placeholder="e.g. 2nd installment received via UPI"
+                    value={adminPaymentInstallmentForm.notes}
+                    onChange={(e) => setAdminPaymentInstallmentForm({ ...adminPaymentInstallmentForm, notes: e.target.value })}
+                  />
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                  <button
+                    type="submit"
+                    disabled={savingAdminPayment || (!adminPaymentInstallmentForm.amount && !adminPaymentInstallmentForm.totalValue)}
+                    className="alt-submit-btn"
+                    style={{ width: "auto", padding: "8px 20px" }}
+                  >
+                    {savingAdminPayment ? "Saving..." : "✓ Save Payment"}
+                  </button>
+                </div>
+              </form>
+
+              {/* PAYMENT TRANSACTIONS HISTORY */}
+              <div>
+                <h4 style={{ margin: "0 0 10px 0", fontSize: "14px", color: "#0f172a" }}>
+                  📜 Payment Transactions History ({selectedPaymentLeadForAdmin.lead?.payments?.length || 0})
+                </h4>
+
+                {(!selectedPaymentLeadForAdmin.lead?.payments || selectedPaymentLeadForAdmin.lead.payments.length === 0) ? (
+                  <div style={{ background: "#f8fafc", padding: "14px", borderRadius: "8px", border: "1px dashed #cbd5e1", fontSize: "13px", color: "#64748b", textAlign: "center" }}>
+                    No recorded transaction records yet. (Initial advance: ₹{(selectedPaymentLeadForAdmin.lead?.advancePayment || 0).toLocaleString("en-IN")})
+                  </div>
+                ) : (
+                  <div style={{ overflowX: "auto" }}>
+                    <table className="alt-leads-table" style={{ margin: 0, fontSize: "12px" }}>
+                      <thead>
+                        <tr>
+                          <th>Date</th>
+                          <th>Amount</th>
+                          <th>Mode</th>
+                          <th>Reference</th>
+                          <th>Notes</th>
+                          <th>Recorded By</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[...selectedPaymentLeadForAdmin.lead.payments].reverse().map((pay, pIdx) => (
+                          <tr key={pIdx}>
+                            <td>{pay.recordedAt ? new Date(pay.recordedAt).toLocaleString() : "-"}</td>
+                            <td>
+                              <strong style={{ color: "#16a34a" }}>
+                                ₹{(pay.amount || 0).toLocaleString("en-IN")}
+                              </strong>
+                            </td>
+                            <td>
+                              <span style={{ background: "#e2e8f0", padding: "2px 6px", borderRadius: "4px" }}>
+                                {pay.mode || "Cash"}
+                              </span>
+                            </td>
+                            <td>{pay.reference || "-"}</td>
+                            <td>{pay.notes || "-"}</td>
+                            <td>{pay.recordedByName || "User"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div style={{ padding: "14px 20px", borderTop: "1px solid #e2e8f0", display: "flex", justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                className="alt-card-btn"
+                style={{ width: "auto" }}
+                onClick={() => setSelectedPaymentLeadForAdmin(null)}
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -18,6 +18,7 @@ const {
   updateLeadNotes,
   clearAllLeadTracks,
   removeProductFromTrack,
+  recordLeadPayment,
 } = require("../controllers/leadTrackController");
 
 // ================= ANALYTICS REPORT (ADMIN ONLY) =================
@@ -96,6 +97,18 @@ router.patch(
   "/:id/products/:productId/leads/:leadId/notes",
   protect,
   updateLeadNotes
+);
+
+router.post(
+  "/:id/products/:productId/leads/:leadId/payment",
+  protect,
+  recordLeadPayment
+);
+
+router.patch(
+  "/:id/products/:productId/leads/:leadId/payment",
+  protect,
+  recordLeadPayment
 );
 
 router.delete(

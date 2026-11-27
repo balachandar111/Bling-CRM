@@ -40,6 +40,24 @@ router.post("/admin-review", authMiddleware, superAdmin, adminReviewTask);
 // Trigger daily 6:30 PM reminders (director + incomplete employee emails)
 router.post("/send-daily-reminders", authMiddleware, superAdmin, triggerDailyReminders);
 
+// Daily 6:30 PM auto-trigger route (callable by Vercel cron at 13:00 UTC / 18:30 IST)
+const { sendDailyTaskRemindersAndReports } = require("../utils/taskScheduler");
+const handleCronReminders = async (req, res) => {
+  try {
+    const result = await sendDailyTaskRemindersAndReports(req.query?.date || req.body?.date || null);
+    return res.json({
+      success: true,
+      message: "Daily 6:30 PM task emails processed successfully via cron.",
+      result,
+    });
+  } catch (error) {
+    console.error("Cron daily reminders error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+router.get("/cron-daily-reminders", handleCronReminders);
+router.post("/cron-daily-reminders", handleCronReminders);
+
 // Get all reports (optional ?from=&to=&userId=)
 router.get("/report/all", authMiddleware, superAdmin, getAllReports);
 

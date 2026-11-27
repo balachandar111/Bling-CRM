@@ -1327,6 +1327,63 @@
   cursor: not-allowed;
 }
 
+/* Clickable Overview Stat Cards */
+.ult-ob-stat-item.clickable-card {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.ult-ob-stat-item.clickable-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+.ult-ob-stat-item.closure-highlight {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+.ult-ob-stat-item.closure-highlight:hover {
+  border-color: #16a34a;
+}
+
+.ult-ob-stat-item.payment-highlight {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+}
+.ult-ob-stat-item.payment-highlight:hover {
+  border-color: #4f46e5;
+}
+
+.ult-ob-stat-item.advance-highlight {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+.ult-ob-stat-item.advance-highlight:hover {
+  border-color: #059669;
+}
+
+.ult-ob-stat-item.remaining-highlight {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+.ult-ob-stat-item.remaining-highlight:hover {
+  border-color: #d97706;
+}
+
+/* Pipeline Stage button for Closure */
+.ult-stage-btn.Closure.active,
+.ult-stage-btn.active.Closure {
+  background: #16a34a !important;
+  color: #ffffff !important;
+  border-color: #15803d !important;
+}
+
+.ult-payment-btn:hover {
+  background: #ede9fe !important;
+  border-color: #c4b5fd !important;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .ult-cards-grid {

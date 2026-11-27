@@ -8,6 +8,17 @@ const noteEntrySchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
+const paymentEntrySchema = new mongoose.Schema({
+  amount: { type: Number, required: true },
+  date: { type: Date, default: Date.now },
+  mode: { type: String, default: "Cash" }, // e.g. UPI, Bank Transfer, Cheque, Cash
+  reference: { type: String, default: "" },
+  notes: { type: String, default: "" },
+  recordedBy: { type: mongoose.Schema.Types.ObjectId, ref: "UserDetails" },
+  recordedByName: { type: String, default: "" },
+  createdAt: { type: Date, default: Date.now },
+});
+
 const onboardedLeadSchema = new mongoose.Schema({
   customerId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -22,7 +33,7 @@ const onboardedLeadSchema = new mongoose.Schema({
   sparkNumber: { type: String, default: "" },
   stage: {
     type: String,
-    enum: ["Call", "WhatsappMessage", "Demo", "Quote"],
+    enum: ["Call", "WhatsappMessage", "Demo", "Quote", "Closure"],
     default: "Call",
   },
   stageHistory: [
@@ -34,6 +45,11 @@ const onboardedLeadSchema = new mongoose.Schema({
     },
   ],
   quotedAt: { type: Date },
+  closedAt: { type: Date },
+  totalValue: { type: Number, default: 0 },
+  advancePayment: { type: Number, default: 0 },
+  remainingPayment: { type: Number, default: 0 },
+  payments: [paymentEntrySchema],
   notes: { type: String, default: "" },
   notesHistory: [noteEntrySchema],
   onboardedAt: { type: Date, default: Date.now },
@@ -112,7 +128,13 @@ const leadTrackSchema = new mongoose.Schema(
 leadTrackSchema.methods.calculateStats = function () {
   return this.products.map((p) => {
     const quotedCount = p.onboardedLeads.filter((l) => l.stage === "Quote").length;
-    const remainingTarget = p.noTarget ? "No Target" : Math.max(0, (p.target || 0) - quotedCount);
+    const closureCount = p.onboardedLeads.filter((l) => l.stage === "Closure").length;
+    const remainingTarget = p.noTarget ? "No Target" : Math.max(0, (p.target || 0) - closureCount);
+    const closedLeads = p.onboardedLeads.filter((l) => l.stage === "Closure");
+    const totalPayment = closedLeads.reduce((sum, l) => sum + (l.totalValue || 0), 0);
+    const advancePayment = closedLeads.reduce((sum, l) => sum + (l.advancePayment || 0), 0);
+    const remainingPayment = closedLeads.reduce((sum, l) => sum + (l.remainingPayment || 0), 0);
+
     return {
       _id: p._id,
       productName: p.productName,
@@ -120,7 +142,11 @@ leadTrackSchema.methods.calculateStats = function () {
       noTarget: !!p.noTarget,
       onboardedCount: p.onboardedLeads.length,
       quotedCount,
+      closureCount,
       remainingTarget,
+      totalPayment,
+      advancePayment,
+      remainingPayment,
       callCount: p.onboardedLeads.filter((l) => l.stage === "Call").length,
       whatsappCount: p.onboardedLeads.filter((l) => l.stage === "WhatsappMessage").length,
       demoCount: p.onboardedLeads.filter((l) => l.stage === "Demo").length,
